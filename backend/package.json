@@ -1,0 +1,14 @@
+{
+  "name": "production-os-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/dev.js",
+    "test:scheduler": "node src/scheduler/demo.js"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0"
+  }
+}
+
