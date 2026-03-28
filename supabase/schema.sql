@@ -185,7 +185,24 @@ create trigger trg_factory_visit_tasks_updated_at
 before update on public.factory_visit_tasks
 for each row execute function public.set_updated_at();
 
--- 6) factory_geo_fences
+-- 6) risk_alerts
+-- Stores the latest risk assessment for each active allocation.
+-- Refreshed by POST /api/risks/scan (runs on page load or cron).
+create table if not exists public.risk_alerts (
+  id uuid primary key default gen_random_uuid(),
+  allocation_id uuid not null references public.production_allocations(id) on delete cascade,
+
+  risk_level text not null check (risk_level in ('SAFE','MEDIUM','HIGH')),
+  buffer_days int not null default 0,
+  message text,
+
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_risk_alerts_allocation on public.risk_alerts(allocation_id);
+create index if not exists idx_risk_alerts_level on public.risk_alerts(risk_level);
+
+-- 7) factory_geo_fences
 -- Geofences for a factory; supports radius geofence and polygon geofence (future).
 create table if not exists public.factory_geo_fences (
   id uuid primary key default gen_random_uuid(),
@@ -227,6 +244,31 @@ drop trigger if exists trg_factory_geo_fences_updated_at on public.factory_geo_f
 create trigger trg_factory_geo_fences_updated_at
 before update on public.factory_geo_fences
 for each row execute function public.set_updated_at();
+
+-- 8) pilot_audit_log
+-- Records all significant actions during pilot rollout.
+create table if not exists public.pilot_audit_log (
+  id uuid primary key default gen_random_uuid(),
+
+  occurred_at timestamptz not null default now(),
+  operator text not null default 'anonymous',
+  role text not null default 'unknown',
+
+  action text not null,
+  category text not null default 'system',
+  blocked boolean not null default false,
+
+  page text,
+  detail jsonb not null default '{}'::jsonb,
+  environment text not null default 'pilot',
+
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_audit_occurred on public.pilot_audit_log(occurred_at desc);
+create index if not exists idx_audit_operator on public.pilot_audit_log(operator);
+create index if not exists idx_audit_category on public.pilot_audit_log(category);
+create index if not exists idx_audit_blocked on public.pilot_audit_log(blocked);
 
 commit;
 

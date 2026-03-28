@@ -1,71 +1,148 @@
 /**
- * Pilot Mode Guards
+ * Pilot Mode Guards — role-aware.
  *
- * Wraps write operations to enforce pilot policy:
- *   - In pilot mode with writes_blocked: blocks the action, logs it
- *   - In pilot mode with confirmation_required: shows confirm dialog first
- *   - Always logs to audit trail when pilot mode is active
+ * Resolves pilot policy from:
+ *   1. Backend GET /api/pilot/policy (authoritative, per-role)
+ *   2. Frontend VITE_PILOT_MODE flag (fallback)
+ *
+ * guardWrite() checks the resolved policy before any mutation.
  */
 
-import { pilotPolicy, PILOT_MODE } from "./config";
-import { auditLog } from "./audit";
+import { PILOT_MODE } from "./config";
+import { auditLog, setOperator, getOperator } from "./audit";
+import { request } from "./client";
+
+// ── Types ───────────────────────────────────────────────
+
+export type PilotRole = "admin" | "production_manager" | "operator";
+
+export type RolePolicy = {
+  can_preview: boolean;
+  can_confirm: boolean;
+  can_edit_factory: boolean;
+  can_calibrate: boolean;
+  confirmation_required: boolean;
+};
 
 export type GuardResult =
   | { allowed: true }
   | { allowed: false; reason: string };
 
+// ── State ───────────────────────────────────────────────
+
+let _policy: RolePolicy = {
+  can_preview: true,
+  can_confirm: !PILOT_MODE,
+  can_edit_factory: !PILOT_MODE,
+  can_calibrate: !PILOT_MODE,
+  confirmation_required: PILOT_MODE,
+};
+
+let _policyLoaded = false;
+
 /**
- * Check if a write action is allowed.
- * Call before any mutation (optimizer confirm, status change, factory edit).
+ * Initialize pilot mode for a specific operator and role.
+ * Fetches role-based policy from backend.
+ */
+export async function initPilot(operator: string, role: PilotRole): Promise<RolePolicy> {
+  setOperator(operator, role);
+
+  try {
+    const data = await request<{
+      pilot_mode: boolean;
+      role: string;
+      policy: RolePolicy;
+    }>(`/pilot/policy?role=${encodeURIComponent(role)}`);
+    _policy = data.policy;
+    _policyLoaded = true;
+  } catch {
+    // Backend unreachable — use frontend-only fallback
+    _policy = {
+      can_preview: true,
+      can_confirm: !PILOT_MODE,
+      can_edit_factory: !PILOT_MODE,
+      can_calibrate: !PILOT_MODE,
+      confirmation_required: PILOT_MODE,
+    };
+  }
+
+  auditLog("pilot_init", "system", { operator, role, policy: _policy });
+
+  return _policy;
+}
+
+/**
+ * Get current resolved policy.
+ */
+export function getPolicy(): RolePolicy {
+  return { ..._policy };
+}
+
+// ── Action → permission mapping ─────────────────────────
+
+const ACTION_PERMISSIONS: Record<string, keyof RolePolicy> = {
+  "optimizer_confirm": "can_confirm",
+  "allocation_status_change": "can_confirm",
+  "smart_schedule": "can_confirm",
+  "factory_edit": "can_edit_factory",
+  "capability_edit": "can_edit_factory",
+  "calibration_trigger": "can_calibrate",
+};
+
+/**
+ * Check if a write action is allowed under current policy.
  *
- * Returns { allowed: true } or { allowed: false, reason }.
- * When confirmation is required, shows a browser confirm() dialog.
+ * @param action — descriptive action name (used as audit label)
+ * @param category — audit category
+ * @param actionType — maps to a permission key (e.g. "optimizer_confirm")
+ * @param detail — extra context for the audit log
  */
 export function guardWrite(
   action: string,
   category: "optimizer" | "allocation" | "calibration" | "factory",
+  actionType?: string,
   detail: Record<string, unknown> = {},
 ): GuardResult {
-  // Not in pilot mode — always allowed, no logging
-  if (!PILOT_MODE) return { allowed: true };
+  // Not in pilot mode and no policy loaded — always allowed
+  if (!PILOT_MODE && !_policyLoaded) return { allowed: true };
 
-  // Pilot mode with writes blocked
-  if (pilotPolicy.writes_blocked) {
-    auditLog(action, category, detail, true);
-    return { allowed: false, reason: "Pilot mode: writes are disabled. Preview only." };
+  // Check specific permission
+  const permKey = actionType ? ACTION_PERMISSIONS[actionType] : null;
+  if (permKey && !_policy[permKey]) {
+    auditLog(action, category, { ...detail, action_type: actionType, denied_by: permKey }, true);
+    return { allowed: false, reason: `Your role (${getOperator().role}) does not have ${permKey} permission.` };
   }
 
-  // Pilot mode with confirmation required
-  if (pilotPolicy.confirmation_required) {
+  // Confirmation dialog
+  if (_policy.confirmation_required) {
     const confirmed = window.confirm(
-      `[Pilot Mode] ${action}\n\n` +
-      `This will modify production data.\n` +
-      `Proceed?`,
+      `[Pilot Mode] ${action}\n\nThis will modify production data.\nProceed?`,
     );
     if (!confirmed) {
       auditLog(action, category, { ...detail, user_cancelled: true }, true);
-      return { allowed: false, reason: "User cancelled in pilot confirmation dialog." };
+      return { allowed: false, reason: "User cancelled." };
     }
   }
 
-  // Allowed — log it
-  auditLog(action, category, detail, false);
+  // Allowed
+  auditLog(action, category, { ...detail, action_type: actionType }, false);
   return { allowed: true };
 }
 
 /**
- * Convenience: check if pilot mode is active.
+ * Check if pilot mode is active.
  */
 export function isPilotMode(): boolean {
   return PILOT_MODE;
 }
 
 /**
- * Get the pilot mode label for UI display.
+ * Get display label for the pilot badge.
  */
 export function getPilotLabel(): string | null {
   if (!PILOT_MODE) return null;
-  if (pilotPolicy.writes_blocked) return "PILOT: Preview Only";
-  if (pilotPolicy.confirmation_required) return "PILOT: Confirm Writes";
-  return "PILOT";
+  const { role } = getOperator();
+  if (!_policy.can_confirm) return `PILOT: ${role} (read-only)`;
+  if (_policy.confirmation_required) return `PILOT: ${role} (confirm writes)`;
+  return `PILOT: ${role}`;
 }
