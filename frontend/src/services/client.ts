@@ -83,18 +83,20 @@ export type ApiHealth = {
   ok: boolean;
   latency_ms: number;
   base_url: string;
+  supabase?: boolean;
   error?: string;
 };
 
 export async function checkHealth(): Promise<ApiHealth> {
   const start = Date.now();
   try {
-    // Use a lightweight GET that should always return JSON
-    await request<unknown[]>("/factories");
+    const data = await request<{ api: boolean; supabase: boolean; supabase_error?: string }>("/health");
     return {
       ok: true,
       latency_ms: Date.now() - start,
       base_url: API_BASE_URL,
+      supabase: data.supabase,
+      error: data.supabase ? undefined : `Supabase: ${data.supabase_error ?? "unreachable"}`,
     };
   } catch (err) {
     return {
@@ -105,3 +107,62 @@ export async function checkHealth(): Promise<ApiHealth> {
     };
   }
 }
+
+/**
+ * Run full verification of all API endpoints.
+ * Returns detailed per-endpoint results.
+ */
+export async function runVerification(): Promise<VerificationResult> {
+  const results: EndpointCheck[] = [];
+
+  async function check(name: string, fn: () => Promise<unknown>) {
+    const start = Date.now();
+    try {
+      const data = await fn();
+      const isArray = Array.isArray(data);
+      results.push({ name, ok: true, latency_ms: Date.now() - start, detail: isArray ? `${data.length} items` : "ok" });
+    } catch (err) {
+      results.push({ name, ok: false, latency_ms: Date.now() - start, detail: err instanceof Error ? err.message : "failed" });
+    }
+  }
+
+  await check("GET /health", () => request("/health"));
+  await check("GET /factories", () => request("/factories"));
+  await check("GET /allocations", () => request("/allocations"));
+  await check("GET /geofences", () => request("/geofences"));
+  await check("GET /risks", () => request("/risks"));
+  await check("GET /optimizer/preview", () => request("/optimizer/preview"));
+  await check("POST /risks/scan", () => request("/risks/scan", { method: "POST" }));
+  await check("POST /optimizer/run (dry)", () => request("/optimizer/run", {
+    method: "POST",
+    body: JSON.stringify({ options: { dry_run: true } }),
+  }));
+
+  const passed = results.filter((r) => r.ok).length;
+  return {
+    passed,
+    failed: results.length - passed,
+    total: results.length,
+    all_ok: passed === results.length,
+    checks: results,
+    timestamp: new Date().toISOString(),
+    base_url: API_BASE_URL,
+  };
+}
+
+export type EndpointCheck = {
+  name: string;
+  ok: boolean;
+  latency_ms: number;
+  detail: string;
+};
+
+export type VerificationResult = {
+  passed: number;
+  failed: number;
+  total: number;
+  all_ok: boolean;
+  checks: EndpointCheck[];
+  timestamp: string;
+  base_url: string;
+};

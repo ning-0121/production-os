@@ -3,8 +3,8 @@ import { BoardPage } from "./board/BoardPage";
 import { GanttPage } from "./gantt/GanttPage";
 import { FactoriesPage } from "./factories/FactoriesPage";
 import { GeofencePage } from "./geofence/GeofencePage";
-import { runRiskScan, checkHealth } from "../services/api";
-import type { ApiHealth } from "../services/api";
+import { runRiskScan, checkHealth, runVerification } from "../services/api";
+import type { ApiHealth, VerificationResult } from "../services/api";
 import type { RiskLevel } from "../types";
 
 type TabKey = "board" | "schedule" | "factories" | "geofence";
@@ -23,6 +23,9 @@ export function App() {
   const [risk, setRisk] = React.useState<RiskCounts | null>(null);
   const [riskError, setRiskError] = React.useState(false);
   const [apiHealth, setApiHealth] = React.useState<ApiHealth | null>(null);
+  const [showVerify, setShowVerify] = React.useState(false);
+  const [verification, setVerification] = React.useState<VerificationResult | null>(null);
+  const [verifying, setVerifying] = React.useState(false);
 
   // Check API health first, then run risk scan
   React.useEffect(() => {
@@ -36,11 +39,33 @@ export function App() {
     });
   }, []);
 
+  // Triple-click logo to open verification panel
+  const clickCount = React.useRef(0);
+  const clickTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  function onLogoClick() {
+    clickCount.current++;
+    clearTimeout(clickTimer.current);
+    if (clickCount.current >= 3) {
+      clickCount.current = 0;
+      setShowVerify((v) => !v);
+    } else {
+      clickTimer.current = setTimeout(() => { clickCount.current = 0; }, 500);
+    }
+  }
+
+  async function handleRunVerification() {
+    setVerifying(true);
+    setVerification(null);
+    const result = await runVerification();
+    setVerification(result);
+    setVerifying(false);
+  }
+
   return (
     <div className="container">
       <div className="topbar">
         <div className="brand">
-          <div className="logo" />
+          <div className="logo" onClick={onLogoClick} title="Triple-click for diagnostics" />
           <div className="title">
             <strong>Production OS</strong>
             <span>排产管理 + 巡厂定位</span>
@@ -62,12 +87,66 @@ export function App() {
         </div>
       </div>
 
+      {/* Verification panel (triple-click logo to toggle) */}
+      {showVerify && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="cardHeader">
+            <div>
+              <h2>System Verification</h2>
+              <div className="hint">
+                API: {apiHealth?.base_url ?? "?"} | Supabase: {apiHealth?.supabase ? "connected" : "disconnected"}
+                {apiHealth?.latency_ms != null && ` | ${apiHealth.latency_ms}ms`}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn primary" onClick={() => void handleRunVerification()} disabled={verifying}>
+                {verifying ? "Running…" : "Run Full Check"}
+              </button>
+              <button className="btn" onClick={() => setShowVerify(false)}>Close</button>
+            </div>
+          </div>
+          {verification && (
+            <div style={{ padding: 14, fontSize: 13 }}>
+              <div style={{ marginBottom: 8, fontWeight: 600, color: verification.all_ok ? "#22c55e" : "var(--danger)" }}>
+                {verification.all_ok ? "ALL CHECKS PASSED" : `${verification.failed} / ${verification.total} FAILED`}
+              </div>
+              {verification.checks.map((c) => (
+                <div key={c.name} style={{ display: "flex", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)" }}>
+                  <span style={{ width: 20, textAlign: "center", color: c.ok ? "#22c55e" : "var(--danger)" }}>
+                    {c.ok ? "ok" : "X"}
+                  </span>
+                  <span style={{ flex: 1 }}>{c.name}</span>
+                  <span style={{ color: "var(--muted)", width: 50, textAlign: "right" }}>{c.latency_ms}ms</span>
+                  <span style={{ color: c.ok ? "var(--muted)" : "var(--danger)", fontSize: 12, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {c.detail}
+                  </span>
+                </div>
+              ))}
+              <div style={{ marginTop: 8, fontSize: 11, color: "var(--muted)" }}>
+                {verification.timestamp} | {verification.base_url}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {apiHealth && !apiHealth.ok && (
         <div className="riskBanner riskBannerHigh">
           <div className="riskBannerLeft">
             <span className="riskBannerIcon">!</span>
             <span className="riskBannerText">
               Backend API unreachable ({apiHealth.base_url}). {apiHealth.error ?? "Set VITE_API_BASE_URL."}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {apiHealth?.ok && apiHealth.supabase === false && (
+        <div className="riskBanner riskBannerMedium">
+          <div className="riskBannerLeft">
+            <span className="riskBannerIcon">~</span>
+            <span className="riskBannerText">
+              API reachable but Supabase disconnected. {apiHealth.error ?? "Check backend env vars."}
             </span>
           </div>
         </div>

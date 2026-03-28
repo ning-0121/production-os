@@ -23,8 +23,8 @@ import type {
 } from "../types";
 
 // Re-export client utilities for consumers
-export { checkHealth } from "./client";
-export type { ApiHealth } from "./client";
+export { checkHealth, runVerification } from "./client";
+export type { ApiHealth, VerificationResult, EndpointCheck } from "./client";
 
 // ── Factories ────────────────────────────────────────────
 
