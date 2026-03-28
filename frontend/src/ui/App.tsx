@@ -3,7 +3,7 @@ import { BoardPage } from "./board/BoardPage";
 import { GanttPage } from "./gantt/GanttPage";
 import { FactoriesPage } from "./factories/FactoriesPage";
 import { GeofencePage } from "./geofence/GeofencePage";
-import { runRiskScan, checkApiHealth } from "../services/api";
+import { runRiskScan, checkHealth } from "../services/api";
 import type { ApiHealth } from "../services/api";
 import type { RiskLevel } from "../types";
 
@@ -26,9 +26,9 @@ export function App() {
 
   // Check API health first, then run risk scan
   React.useEffect(() => {
-    checkApiHealth().then((health) => {
+    checkHealth().then((health) => {
       setApiHealth(health);
-      if (health.reachable) {
+      if (health.ok) {
         runRiskScan()
           .then((res) => setRisk({ ...res.summary, total: res.scanned }))
           .catch(() => setRiskError(true));
@@ -62,12 +62,12 @@ export function App() {
         </div>
       </div>
 
-      {apiHealth && !apiHealth.reachable && (
+      {apiHealth && !apiHealth.ok && (
         <div className="riskBanner riskBannerHigh">
           <div className="riskBannerLeft">
             <span className="riskBannerIcon">!</span>
             <span className="riskBannerText">
-              Backend API unreachable. {apiHealth.error ?? "Check network or VITE_API_URL configuration."}
+              Backend API unreachable ({apiHealth.base_url}). {apiHealth.error ?? "Set VITE_API_BASE_URL."}
             </span>
           </div>
         </div>
@@ -76,7 +76,7 @@ export function App() {
       {risk && (risk.HIGH > 0 || risk.MEDIUM > 0) && (
         <RiskBanner counts={risk} />
       )}
-      {riskError && apiHealth?.reachable && (
+      {riskError && apiHealth?.ok && (
         <div className="riskBanner riskBannerSafe">
           <span className="riskBannerIcon">i</span>
           <span>Risk scan unavailable — check risk_alerts table.</span>

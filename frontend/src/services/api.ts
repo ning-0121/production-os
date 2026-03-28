@@ -1,3 +1,13 @@
+/**
+ * Domain API functions.
+ *
+ * Every function is a thin wrapper around client.request().
+ * No URL logic, no error handling details — those live in client.ts.
+ *
+ * Re-exports client utilities that consumers need.
+ */
+
+import { request } from "./client";
 import type {
   Allocation,
   AllocationStatus,
@@ -12,69 +22,9 @@ import type {
   VisitTask,
 } from "../types";
 
-// ── API Base URL ─────────────────────────────────────────
-// In dev: Vite proxy forwards /api → localhost:3001 (no env var needed)
-// In production: set VITE_API_URL to the deployed backend URL
-//   e.g. VITE_API_URL=https://production-os-api.railway.app/api
-
-const BASE = import.meta.env.VITE_API_URL ?? "/api";
-
-// ── Connection health ───────────────────────────────────
-
-export type ApiHealth = {
-  reachable: boolean;
-  latency_ms: number;
-  error?: string;
-};
-
-let _lastHealth: ApiHealth | null = null;
-
-export async function checkApiHealth(): Promise<ApiHealth> {
-  const start = Date.now();
-  try {
-    const res = await fetch(`${BASE}/factories`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(5000),
-    });
-    const latency = Date.now() - start;
-    // If we got HTML back, the API isn't actually reachable
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("application/json")) {
-      _lastHealth = { reachable: false, latency_ms: latency, error: `Expected JSON, got ${contentType}. Is VITE_API_URL set?` };
-      return _lastHealth;
-    }
-    _lastHealth = { reachable: res.ok, latency_ms: latency, error: res.ok ? undefined : `HTTP ${res.status}` };
-    return _lastHealth;
-  } catch (err) {
-    _lastHealth = { reachable: false, latency_ms: Date.now() - start, error: err instanceof Error ? err.message : "Network error" };
-    return _lastHealth;
-  }
-}
-
-export function getLastHealth(): ApiHealth | null {
-  return _lastHealth;
-}
-
-// ── Request wrapper ─────────────────────────────────────
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
-  }
-  // Guard: if response is HTML (Vercel rewrite), treat as API unreachable
-  const ct = res.headers.get("content-type") ?? "";
-  if (!ct.includes("application/json") && res.status !== 204) {
-    throw new Error("API returned HTML instead of JSON. Backend may be unreachable.");
-  }
-  if (res.status === 204) return undefined as unknown as T;
-  return res.json() as Promise<T>;
-}
+// Re-export client utilities for consumers
+export { checkHealth } from "./client";
+export type { ApiHealth } from "./client";
 
 // ── Factories ────────────────────────────────────────────
 
