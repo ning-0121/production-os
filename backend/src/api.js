@@ -14,6 +14,42 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ── Pilot mode (defense in depth) ────────────────────────
+// Set PILOT_MODE=true to block all write operations server-side.
+const PILOT_MODE = process.env.PILOT_MODE === "true";
+
+if (PILOT_MODE) {
+  console.log("⚡ PILOT MODE active — write endpoints will return 403");
+}
+
+// Middleware: block writes in pilot mode
+function pilotGuard(req, res, next) {
+  if (!PILOT_MODE) return next();
+
+  // Allow all reads
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
+
+  // Allow dry-run optimizer (no persistence)
+  if (req.path.includes("/optimizer/run") && req.body?.options?.dry_run !== false) return next();
+
+  // Allow risk scan (read-only analysis)
+  if (req.path.includes("/risks/scan")) return next();
+
+  // Allow health check
+  if (req.path.includes("/health")) return next();
+
+  // Block all other writes
+  console.log(`[PILOT] Blocked: ${req.method} ${req.path}`);
+  return res.status(403).json({
+    error: "Pilot mode: write operations are disabled.",
+    pilot_mode: true,
+    method: req.method,
+    path: req.path,
+  });
+}
+
+app.use("/api", pilotGuard);
+
 // ── CRUD routes ──────────────────────────────────────────
 app.use("/api/factories", factoriesRouter);
 app.use("/api/allocations", allocationsRouter);
@@ -24,7 +60,7 @@ app.use("/api/optimizer", optimizerRouter);
 
 // ── Health check ─────────────────────────────────────────
 app.get("/api/health", async (_req, res) => {
-  const checks = { api: true, supabase: false, timestamp: new Date().toISOString() };
+  const checks = { api: true, supabase: false, pilot_mode: PILOT_MODE, timestamp: new Date().toISOString() };
   try {
     const { error } = await supabase.from("factories").select("id").limit(1);
     checks.supabase = !error;

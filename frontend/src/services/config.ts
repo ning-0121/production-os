@@ -1,54 +1,63 @@
 /**
- * API Configuration — single source of truth for base URL resolution.
+ * Application Configuration — single source of truth.
  *
- * Resolution order:
+ * API URL resolution:
  *   1. VITE_API_BASE_URL env var (set in Vercel / .env.local)
  *   2. "/api" fallback (works with Vite dev proxy)
  *
- * The env var MUST include the /api prefix:
- *   VITE_API_BASE_URL=https://my-backend.railway.app/api
+ * Pilot mode:
+ *   VITE_PILOT_MODE=true → restrict writes, require confirmations, log actions
+ *   Default: false (full write access)
  */
+
+// ── API Base URL ────────────────────────────────────────
 
 function resolveBaseUrl(): string {
   const fromEnv = import.meta.env.VITE_API_BASE_URL;
-  if (fromEnv) {
-    // Strip trailing slash for consistency
-    return fromEnv.replace(/\/+$/, "");
-  }
+  if (fromEnv) return fromEnv.replace(/\/+$/, "");
   return "/api";
 }
 
 export const API_BASE_URL = resolveBaseUrl();
-
-/**
- * Whether the base URL points to a remote server (not same-origin proxy).
- * When true, requests are cross-origin and need CORS.
- */
 export const IS_REMOTE_API = API_BASE_URL.startsWith("http");
-
-/**
- * Whether we're running in development mode.
- */
 export const IS_DEV = import.meta.env.DEV === true;
 
+// ── Pilot Mode ──────────────────────────────────────────
+
+export const PILOT_MODE = import.meta.env.VITE_PILOT_MODE === "true";
+
 /**
- * Diagnostics — expose config for debugging.
- * Call from browser console: __prodOS.config
+ * What pilot mode controls:
+ *   - writes_blocked: optimizer confirm, allocation status changes, factory edits
+ *   - preview_allowed: optimizer preview, data viewing, risk scan
+ *   - confirmation_required: even if writes enabled, show confirmation dialog
+ *   - audit_logging: log all significant actions
  */
+export const pilotPolicy = {
+  writes_blocked: PILOT_MODE,
+  preview_allowed: true,             // always allowed
+  confirmation_required: PILOT_MODE, // extra confirm dialog before writes
+  audit_logging: PILOT_MODE,         // log actions to audit trail
+} as const;
+
+// ── Diagnostics ─────────────────────────────────────────
+
 export const diagnostics = {
   api_base_url: API_BASE_URL,
   is_remote: IS_REMOTE_API,
   is_dev: IS_DEV,
+  pilot_mode: PILOT_MODE,
   env_var_set: !!import.meta.env.VITE_API_BASE_URL,
   resolved_at: new Date().toISOString(),
 };
 
-// Attach to window for console debugging
 if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).__prodOS = { config: diagnostics };
 }
 
-// Log config on startup in dev
 if (IS_DEV) {
-  console.log("[Production-OS] API config:", diagnostics);
+  console.log("[Production-OS] config:", diagnostics);
+}
+if (PILOT_MODE) {
+  console.log("[Production-OS] PILOT MODE active — writes restricted, actions logged");
 }
