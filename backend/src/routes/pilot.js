@@ -1,92 +1,85 @@
 /**
  * Pilot Mode API
  *
- * POST /api/pilot/audit      — persist an audit entry from the frontend
- * GET  /api/pilot/audit      — retrieve audit log (optionally filtered)
- * GET  /api/pilot/report     — summary report for pilot usage
- * GET  /api/pilot/policy     — return current pilot policy for a role
+ * POST /api/pilot/audit       — persist an audit entry with result tracking
+ * GET  /api/pilot/audit       — retrieve audit log
+ * GET  /api/pilot/report      — failure-focused summary report
+ * GET  /api/pilot/policy      — role-based policy for the current user
  */
 
 import { Router } from "express";
 import { supabase } from "../supabase.js";
+import { can, ACTIONS } from "../governance/policy.js";
 
 const router = Router();
-
 const PILOT_MODE = process.env.PILOT_MODE === "true";
 
-// ── Role-based pilot policy ─────────────────────────────
+// ── Policy endpoint ─────────────────────────────────────
 
-const ROLE_POLICIES = {
-  admin: {
-    can_preview: true,
-    can_confirm: true,
-    can_edit_factory: true,
-    can_calibrate: true,
-    confirmation_required: false,
-  },
-  production_manager: {
-    can_preview: true,
-    can_confirm: PILOT_MODE ? false : true,
-    can_edit_factory: PILOT_MODE ? false : true,
-    can_calibrate: false,
-    confirmation_required: true,
-  },
-  operator: {
-    can_preview: true,
-    can_confirm: false,
-    can_edit_factory: false,
-    can_calibrate: false,
-    confirmation_required: false,
-  },
-};
+router.get("/policy", (req, res) => {
+  const role = req.query.role ?? req.pilotIdentity?.role ?? "operator";
 
-/**
- * GET /api/pilot/policy?role=admin
- * Returns the pilot policy for the given role.
- */
-router.get("/policy", (_req, res) => {
-  const role = _req.query.role ?? "operator";
-  const policy = ROLE_POLICIES[role] ?? ROLE_POLICIES.operator;
+  // Build policy by checking every action
+  const policy = {};
+  for (const action of Object.keys(ACTIONS)) {
+    const decision = can(role, action, { pilot_mode: PILOT_MODE });
+    policy[action] = decision.allowed;
+  }
+
+  // Legacy shape for frontend compatibility
+  const legacyPolicy = {
+    can_preview: can(role, "optimizer.preview", { pilot_mode: PILOT_MODE }).allowed,
+    can_confirm: can(role, "optimizer.confirm", { pilot_mode: PILOT_MODE }).allowed,
+    can_edit_factory: can(role, "factory.update", { pilot_mode: PILOT_MODE }).allowed,
+    can_calibrate: can(role, "calibration.trigger", { pilot_mode: PILOT_MODE }).allowed,
+    confirmation_required: role !== "admin" && PILOT_MODE,
+  };
+
   res.json({
     pilot_mode: PILOT_MODE,
     role,
-    policy,
-    available_roles: Object.keys(ROLE_POLICIES),
+    policy: legacyPolicy,
+    action_matrix: policy,
+    available_roles: ["admin", "production_manager", "operator"],
   });
 });
 
-// ── Persistent audit log ────────────────────────────────
+// ── Enhanced audit log ──────────────────────────────────
 
 /**
  * POST /api/pilot/audit
  * Body: {
- *   operator?: string,
- *   role?: string,
- *   action: string,
- *   category: string,
- *   blocked: boolean,
- *   page?: string,
- *   detail?: object,
+ *   operator?, role?, action, category,
+ *   result_status: "success" | "blocked" | "failed" | "partial",
+ *   error_code?, request_id?, run_id?,
+ *   blocked: boolean, page?, detail?
  * }
  */
 router.post("/audit", async (req, res) => {
-  const { operator, role, action, category, blocked, page, detail } = req.body;
+  const {
+    operator, role, action, category,
+    result_status, error_code, request_id, run_id,
+    blocked, page, detail,
+  } = req.body;
 
   if (!action) return res.status(400).json({ error: "action required" });
 
   const entry = {
     occurred_at: new Date().toISOString(),
-    operator: operator ?? "anonymous",
-    role: role ?? "unknown",
+    operator: operator ?? req.pilotIdentity?.operator ?? "anonymous",
+    role: role ?? req.pilotIdentity?.role ?? "unknown",
     action,
     category: category ?? "system",
+    result_status: result_status ?? (blocked ? "blocked" : "success"),
+    error_code: error_code ?? null,
+    request_id: request_id ?? null,
+    run_id: run_id ?? null,
     blocked: blocked ?? false,
     page: page ?? null,
     detail: detail ?? {},
     environment: PILOT_MODE ? "pilot" : "production",
   };
 
-  // Try to persist to Supabase pilot_audit_log table
   const { data, error } = await supabase
     .from("pilot_audit_log")
     .insert(entry)
@@ -94,7 +87,6 @@ router.post("/audit", async (req, res) => {
     .maybeSingle();
 
   if (error) {
-    // Table may not exist yet — log to console as fallback
     console.log("[PILOT AUDIT]", JSON.stringify(entry));
     return res.json({ persisted: false, fallback: "console", entry, error: error.message });
   }
@@ -102,12 +94,10 @@ router.post("/audit", async (req, res) => {
   res.json({ persisted: true, id: data?.id, entry });
 });
 
-/**
- * GET /api/pilot/audit?limit=50&operator=john&category=optimizer
- */
+// ── Audit retrieval ─────────────────────────────────────
+
 router.get("/audit", async (req, res) => {
   const limit = Number(req.query.limit ?? 100);
-
   let query = supabase
     .from("pilot_audit_log")
     .select("*")
@@ -117,72 +107,102 @@ router.get("/audit", async (req, res) => {
   if (req.query.operator) query = query.eq("operator", req.query.operator);
   if (req.query.category) query = query.eq("category", req.query.category);
   if (req.query.blocked === "true") query = query.eq("blocked", true);
+  if (req.query.result_status) query = query.eq("result_status", req.query.result_status);
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data ?? []);
 });
 
-// ── Pilot usage report ──────────────────────────────────
+// ── Failure-focused report ──────────────────────────────
 
-/**
- * GET /api/pilot/report?days=7
- */
 router.get("/report", async (req, res) => {
   const days = Number(req.query.days ?? 7);
   const since = new Date(Date.now() - days * 86400000).toISOString();
 
-  const { data: entries, error } = await supabase
+  const { data: rows, error } = await supabase
     .from("pilot_audit_log")
     .select("*")
     .gte("occurred_at", since)
-    .order("occurred_at", { ascending: false });
+    .order("occurred_at", { ascending: false })
+    .limit(2000);
 
   if (error) return res.status(500).json({ error: error.message });
 
-  const rows = entries ?? [];
+  const entries = rows ?? [];
+  const total = entries.length;
 
-  // Aggregate
-  const total = rows.length;
-  const blocked = rows.filter((r) => r.blocked).length;
-  const allowed = total - blocked;
-
+  // Result status counts
+  const byResultStatus = {};
   const byCategory = {};
   const byOperator = {};
   const byAction = {};
   const byPage = {};
+  const byErrorCode = {};
 
-  for (const r of rows) {
+  // Failure-specific tracking
+  const failedActions = {};
+  const blockedReasons = {};
+  let snapshotMismatches = 0;
+  let optimisticLockConflicts = 0;
+  let calibrationBlocked = 0;
+
+  for (const r of entries) {
+    byResultStatus[r.result_status] = (byResultStatus[r.result_status] ?? 0) + 1;
     byCategory[r.category] = (byCategory[r.category] ?? 0) + 1;
     byOperator[r.operator] = (byOperator[r.operator] ?? 0) + 1;
     byAction[r.action] = (byAction[r.action] ?? 0) + 1;
     if (r.page) byPage[r.page] = (byPage[r.page] ?? 0) + 1;
+    if (r.error_code) byErrorCode[r.error_code] = (byErrorCode[r.error_code] ?? 0) + 1;
+
+    // Track failures
+    if (r.result_status === "failed" || r.result_status === "partial") {
+      failedActions[r.action] = (failedActions[r.action] ?? 0) + 1;
+    }
+
+    // Track block reasons from detail
+    if (r.blocked && r.detail?.reason) {
+      blockedReasons[r.detail.reason] = (blockedReasons[r.detail.reason] ?? 0) + 1;
+    }
+    if (r.blocked && r.detail?.denied_by) {
+      blockedReasons[`permission:${r.detail.denied_by}`] = (blockedReasons[`permission:${r.detail.denied_by}`] ?? 0) + 1;
+    }
+
+    // Specific governance events
+    if (r.error_code === "snapshot_mismatch") snapshotMismatches++;
+    if (r.error_code === "optimistic_lock_conflict") optimisticLockConflicts++;
+    if (r.action?.includes("calibration") && r.blocked) calibrationBlocked++;
   }
 
-  // Top items
-  const topActions = Object.entries(byAction)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10)
-    .map(([action, count]) => ({ action, count }));
-
-  const previewRuns = rows.filter((r) => r.action?.includes("preview") || r.action?.includes("optimizer")).length;
-  const confirmAttempts = rows.filter((r) => r.action?.includes("confirm")).length;
-  const blockedWrites = rows.filter((r) => r.blocked && !r.action?.includes("cancel")).length;
+  // Sort helpers
+  const topN = (obj, n = 10) =>
+    Object.entries(obj).sort(([, a], [, b]) => b - a).slice(0, n).map(([key, count]) => ({ key, count }));
 
   res.json({
     period_days: days,
     since,
     total_actions: total,
-    blocked,
-    allowed,
-    preview_runs: previewRuns,
-    confirm_attempts: confirmAttempts,
-    blocked_writes: blockedWrites,
+
+    // Result breakdown
+    by_result_status: byResultStatus,
+    success_count: byResultStatus.success ?? 0,
+    blocked_count: byResultStatus.blocked ?? 0,
+    failed_count: byResultStatus.failed ?? 0,
+    partial_count: byResultStatus.partial ?? 0,
+
+    // Failure focus
+    top_failed_actions: topN(failedActions),
+    top_blocked_reasons: topN(blockedReasons),
+    top_error_codes: topN(byErrorCode),
+    snapshot_mismatches: snapshotMismatches,
+    optimistic_lock_conflicts: optimisticLockConflicts,
+    calibration_blocked: calibrationBlocked,
+
+    // General
     by_category: byCategory,
     by_operator: byOperator,
     by_page: byPage,
-    top_actions: topActions,
-    entries_sampled: Math.min(rows.length, 500),
+    top_actions: topN(byAction),
   });
 });
 

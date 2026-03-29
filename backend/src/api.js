@@ -3,6 +3,7 @@ import cors from "cors";
 import { recommendFactories } from "./scheduler/recommend.js";
 import { checkRisk } from "./scheduler/risk.js";
 import { supabase } from "./supabase.js";
+import { can, resolveAction, resolveRole } from "./governance/policy.js";
 import factoriesRouter from "./routes/factories.js";
 import allocationsRouter from "./routes/allocations.js";
 import geofencesRouter from "./routes/geofences.js";
@@ -17,62 +18,57 @@ app.use(express.json());
 
 // ── Pilot mode ───────────────────────────────────────────
 const PILOT_MODE = process.env.PILOT_MODE === "true";
+if (PILOT_MODE) console.log("⚡ PILOT MODE active");
 
-if (PILOT_MODE) {
-  console.log("⚡ PILOT MODE active — restricted route policy in effect");
-}
+// ── Policy enforcement middleware ────────────────────────
+// Replaces the old allowlist. Uses the central policy engine.
 
-// Route-level allowlist: which POST/PATCH/DELETE routes are safe in pilot mode.
-// Everything not listed here is blocked when PILOT_MODE=true.
-const PILOT_ALLOWED_WRITES = new Set([
-  // Audit logging — always writable (that's the whole point)
-  "POST /api/pilot/audit",
-  // Read-only POST endpoints that don't modify production data
-  "POST /api/optimizer/run",      // body checked below for dry_run
-  "POST /api/risks/scan",        // analysis only, writes to risk_alerts (acceptable)
-  "POST /api/recommend",         // compute-only, no DB
-  "POST /api/risk",              // compute-only, no DB
-  "POST /api/geofences/generate-tasks", // creates visit tasks (low risk)
-]);
-
-function pilotGuard(req, res, next) {
+app.use("/api", (req, res, next) => {
   if (!PILOT_MODE) return next();
 
-  // All reads pass
-  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
+  // Resolve who is making the request
+  const identity = resolveRole(req);
 
-  // Check route-level allowlist
-  const routeKey = `${req.method} ${req.path}`;
-  if (PILOT_ALLOWED_WRITES.has(routeKey)) {
-    // Special check: optimizer run must be dry_run
-    if (routeKey === "POST /api/optimizer/run" && req.body?.options?.dry_run === false) {
-      console.log(`[PILOT] Blocked optimizer confirm: ${req.method} ${req.path}`);
-      return res.status(403).json({
-        error: "Pilot mode: optimizer confirm (dry_run=false) is disabled.",
-        pilot_mode: true,
-      });
-    }
-    return next();
+  // Resolve what they're trying to do
+  const action = resolveAction(req.method, req.path, req.body);
+
+  // Attach to request for downstream use
+  req.pilotIdentity = identity;
+  req.pilotAction = action;
+
+  // Unknown action on a write → block
+  if (!action && req.method !== "GET" && req.method !== "HEAD" && req.method !== "OPTIONS") {
+    console.log(`[PILOT] Blocked unknown: ${req.method} ${req.path} (${identity.role})`);
+    return res.status(403).json({
+      error: "Pilot mode: unrecognized write operation blocked.",
+      pilot_mode: true, method: req.method, path: req.path,
+    });
   }
 
-  // Check role-based override: admin can bypass in pilot mode
-  const role = req.headers["x-pilot-role"];
-  if (role === "admin") {
-    console.log(`[PILOT] Admin override: ${req.method} ${req.path}`);
-    return next();
+  // Check policy
+  const decision = can(identity.role, action, { pilot_mode: true });
+
+  if (!decision.allowed) {
+    console.log(`[PILOT] Denied: ${identity.role} → ${action} (${req.method} ${req.path}): ${decision.reason}`);
+    return res.status(403).json({
+      error: decision.reason,
+      pilot_mode: true,
+      action,
+      role: identity.role,
+    });
   }
 
-  console.log(`[PILOT] Blocked: ${req.method} ${req.path}`);
-  return res.status(403).json({
-    error: "Pilot mode: this write operation is not allowed.",
-    pilot_mode: true,
-    method: req.method,
-    path: req.path,
-    hint: "Set x-pilot-role: admin header to override, or wait for pilot mode to be disabled.",
-  });
-}
+  next();
+});
 
-app.use("/api", pilotGuard);
+// Attach identity to all requests (even when not in pilot mode)
+app.use("/api", (req, _res, next) => {
+  if (!req.pilotIdentity) {
+    req.pilotIdentity = resolveRole(req);
+    req.pilotAction = resolveAction(req.method, req.path, req.body);
+  }
+  next();
+});
 
 // ── Routes ───────────────────────────────────────────────
 app.use("/api/factories", factoriesRouter);
@@ -85,12 +81,7 @@ app.use("/api/pilot", pilotRouter);
 
 // ── Health check ─────────────────────────────────────────
 app.get("/api/health", async (_req, res) => {
-  const checks = {
-    api: true,
-    supabase: false,
-    pilot_mode: PILOT_MODE,
-    timestamp: new Date().toISOString(),
-  };
+  const checks = { api: true, supabase: false, pilot_mode: PILOT_MODE, timestamp: new Date().toISOString() };
   try {
     const { error } = await supabase.from("factories").select("id").limit(1);
     checks.supabase = !error;
@@ -104,23 +95,15 @@ app.get("/api/health", async (_req, res) => {
 // ── Scheduler endpoints (compute-only, no DB) ───────────
 app.post("/api/recommend", (req, res) => {
   const { order, factories, options } = req.body;
-  if (!order || !factories) {
-    return res.status(400).json({ error: "order and factories are required" });
-  }
-  const result = recommendFactories(order, factories, options);
-  res.json(result);
+  if (!order || !factories) return res.status(400).json({ error: "order and factories are required" });
+  res.json(recommendFactories(order, factories, options));
 });
 
 app.post("/api/risk", (req, res) => {
   const { order, allocation, options } = req.body;
-  if (!order || !allocation) {
-    return res.status(400).json({ error: "order and allocation are required" });
-  }
-  const result = checkRisk(order, allocation, options);
-  res.json(result);
+  if (!order || !allocation) return res.status(400).json({ error: "order and allocation are required" });
+  res.json(checkRisk(order, allocation, options));
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Backend running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`));

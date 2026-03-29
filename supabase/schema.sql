@@ -256,6 +256,11 @@ create table if not exists public.pilot_audit_log (
 
   action text not null,
   category text not null default 'system',
+  result_status text not null default 'success'
+    check (result_status in ('success','blocked','failed','partial')),
+  error_code text,
+  request_id text,
+  run_id text,
   blocked boolean not null default false,
 
   page text,
@@ -269,6 +274,8 @@ create index if not exists idx_audit_occurred on public.pilot_audit_log(occurred
 create index if not exists idx_audit_operator on public.pilot_audit_log(operator);
 create index if not exists idx_audit_category on public.pilot_audit_log(category);
 create index if not exists idx_audit_blocked on public.pilot_audit_log(blocked);
+create index if not exists idx_audit_result on public.pilot_audit_log(result_status);
+create index if not exists idx_audit_error on public.pilot_audit_log(error_code) where error_code is not null;
 
 commit;
 
