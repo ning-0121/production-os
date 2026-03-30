@@ -5,9 +5,12 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import { restrictToHorizontalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 
 import "./Gantt.css";
-import type { Factory, OrderBlock, TimelineWindow } from "./model";
+import type { OrderBlock, TimelineWindow } from "./model";
 import { dateToX, isoToDate, minutesInWindow } from "./time";
 import { OrderDrawer } from "./OrderDrawer";
+import { useAsync } from "../../hooks/useAsync";
+import { fetchAllocations, fetchFactories, updateAllocation } from "../../services/api";
+import type { Allocation, Factory } from "../../types";
 
 type DraggableData = {
   type: "order";
@@ -19,6 +22,18 @@ function pxToMinutes(px: number, win: TimelineWindow, widthPx: number) {
   return (px / Math.max(1, widthPx)) * total;
 }
 
+function allocationToBlock(a: Allocation): OrderBlock {
+  return {
+    id: a.id,
+    factoryId: a.factory_id,
+    productType: a.product_type,
+    quantity: a.quantity,
+    startAt: a.start_at,
+    endAt: a.end_at,
+    status: a.status === "cancelled" ? "completed" : a.status,
+  };
+}
+
 export function GanttPage() {
   const timeline: TimelineWindow = React.useMemo(() => {
     const s = startOfDay(new Date());
@@ -26,44 +41,24 @@ export function GanttPage() {
     return { start: s, end: e };
   }, []);
 
-  const [factories] = React.useState<Factory[]>([
-    { id: "f1", name: "Factory Shenzhen 01" },
-    { id: "f2", name: "Factory Suzhou 02" },
-    { id: "f3", name: "Factory Chengdu 03" },
-  ]);
+  const { data: rawFactories, loading: loadingF } = useAsync(() => fetchFactories(), []);
+  const { data: rawAllocations, loading: loadingA, refetch } = useAsync(() => fetchAllocations(), []);
 
-  const [orders, setOrders] = React.useState<OrderBlock[]>(() => {
-    const base = startOfDay(new Date());
-    return [
-      {
-        id: "o1",
-        factoryId: "f1",
-        productType: "widget-A",
-        quantity: 1200,
-        startAt: addDays(base, 1).toISOString(),
-        endAt: addDays(base, 3).toISOString(),
-        status: "planned",
-      },
-      {
-        id: "o2",
-        factoryId: "f2",
-        productType: "widget-A",
-        quantity: 600,
-        startAt: addDays(base, 2).toISOString(),
-        endAt: addDays(base, 4).toISOString(),
-        status: "confirmed",
-      },
-      {
-        id: "o3",
-        factoryId: "f1",
-        productType: "widget-B",
-        quantity: 3000,
-        startAt: addDays(base, 5).toISOString(),
-        endAt: addDays(base, 8).toISOString(),
-        status: "in_progress",
-      },
-    ];
-  });
+  const factories = React.useMemo(
+    () => (rawFactories ?? []).map((f: Factory) => ({ id: f.id, name: f.name })),
+    [rawFactories],
+  );
+
+  const [localOrders, setLocalOrders] = React.useState<OrderBlock[] | null>(null);
+
+  // Sync from API data
+  React.useEffect(() => {
+    if (rawAllocations) {
+      setLocalOrders(rawAllocations.map(allocationToBlock));
+    }
+  }, [rawAllocations]);
+
+  const orders = localOrders ?? [];
 
   const [selectedOrderId, setSelectedOrderId] = React.useState<string | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedOrderId) ?? null;
@@ -71,7 +66,7 @@ export function GanttPage() {
   const gridRef = React.useRef<HTMLDivElement | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  function onDragEnd(ev: DragEndEvent) {
+  async function onDragEnd(ev: DragEndEvent) {
     const activeData = ev.active.data.current as DraggableData | undefined;
     if (!activeData || activeData.type !== "order") return;
     if (!gridRef.current) return;
@@ -80,17 +75,31 @@ export function GanttPage() {
     const rect = gridRef.current.getBoundingClientRect();
     const widthPx = rect.width;
 
-    setOrders((prev) =>
-      prev.map((o) => {
+    let newStart = "";
+    let newEnd = "";
+
+    setLocalOrders((prev) =>
+      (prev ?? []).map((o) => {
         if (o.id !== activeData.orderId) return o;
         const start = isoToDate(o.startAt);
         const end = isoToDate(o.endAt);
         const minutesDelta = pxToMinutes(deltaX, timeline, widthPx);
-        const newStart = new Date(start.getTime() + minutesDelta * 60_000);
-        const newEnd = new Date(end.getTime() + minutesDelta * 60_000);
-        return { ...o, startAt: newStart.toISOString(), endAt: newEnd.toISOString() };
+        const ns = new Date(start.getTime() + minutesDelta * 60_000);
+        const ne = new Date(end.getTime() + minutesDelta * 60_000);
+        newStart = ns.toISOString();
+        newEnd = ne.toISOString();
+        return { ...o, startAt: newStart, endAt: newEnd };
       }),
     );
+
+    // Persist to backend
+    if (newStart && newEnd) {
+      try {
+        await updateAllocation(activeData.orderId, { start_at: newStart, end_at: newEnd });
+      } catch {
+        refetch(); // revert on failure
+      }
+    }
   }
 
   const ticks = React.useMemo(() => {
@@ -103,6 +112,10 @@ export function GanttPage() {
     }
     return out;
   }, [timeline.start]);
+
+  const loading = loadingF || loadingA;
+
+  if (loading) return <div className="card"><div style={{ padding: 24, color: "var(--muted)" }}>加载中…</div></div>;
 
   return (
     <div className="grid2">
@@ -136,7 +149,7 @@ export function GanttPage() {
 
             <DndContext
               sensors={sensors}
-              onDragEnd={onDragEnd}
+              onDragEnd={(ev) => void onDragEnd(ev)}
               modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
             >
               <div className="ganttGrid">
@@ -159,15 +172,11 @@ export function GanttPage() {
         <div className="cardHeader">
           <div>
             <h2>Ranked Recommendations</h2>
-            <div className="hint">Wire this panel to backend `recommendFactories()` later.</div>
+            <div className="hint">Select an order to get AI-powered factory recommendations.</div>
           </div>
-          <button className="btn primary" onClick={() => alert("Next: call backend API and render ranked list.")}>
-            Connect
-          </button>
         </div>
         <div style={{ padding: 14, color: "var(--muted)", fontSize: 13 }}>
-          This UI is ready to integrate with Supabase + the Node scheduler. The scheduling grid already supports
-          drag-to-reschedule and a detail drawer.
+          {factories.length} factories loaded from Supabase. Drag-to-reschedule persists to backend.
         </div>
       </div>
 
@@ -186,7 +195,7 @@ function FactoryRow({
   timeline,
   onOpen,
 }: {
-  factory: Factory;
+  factory: { id: string; name: string };
   orders: OrderBlock[];
   timeline: TimelineWindow;
   onOpen: (orderId: string) => void;
@@ -255,4 +264,3 @@ function OrderBlockView({
     </div>
   );
 }
-

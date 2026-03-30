@@ -1,0 +1,358 @@
+.boardColumns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 14px;
+  overflow-x: auto;
+}
+@media (max-width: 820px) {
+  .boardColumns { grid-template-columns: repeat(2, 1fr); }
+}
+
+.boardCol {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255,255,255,.03);
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  transition: background .15s, border-color .15s;
+}
+.boardColOver {
+  background: rgba(110,231,255,.06);
+  border-color: rgba(110,231,255,.25);
+}
+.boardColBlocked {
+  background: rgba(255,80,80,.06);
+  border-color: rgba(255,80,80,.3);
+}
+
+.boardColHeader {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.boardColLabel {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.boardColLock {
+  font-size: 11px;
+}
+.boardColCount {
+  font-size: 12px;
+  color: var(--muted);
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.boardColBody {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* ── Card ──────────────────────────────────────────────── */
+
+.boardCard {
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(110,231,255,.10), rgba(167,139,250,.08));
+  padding: 10px;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow .15s;
+}
+.boardCard:active { cursor: grabbing; }
+.boardCard:hover {
+  box-shadow: 0 8px 20px rgba(0,0,0,.25);
+}
+
+.boardCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.boardCardPt {
+  font-size: 13px;
+  font-weight: 600;
+}
+.boardCardQty {
+  font-size: 12px;
+  color: var(--accent);
+}
+.boardCardFactory {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.boardCardDue {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Risk color-coding ─────────────────────────────────── */
+
+.boardCardRiskHigh {
+  border-color: rgba(251,113,133,.45);
+  background: linear-gradient(135deg, rgba(251,113,133,.14), rgba(167,139,250,.06));
+}
+.boardCardRiskMedium {
+  border-color: rgba(250,204,21,.35);
+  background: linear-gradient(135deg, rgba(250,204,21,.10), rgba(167,139,250,.06));
+}
+.boardCardRiskSafe {
+  border-color: rgba(34,197,94,.30);
+  background: linear-gradient(135deg, rgba(34,197,94,.10), rgba(110,231,255,.06));
+}
+
+.boardCardRiskBadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.boardCardRiskBadgeHIGH {
+  background: rgba(251,113,133,.20);
+  color: #fb7185;
+}
+.boardCardRiskBadgeMEDIUM {
+  background: rgba(250,204,21,.18);
+  color: #facc15;
+}
+.boardCardRiskBadgeSAFE {
+  background: rgba(34,197,94,.15);
+  color: #22c55e;
+}
+
+/* ── Smart Schedule Button ─────────────────────────────── */
+
+.boardCardScheduleBtn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 5px 0;
+  border: 1px solid rgba(110,231,255,.35);
+  border-radius: 6px;
+  background: rgba(110,231,255,.12);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.boardCardScheduleBtn:hover {
+  background: rgba(110,231,255,.22);
+  border-color: rgba(110,231,255,.55);
+}
+
+/* ── Toast ─────────────────────────────────────────────── */
+
+.boardToast {
+  margin: 0 14px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: rgba(110,231,255,.12);
+  border: 1px solid rgba(110,231,255,.25);
+  color: var(--accent);
+  animation: toastIn .2s ease-out;
+}
+.boardToastErr {
+  background: rgba(255,80,80,.12);
+  border-color: rgba(255,80,80,.3);
+  color: var(--danger);
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Drawer overlay ────────────────────────────────────── */
+
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  z-index: 900;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn .15s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.drawer {
+  width: 420px;
+  max-width: 90vw;
+  background: var(--bg, #141420);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn .2s ease-out;
+  overflow-y: auto;
+}
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawerHeader {
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.drawerHeader h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.drawerSub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.drawerClose {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drawerClose:hover {
+  background: rgba(255,255,255,.06);
+}
+
+.drawerBody {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+.drawerMsg {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.drawerErr {
+  color: var(--danger);
+}
+
+/* ── Recommendation Card ───────────────────────────────── */
+
+.recCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255,255,255,.03);
+  transition: border-color .15s;
+}
+.recCard:hover {
+  border-color: rgba(110,231,255,.3);
+}
+.recCardInfeasible {
+  opacity: 0.55;
+  border-color: rgba(255,80,80,.2);
+}
+.recCardInfeasible:hover {
+  border-color: rgba(255,80,80,.4);
+}
+
+.recTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.recName {
+  font-size: 14px;
+  font-weight: 600;
+}
+.recScore {
+  font-size: 13px;
+  color: var(--muted);
+}
+.recScore strong {
+  color: var(--accent);
+}
+
+.recMeta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.pillDanger {
+  background: rgba(255,80,80,.15) !important;
+  border-color: rgba(255,80,80,.3) !important;
+  color: var(--danger) !important;
+}
+
+/* ── Score Breakdown Bars ──────────────────────────────── */
+
+.recBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.recBreakdownItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.recBreakdownLabel {
+  width: 70px;
+  text-align: right;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.recBreakdownBar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.recBreakdownFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width .3s ease-out;
+}
+.recBreakdownVal {
+  width: 28px;
+  text-align: right;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.recConfirmBtn {
+  width: 100%;
+  margin-top: 2px;
+}

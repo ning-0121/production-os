@@ -1,0 +1,139 @@
+.ftable {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.fthead, .ftrow {
+  display: grid;
+  grid-template-columns: 180px 120px 80px 60px 100px 100px 100px 1fr;
+  gap: 0;
+  align-items: center;
+  min-width: 860px;
+}
+
+.fthead {
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.04);
+}
+.fthead .ftcell {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ftrow {
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  cursor: pointer;
+  transition: background .12s;
+}
+.ftrow:hover {
+  background: rgba(255,255,255,.04);
+}
+.ftrowEdit {
+  background: rgba(110,231,255,.05);
+  border-color: rgba(110,231,255,.15);
+}
+
+.ftcell {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.ftname {
+  font-weight: 600;
+}
+.ftnum {
+  text-align: right;
+}
+
+.ftinput {
+  width: 70px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(110,231,255,.3);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: right;
+}
+.ftinput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.ftcaps {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* ── Calibration indicator ─────────────────────────────── */
+
+.ftCalibrated {
+  color: var(--accent);
+  font-size: 10px;
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+.ftCalibrationRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 8px;
+  background: rgba(110,231,255,.04);
+  border-bottom: 1px solid rgba(110,231,255,.10);
+  min-width: 860px;
+  animation: calibSlide .15s ease-out;
+}
+@keyframes calibSlide {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 60px; }
+}
+
+.ftCalibrationLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.ftCalibrationStats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ftCalibPill {
+  font-size: 11px !important;
+  padding: 2px 8px !important;
+  background: rgba(110,231,255,.08) !important;
+  border-color: rgba(110,231,255,.15) !important;
+  color: var(--accent) !important;
+}
+
+.ftCalibDate {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.scoreBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.scoreBarFill {
+  height: 6px;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  max-width: 60px;
+  transition: width .2s;
+}
+.scoreBarLabel {
+  font-size: 12px;
+  color: var(--muted);
+}

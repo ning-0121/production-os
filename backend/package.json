@@ -4,11 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node src/dev.js",
-    "test:scheduler": "node src/scheduler/demo.js"
+    "dev": "node src/api.js",
+    "test:scheduler": "node src/scheduler/demo.js",
+    "test:optimizer": "node src/scheduler/optimizer-test.js",
+    "test:validate": "node src/scripts/validate-offline-test.js",
+    "validate": "node src/scripts/validate-data.js"
   },
   "dependencies": {
-    "date-fns": "^4.1.0"
+    "@supabase/supabase-js": "^2.100.1",
+    "cors": "^2.8.6",
+    "date-fns": "^4.1.0",
+    "express": "^5.1.0"
   }
 }
-

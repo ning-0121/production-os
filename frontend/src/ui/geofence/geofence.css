@@ -1,67 +1,350 @@
-.geoBody{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
+.geoPage {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 12px;
 }
 
-@media (max-width: 980px){
-  .geoBody{ grid-template-columns: 1fr; }
-}
+/* ── Status Bar ──────────────────────────────────────── */
 
-.geoPanel{
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,.04);
-  border-radius: var(--radius);
-  padding: 12px;
+.geoStatusBar {
+  display: flex;
+  gap: 16px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
 }
-
-.geoTitle{
-  font-size: 12px;
+.geoStatusItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.geoStatusLabel {
+  font-size: 11px;
   color: var(--muted);
-  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
 }
-
-.geoValue{
+.geoStatusValue {
   font-size: 13px;
-  display:flex;
-  flex-direction:column;
-  gap: 6px;
+}
+.geoStatusActive {
+  color: var(--accent);
+  font-weight: 600;
 }
 
-.geoLabel{
-  color: var(--muted);
-  margin-right: 8px;
-}
+/* ── Action List ─────────────────────────────────────── */
 
-.taskList{
-  display:flex;
-  flex-direction:column;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.task{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 12px;
-  border: 1px solid rgba(255,255,255,.08);
-  background: rgba(255,255,255,.03);
-  border-radius: 12px;
+.actionList {
   padding: 10px;
-}
-
-.taskMain{
-  min-width: 0;
-}
-.taskTitle{
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-.taskMeta{
-  display:flex;
-  flex-wrap:wrap;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
+.actionEmpty {
+  text-align: center;
+  padding: 30px 10px;
+  color: #22c55e;
+  font-size: 14px;
+  font-weight: 500;
+}
 
+/* ── Action Card ─────────────────────────────────────── */
+
+.actionCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255,255,255,.03);
+  overflow: hidden;
+  transition: border-color .15s;
+}
+.actionCard:hover {
+  border-color: rgba(255,255,255,.18);
+}
+
+/* Priority left border */
+.actionPrioHigh { border-left: 3px solid #fb7185; }
+.actionPrioMed { border-left: 3px solid #facc15; }
+.actionPrioLow { border-left: 3px solid #22c55e; }
+
+.actionCardMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  cursor: pointer;
+  gap: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+.actionCardMain:active {
+  background: rgba(255,255,255,.04);
+}
+
+.actionCardLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Checkmark circle */
+.actionCheck {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 12px;
+  transition: border-color .15s, background .15s;
+}
+.actionCheck:hover {
+  border-color: #22c55e;
+  background: rgba(34,197,94,.12);
+}
+.actionCheckSaving {
+  border-color: var(--accent);
+  background: rgba(110,231,255,.10);
+}
+
+.actionCardInfo {
+  min-width: 0;
+}
+.actionCardTitle {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+.actionCardMeta {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+/* Type badges */
+.actionTypeBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.actionType_risk_inspection {
+  background: rgba(251,113,133,.18);
+  color: #fb7185;
+}
+.actionType_readiness_check {
+  background: rgba(110,231,255,.12);
+  color: var(--accent);
+}
+.actionType_delivery_check {
+  background: rgba(250,204,21,.14);
+  color: #facc15;
+}
+
+.actionRiskBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  background: rgba(251,113,133,.22);
+  color: #fb7185;
+  animation: riskPulse 2s infinite;
+}
+@keyframes riskPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.actionDueBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  background: rgba(250,204,21,.18);
+  color: #facc15;
+}
+.actionPhotoBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(110,231,255,.10);
+  color: var(--accent);
+}
+
+.actionCardRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.actionPrioBadge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.actionChevron {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ── Expanded panel ──────────────────────────────────── */
+
+.actionExpanded {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: expandIn .15s ease-out;
+}
+@keyframes expandIn {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 600px; }
+}
+
+.actionDesc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  padding-top: 10px;
+}
+
+.actionField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.actionFieldLabel {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.actionTextarea {
+  width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 44px;
+}
+.actionTextarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.actionSaveBtn {
+  align-self: flex-end;
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+.actionPhoto {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.actionPhotoBtn {
+  cursor: pointer;
+  text-align: center;
+  font-size: 12px;
+  padding: 8px;
+}
+
+.actionDoneBtn {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  /* extra touch-friendly sizing for mobile */
+  min-height: 44px;
+}
+
+/* ── Completed section ───────────────────────────────── */
+
+.actionCompleted {
+  margin-top: 4px;
+}
+.actionCompletedToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.actionCompletedList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+}
+.actionCompletedItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.actionCompletedCheck {
+  font-size: 10px;
+  color: #22c55e;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.actionCompletedTitle {
+  text-decoration: line-through;
+  opacity: 0.6;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actionCompletedTime {
+  font-size: 11px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Mobile optimizations ────────────────────────────── */
+@media (max-width: 600px) {
+  .geoStatusBar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .actionCardMain {
+    padding: 14px 12px;
+  }
+  .actionCardTitle {
+    font-size: 14px;
+  }
+  .actionDoneBtn {
+    font-size: 15px;
+    min-height: 48px;
+  }
+  .actionCheck {
+    width: 32px;
+    height: 32px;
+  }
+}
