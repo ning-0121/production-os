@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "runtime": "V2",
+    "startCommand": "cd backend && npm install && node src/api.js",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 10
+  }
+}

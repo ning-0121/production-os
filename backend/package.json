@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node src/api.js",
     "dev": "node src/api.js",
     "test:scheduler": "node src/scheduler/demo.js",
     "test:optimizer": "node src/scheduler/optimizer-test.js",
