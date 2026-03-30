@@ -64,7 +64,7 @@ console.log("-- 3. Production manager --\n");
   assert(!can("production_manager", "optimizer.confirm", { pilot_mode: true }).allowed, "pm pilot: NO confirm");
   assert(!can("production_manager", "allocation.update", { pilot_mode: true }).allowed, "pm pilot: NO update");
   assert(!can("production_manager", "factory.update", { pilot_mode: true }).allowed, "pm pilot: NO factory edit");
-  assert(can("production_manager", "tasks.generate", { pilot_mode: true }).allowed, "pm pilot: can generate tasks");
+  assert(!can("production_manager", "tasks.generate", { pilot_mode: true }).allowed, "pm pilot: tasks.generate blocked (DB write)");
   assert(!can("production_manager", "calibration.trigger", { pilot_mode: true }).allowed, "pm pilot: NO calibrate");
   assert(!can("production_manager", "allocation.delete", { pilot_mode: true }).allowed, "pm pilot: NO delete (always)");
 
@@ -88,7 +88,7 @@ console.log("-- 4. Operator --\n");
   assert(!can("operator", "allocation.update", { pilot_mode: true }).allowed, "op: NO update");
   assert(!can("operator", "factory.update", { pilot_mode: true }).allowed, "op: NO factory edit");
   assert(!can("operator", "calibration.complete", { pilot_mode: true }).allowed, "op: NO calibrate");
-  assert(can("operator", "tasks.generate", { pilot_mode: true }).allowed, "op: CAN generate tasks");
+  assert(!can("operator", "tasks.generate", { pilot_mode: true }).allowed, "op pilot: tasks.generate blocked (DB write)");
   assert(can("operator", "audit.write", { pilot_mode: true }).allowed, "op: CAN audit");
 
   // Operator tasks.update is mode-dependent

@@ -4,6 +4,7 @@ import { recommendFactories } from "./scheduler/recommend.js";
 import { checkRisk } from "./scheduler/risk.js";
 import { supabase } from "./supabase.js";
 import { can, resolveAction, resolveRole } from "./governance/policy.js";
+import { auditLog } from "./governance/audit.js";
 import factoriesRouter from "./routes/factories.js";
 import allocationsRouter from "./routes/allocations.js";
 import geofencesRouter from "./routes/geofences.js";
@@ -49,7 +50,14 @@ app.use("/api", (req, res, next) => {
   const decision = can(identity.role, action, { pilot_mode: true });
 
   if (!decision.allowed) {
-    console.log(`[PILOT] Denied: ${identity.role} → ${action} (${req.method} ${req.path}): ${decision.reason}`);
+    auditLog({
+      action: action ?? "unknown",
+      category: "system",
+      result_status: "blocked",
+      req,
+      error_code: "policy_denied",
+      detail: { reason: decision.reason, method: req.method, path: req.path, role: identity.role },
+    });
     return res.status(403).json({
       error: decision.reason,
       pilot_mode: true,
@@ -66,6 +74,18 @@ app.use("/api", (req, _res, next) => {
   if (!req.pilotIdentity) {
     req.pilotIdentity = resolveRole(req);
     req.pilotAction = resolveAction(req.method, req.path, req.body);
+
+    // Log role-fallback events for visibility
+    if (req.pilotIdentity.auth_method === "default" && req.method !== "GET" && req.method !== "OPTIONS") {
+      auditLog({
+        action: "role.fallback",
+        category: "system",
+        result_status: "success",
+        req,
+        error_code: "no_role_header",
+        detail: { method: req.method, path: req.path, defaulted_to: req.pilotIdentity.role },
+      });
+    }
   }
   next();
 });
