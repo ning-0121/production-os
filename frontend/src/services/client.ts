@@ -10,6 +10,7 @@
  */
 
 import { API_BASE_URL } from "./config";
+import { getAccessToken } from "./auth";
 
 // ── Error types ─────────────────────────────────────────
 
@@ -39,12 +40,21 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   let res: Response;
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = getAccessToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
+      headers,
       ...init,
     });
   } catch (err) {
-    // Network-level failure: offline, DNS, CORS preflight blocked, etc.
+    // Network-level failure: retry once for GET requests
+    const method = init?.method?.toUpperCase() ?? "GET";
+    if (method === "GET" && !(init as { _retried?: boolean })?._retried) {
+      await new Promise((r) => setTimeout(r, 1000));
+      return request<T>(path, { ...init, _retried: true } as RequestInit);
+    }
     const msg = err instanceof Error ? err.message : "Network request failed";
     throw new NetworkError(`Cannot reach API at ${API_BASE_URL}: ${msg}`);
   }

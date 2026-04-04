@@ -1,0 +1,285 @@
+/* ── Order Form ──────────────────────────────────────── */
+
+.orderForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.orderField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.orderFieldLabel {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.orderInput {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+  font-family: inherit;
+}
+
+.orderInput:focus {
+  border-color: var(--accent);
+}
+
+.orderInput::placeholder {
+  color: rgba(255,255,255,.25);
+}
+
+.orderInput option {
+  background: #1a2233;
+  color: var(--text);
+}
+
+.orderFieldError {
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.orderActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Import Drawer ──────────────────────────────────── */
+
+.importDrawer {
+  width: min(560px, 96vw);
+}
+
+.importBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.importUpload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  transition: border-color .15s, background .15s;
+}
+
+.importUpload:hover {
+  border-color: var(--accent);
+  background: rgba(110,231,255,.04);
+}
+
+.importUploadIcon {
+  font-size: 28px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.importFileName {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.importHint {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 10px;
+  background: rgba(255,255,255,.03);
+  border-radius: 6px;
+}
+
+.importSummary {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 0;
+}
+
+.importTable {
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.importTable table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.importTable th {
+  text-align: left;
+  padding: 6px 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.importTable td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+
+.importRowError td {
+  background: rgba(251,113,133,.06);
+}
+
+.importMore {
+  text-align: center;
+  padding: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Search & Filter Bar ─────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.filterSearch {
+  flex: 1;
+  min-width: 160px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.filterSearch:focus {
+  border-color: var(--accent);
+}
+
+.filterSearch::placeholder {
+  color: rgba(255,255,255,.25);
+}
+
+.filterSelect {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.filterSelect option {
+  background: #1a2233;
+  color: var(--text);
+}
+
+/* ── Batch Action Bar ────────────────────────────────── */
+
+.batchBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(110,231,255,.08);
+  border-top: 1px solid rgba(110,231,255,.2);
+  border-bottom: 1px solid rgba(110,231,255,.2);
+  font-size: 13px;
+  animation: fadeIn .15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.batchCount {
+  color: var(--accent);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.batchBtn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.batchBtn:hover {
+  background: rgba(255,255,255,.10);
+}
+
+.batchBtnDanger {
+  border-color: rgba(251,113,133,.3);
+  color: var(--danger);
+}
+
+/* ── Selectable Card ─────────────────────────────────── */
+
+.boardCardCheck {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border);
+  background: rgba(255,255,255,.06);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  z-index: 1;
+}
+
+.boardCardCheck.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1220;
+}
+
+@media (max-width: 600px) {
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filterSearch {
+    min-width: auto;
+  }
+
+  .importDrawer {
+    width: 100vw;
+  }
+}

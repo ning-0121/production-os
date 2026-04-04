@@ -208,21 +208,26 @@ export function resolveAction(method, path, body) {
 /**
  * Resolve the operator's role from the request.
  *
- * Current: reads x-pilot-role header (trusted during pilot).
- * Future: replace with JWT/session-based resolution.
+ * Priority:
+ *   1. JWT auth (req.user set by auth middleware) — production mode
+ *   2. x-pilot-role header — pilot/dev fallback
+ *   3. Default to "operator" (lowest privilege)
  *
  * @param {object} req — Express request
  * @returns {{ role: string, operator: string, auth_method: string }}
  */
 export function resolveRole(req) {
-  // FUTURE: JWT/session auth
-  // const token = req.headers.authorization?.split(" ")[1];
-  // if (token) {
-  //   const payload = verifyJWT(token);
-  //   return { role: payload.role, operator: payload.sub, auth_method: "jwt" };
-  // }
+  // JWT auth (set by authMiddleware)
+  if (req.user) {
+    const role = ROLE_MATRIX[req.user.role] ? req.user.role : "operator";
+    return {
+      role,
+      operator: req.user.name ?? req.user.email ?? req.user.id,
+      auth_method: "jwt",
+    };
+  }
 
-  // PILOT PHASE: trust header (acceptable for internal rollout)
+  // PILOT PHASE fallback: trust header (acceptable for internal rollout)
   const headerRole = req.headers["x-pilot-role"];
   const headerOperator = req.headers["x-pilot-operator"];
 

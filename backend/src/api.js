@@ -1,10 +1,13 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { recommendFactories } from "./scheduler/recommend.js";
 import { checkRisk } from "./scheduler/risk.js";
 import { supabase } from "./supabase.js";
 import { can, resolveAction, resolveRole } from "./governance/policy.js";
 import { auditLog } from "./governance/audit.js";
+import { authMiddleware } from "./middleware/auth.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 import factoriesRouter from "./routes/factories.js";
 import allocationsRouter from "./routes/allocations.js";
 import geofencesRouter from "./routes/geofences.js";
@@ -12,10 +15,45 @@ import risksRouter from "./routes/risks.js";
 import performanceRouter from "./routes/performance.js";
 import optimizerRouter from "./routes/optimizer.js";
 import pilotRouter from "./routes/pilot.js";
+import importRouter from "./routes/import.js";
+import batchRouter from "./routes/batch.js";
+import dashboardRouter from "./routes/dashboard.js";
+
+// supabase.js validates SUPABASE_URL + SUPABASE_SERVICE_KEY at import time
 
 const app = express();
+
+// ── Global middleware ───────────────────────────────────
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
+
+// ── Rate limiting ───────────────────────────────────────
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "请求过于频繁，请稍后再试", code: "RATE_LIMIT" },
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "写入操作过于频繁，请稍后再试", code: "WRITE_RATE_LIMIT" },
+});
+
+app.use("/api", globalLimiter);
+app.use("/api", (req, res, next) => {
+  if (req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") {
+    return writeLimiter(req, res, next);
+  }
+  next();
+});
+
+// ── Authentication ──────────────────────────────────────
+app.use("/api", authMiddleware);
 
 // ── Pilot mode ───────────────────────────────────────────
 const PILOT_MODE = process.env.PILOT_MODE === "true";
@@ -98,6 +136,9 @@ app.use("/api/risks", risksRouter);
 app.use("/api/performance", performanceRouter);
 app.use("/api/optimizer", optimizerRouter);
 app.use("/api/pilot", pilotRouter);
+app.use("/api/import", importRouter);
+app.use("/api/batch", batchRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 // ── Health check ─────────────────────────────────────────
 app.get("/api/health", async (_req, res) => {
@@ -124,6 +165,9 @@ app.post("/api/risk", (req, res) => {
   if (!order || !allocation) return res.status(400).json({ error: "order and allocation are required" });
   res.json(checkRisk(order, allocation, options));
 });
+
+// ── Global error handler (must be last) ──────────────────
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`));

@@ -4,11 +4,13 @@ import { DndContext, PointerSensor, useDraggable, useSensor, useSensors } from "
 import type { DragEndEvent } from "@dnd-kit/core";
 import { restrictToHorizontalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 
+import "../orders/orders.css";
 import "./Gantt.css";
 import type { OrderBlock, TimelineWindow } from "./model";
 import { dateToX, isoToDate, minutesInWindow } from "./time";
 import { OrderDrawer } from "./OrderDrawer";
 import { useAsync } from "../../hooks/useAsync";
+import { useRealtimeRefetch } from "../../hooks/useRealtime";
 import { fetchAllocations, fetchFactories, updateAllocation } from "../../services/api";
 import type { Allocation, Factory } from "../../types";
 
@@ -44,6 +46,9 @@ export function GanttPage() {
   const { data: rawFactories, loading: loadingF } = useAsync(() => fetchFactories(), []);
   const { data: rawAllocations, loading: loadingA, refetch } = useAsync(() => fetchAllocations(), []);
 
+  // Real-time updates
+  useRealtimeRefetch("production_allocations", refetch);
+
   const factories = React.useMemo(
     () => (rawFactories ?? []).map((f: Factory) => ({ id: f.id, name: f.name })),
     [rawFactories],
@@ -58,7 +63,17 @@ export function GanttPage() {
     }
   }, [rawAllocations]);
 
-  const orders = localOrders ?? [];
+  // ── Filter ─────────────────────────────────────────────
+  const [filterFactory, setFilterFactory] = React.useState("");
+
+  const allOrders = localOrders ?? [];
+  const orders = filterFactory
+    ? allOrders.filter((o) => o.factoryId === filterFactory)
+    : allOrders;
+
+  const filteredFactories = filterFactory
+    ? factories.filter((f) => f.id === filterFactory)
+    : factories;
 
   const [selectedOrderId, setSelectedOrderId] = React.useState<string | null>(null);
   const selectedOrder = orders.find((o) => o.id === selectedOrderId) ?? null;
@@ -125,7 +140,18 @@ export function GanttPage() {
             <h2>Production Schedule</h2>
             <div className="hint">Drag blocks horizontally to reschedule. Click to open details.</div>
           </div>
-          <span className="pill">Window: {format(timeline.start, "MMM d")} → {format(timeline.end, "MMM d")}</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              className="filterSelect"
+              value={filterFactory}
+              onChange={(e) => setFilterFactory(e.target.value)}
+              style={{ fontSize: 12 }}
+            >
+              <option value="">全部工厂</option>
+              {factories.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select>
+            <span className="pill">{format(timeline.start, "MMM d")} → {format(timeline.end, "MMM d")}</span>
+          </div>
         </div>
 
         <div className="ganttWrap">
@@ -153,7 +179,7 @@ export function GanttPage() {
               modifiers={[restrictToHorizontalAxis, restrictToParentElement]}
             >
               <div className="ganttGrid">
-                {factories.map((f) => (
+                {filteredFactories.map((f) => (
                   <FactoryRow
                     key={f.id}
                     factory={f}

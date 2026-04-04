@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
 // GET /api/performance — list recent performance logs
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("factory_performance_logs")
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .order("occurred_at", { ascending: false })
     .limit(Number(req.query.limit ?? 50));
 
@@ -21,10 +22,10 @@ router.get("/", async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // GET /api/performance/factory/:id/summary — calibration summary for a factory
-router.get("/factory/:id/summary", async (req, res) => {
+router.get("/factory/:id/summary", asyncHandler(async (req, res) => {
   // Get all order_completion logs for this factory
   const { data: logs, error } = await supabase
     .from("factory_performance_logs")
@@ -74,6 +75,6 @@ router.get("/factory/:id/summary", async (req, res) => {
     total_completions: logs.length,
     by_product_type: byProduct,
   });
-});
+}));
 
 export default router;

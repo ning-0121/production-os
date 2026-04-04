@@ -259,20 +259,33 @@ function ActionCard({
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // For now, store as base64 data URI in metadata
-    // (In production, upload to Supabase Storage and store URL)
-    const reader = new FileReader();
-    reader.onload = async () => {
-      setSaving(true);
-      try {
-        await updateVisitTask(task.id, {
-          photo_url: reader.result as string,
+    setSaving(true);
+    try {
+      // Upload to Supabase Storage
+      const { supabase } = await import("../../services/auth");
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `tasks/${task.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("visit-photos")
+        .upload(path, file, { upsert: true });
+
+      let photoUrl: string;
+      if (uploadErr) {
+        // Fallback to base64 if storage not configured
+        const reader = new FileReader();
+        photoUrl = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
         });
-        onUpdate();
-      } catch { /* silent */ }
-      setSaving(false);
-    };
-    reader.readAsDataURL(file);
+      } else {
+        const { data: urlData } = supabase.storage.from("visit-photos").getPublicUrl(path);
+        photoUrl = urlData.publicUrl;
+      }
+
+      await updateVisitTask(task.id, { photo_url: photoUrl });
+      onUpdate();
+    } catch { /* silent */ }
+    setSaving(false);
   }
 
   const hasPhoto = !!(meta?.photo_url);

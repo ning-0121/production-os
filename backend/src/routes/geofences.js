@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { addDays } from "date-fns";
 import { supabase } from "../supabase.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
 // GET /api/geofences — list active geofences with factory name
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("factory_geo_fences")
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .order("name");
 
   if (req.query.active !== "false") {
@@ -32,10 +33,10 @@ router.get("/", async (req, res) => {
   });
 
   res.json(normalized);
-});
+}));
 
 // GET /api/geofences/tasks?factory_id=xxx — get visit tasks for a factory
-router.get("/tasks", async (req, res) => {
+router.get("/tasks", asyncHandler(async (req, res) => {
   const { factory_id } = req.query;
   if (!factory_id) return res.status(400).json({ error: "factory_id required" });
 
@@ -48,10 +49,10 @@ router.get("/tasks", async (req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // POST /api/geofences/generate-tasks — auto-generate visit tasks from orders
-router.post("/generate-tasks", async (req, res) => {
+router.post("/generate-tasks", asyncHandler(async (req, res) => {
   const { factory_id } = req.body;
   if (!factory_id) return res.status(400).json({ error: "factory_id is required" });
 
@@ -203,10 +204,10 @@ router.post("/generate-tasks", async (req, res) => {
     factory_id,
     orders_scanned: (allocs ?? []).length,
   });
-});
+}));
 
 // PATCH /api/geofences/tasks/:id — update task (status, notes, photo, checked_at)
-router.patch("/tasks/:id", async (req, res) => {
+router.patch("/tasks/:id", asyncHandler(async (req, res) => {
   // First load existing task to merge metadata
   const { data: existing, error: loadErr } = await supabase
     .from("factory_visit_tasks")
@@ -242,6 +243,6 @@ router.patch("/tasks/:id", async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
-});
+}));
 
 export default router;

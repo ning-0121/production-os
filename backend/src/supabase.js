@@ -4,10 +4,15 @@ const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_KEY;
 
 if (!url || !key) {
-  console.warn(
-    "⚠ SUPABASE_URL / SUPABASE_SERVICE_KEY not set – DB calls will fail.\n" +
+  console.error(
+    "❌ SUPABASE_URL / SUPABASE_SERVICE_KEY not set – cannot start.\n" +
     "  Export them before starting the server.",
   );
+  process.exit(1);
 }
 
-export const supabase = createClient(url ?? "", key ?? "");
+// Service-role client — bypasses RLS, used for backend operations
+export const supabaseAdmin = createClient(url, key);
+
+// Alias for backward compatibility
+export const supabase = supabaseAdmin;

@@ -3,25 +3,79 @@ import { BoardPage } from "./board/BoardPage";
 import { GanttPage } from "./gantt/GanttPage";
 import { FactoriesPage } from "./factories/FactoriesPage";
 import { GeofencePage } from "./geofence/GeofencePage";
+import { DashboardPage } from "./dashboard/DashboardPage";
+import { LoginPage } from "./auth/LoginPage";
+import { ErrorBoundary } from "./ErrorBoundary";
+import { ToastProvider } from "./Toast";
 import { runRiskScan, checkHealth, runVerification } from "../services/api";
 import { isPilotMode, getPilotLabel } from "../services/pilot";
 import { getAuditLog, getAuditSummary, downloadAuditLog } from "../services/audit";
+import { supabase, logout, getSession, parseUser } from "../services/auth";
+import type { AuthUser } from "../services/auth";
 import type { ApiHealth, VerificationResult } from "../services/api";
 import type { RiskLevel } from "../types";
 import type { AuditEntry } from "../services/audit";
 
-type TabKey = "board" | "schedule" | "factories" | "geofence";
+import "./auth/login.css";
+
+type TabKey = "board" | "schedule" | "factories" | "geofence" | "dashboard";
 
 const tabs: { key: TabKey; label: string }[] = [
   { key: "board", label: "看板" },
   { key: "schedule", label: "甘特图" },
   { key: "factories", label: "工厂" },
   { key: "geofence", label: "巡厂" },
+  { key: "dashboard", label: "数据" },
 ];
 
 type RiskCounts = { HIGH: number; MEDIUM: number; SAFE: number; total: number };
 
 export function App() {
+  const [authReady, setAuthReady] = React.useState(false);
+  const [user, setUser] = React.useState<AuthUser | null>(null);
+
+  // Check session on mount
+  React.useEffect(() => {
+    getSession().then((session) => {
+      if (session) setUser(parseUser(session));
+      setAuthReady(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser(parseUser(session));
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!authReady) {
+    return (
+      <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+        <div style={{ color: "var(--muted)", fontSize: 14 }}>加载中...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={() => {}} />;
+  }
+
+  return (
+    <ErrorBoundary>
+      <ToastProvider>
+        <MainApp user={user} />
+      </ToastProvider>
+    </ErrorBoundary>
+  );
+}
+
+// ── Main App (after auth) ──────────────────────────────
+
+function MainApp({ user }: { user: AuthUser }) {
   const [tab, setTab] = React.useState<TabKey>("board");
   const [risk, setRisk] = React.useState<RiskCounts | null>(null);
   const [riskError, setRiskError] = React.useState(false);
@@ -31,6 +85,7 @@ export function App() {
   const [verifying, setVerifying] = React.useState(false);
   const [showAudit, setShowAudit] = React.useState(false);
   const [auditEntries, setAuditEntries] = React.useState<AuditEntry[]>([]);
+  const [loggingOut, setLoggingOut] = React.useState(false);
 
   const pilotLabel = getPilotLabel();
 
@@ -47,7 +102,7 @@ export function App() {
 
   // Triple-click logo to open verification panel
   const clickCount = React.useRef(0);
-  const clickTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const clickTimer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
   function onLogoClick() {
     clickCount.current++;
     clearTimeout(clickTimer.current);
@@ -71,6 +126,12 @@ export function App() {
     setAuditEntries(getAuditLog());
   }
 
+  async function handleLogout() {
+    setLoggingOut(true);
+    try { await logout(); } catch { /* ignore */ }
+    setLoggingOut(false);
+  }
+
   return (
     <div className="container">
       <div className="topbar">
@@ -91,18 +152,26 @@ export function App() {
           )}
         </div>
 
-        <div className="tabs" role="tablist" aria-label="Views">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              className={`tab ${tab === t.key ? "active" : ""}`}
-              onClick={() => setTab(t.key)}
-              role="tab"
-              aria-selected={tab === t.key}
-            >
-              {t.label}
+        <div className="topbarRight">
+          <div className="tabs" role="tablist" aria-label="Views">
+            {tabs.map((t) => (
+              <button
+                key={t.key}
+                className={`tab ${tab === t.key ? "active" : ""}`}
+                onClick={() => setTab(t.key)}
+                role="tab"
+                aria-selected={tab === t.key}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="userInfo">
+            <span className="userName">{user.name}</span>
+            <button className="btn logoutBtn" onClick={handleLogout} disabled={loggingOut}>
+              {loggingOut ? "..." : "退出"}
             </button>
-          ))}
+          </div>
         </div>
       </div>
 
@@ -183,6 +252,7 @@ export function App() {
       {tab === "schedule" && <GanttPage />}
       {tab === "factories" && <FactoriesPage />}
       {tab === "geofence" && <GeofencePage />}
+      {tab === "dashboard" && <DashboardPage />}
     </div>
   );
 }

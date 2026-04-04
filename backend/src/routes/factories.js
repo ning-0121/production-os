@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
 // GET /api/factories — list all factories with capabilities
-router.get("/", async (_req, res) => {
+router.get("/", asyncHandler(async (_req, res) => {
   const { data: factories, error } = await supabase
     .from("factories")
     .select("*, factory_capabilities(*)")
@@ -12,10 +13,10 @@ router.get("/", async (_req, res) => {
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(factories);
-});
+}));
 
 // GET /api/factories/:id
-router.get("/:id", async (req, res) => {
+router.get("/:id", asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from("factories")
     .select("*, factory_capabilities(*)")
@@ -24,10 +25,10 @@ router.get("/:id", async (req, res) => {
 
   if (error) return res.status(404).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // PATCH /api/factories/:id — update factory fields
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", asyncHandler(async (req, res) => {
   const allowed = [
     "name", "code", "status", "address", "contact_name", "contact_phone",
     "timezone", "work_calendar", "ai_profile", "constraints", "metadata",
@@ -46,10 +47,10 @@ router.patch("/:id", async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // PATCH /api/capabilities/:id — update a single capability row
-router.patch("/capabilities/:id", async (req, res) => {
+router.patch("/capabilities/:id", asyncHandler(async (req, res) => {
   const allowed = [
     "base_capacity_units_per_day", "setup_minutes", "minutes_per_unit",
     "cost_per_unit", "quality_score", "features",
@@ -68,6 +69,6 @@ router.patch("/capabilities/:id", async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
-});
+}));
 
 export default router;

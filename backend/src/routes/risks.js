@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { checkRisk } from "../scheduler/risk.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
 
 const router = Router();
 
 // GET /api/risks — fetch current risk alerts with optional filters
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("risk_alerts")
-    .select("*, production_allocations(product_type, quantity, factory_id, factories(id, name, code))")
+    .select("*, production_allocations(product_type, quantity, factory_id, factories(id, name))")
     .order("created_at", { ascending: false });
 
   if (req.query.level) {
@@ -18,10 +19,10 @@ router.get("/", async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // GET /api/risks/summary — aggregate counts by level
-router.get("/summary", async (_req, res) => {
+router.get("/summary", asyncHandler(async (_req, res) => {
   const { data, error } = await supabase
     .from("risk_alerts")
     .select("risk_level");
@@ -34,56 +35,80 @@ router.get("/summary", async (_req, res) => {
     summary.total++;
   }
   res.json(summary);
-});
+}));
 
 // POST /api/risks/scan — analyze all active allocations and upsert risk_alerts
-router.post("/scan", async (_req, res) => {
-  // 1. Load all non-terminal allocations
-  const { data: allocations, error: allocErr } = await supabase
-    .from("production_allocations")
-    .select("id, product_type, quantity, start_at, end_at, status, factory_id")
-    .in("status", ["planned", "confirmed", "in_progress"]);
+router.post("/scan", asyncHandler(async (_req, res) => {
+  // 1. Load all non-terminal allocations with factory info
+  const [allocRes, capRes, perfRes] = await Promise.all([
+    supabase
+      .from("production_allocations")
+      .select("id, product_type, quantity, start_at, end_at, status, factory_id")
+      .in("status", ["planned", "confirmed", "in_progress"]),
+    supabase
+      .from("factory_capabilities")
+      .select("factory_id, product_type, quality_score, base_capacity_units_per_day"),
+    supabase
+      .from("factory_performance_logs")
+      .select("factory_id, context")
+      .eq("metric_type", "order_completion")
+      .order("occurred_at", { ascending: false })
+      .limit(500),
+  ]);
 
-  if (allocErr) return res.status(500).json({ error: allocErr.message });
-  if (!allocations || allocations.length === 0) {
+  const allocations = allocRes.data ?? [];
+  if (allocRes.error) return res.status(500).json({ error: allocRes.error.message });
+  if (allocations.length === 0) {
     return res.json({ scanned: 0, alerts: [] });
   }
 
-  // 2. Run risk check for each allocation
-  const alerts = [];
-  for (const alloc of allocations) {
-    // Use end_at as both due_date and planned_end_date
-    // (end_at is the scheduled completion; it doubles as the delivery target)
-    const result = checkRisk(
-      { due_date: alloc.end_at },
-      { planned_end_date: alloc.end_at },
-    );
+  // Build factory quality map
+  const qualityMap = {};
+  for (const cap of capRes.data ?? []) {
+    if (!qualityMap[cap.factory_id] || cap.quality_score > qualityMap[cap.factory_id]) {
+      qualityMap[cap.factory_id] = cap.quality_score;
+    }
+  }
 
-    // For allocations that have a real due date stored in end_at,
-    // the risk is computed against today → end_at gap.
-    // More useful: compare against *today* to see how much buffer is left.
-    const today = new Date();
+  // Build factory on-time rate map
+  const factoryPerf = {};
+  for (const log of perfRes.data ?? []) {
+    if (!factoryPerf[log.factory_id]) factoryPerf[log.factory_id] = { total: 0, onTime: 0 };
+    factoryPerf[log.factory_id].total++;
+    if (log.context?.on_time) factoryPerf[log.factory_id].onTime++;
+  }
+  const onTimeMap = {};
+  for (const [fid, p] of Object.entries(factoryPerf)) {
+    onTimeMap[fid] = p.total > 0 ? Math.round((p.onTime / p.total) * 100) : null;
+  }
+
+  // Compute factory utilization
+  const loadMap = {};
+  for (const a of allocations) {
+    loadMap[a.factory_id] = (loadMap[a.factory_id] ?? 0) + Number(a.quantity ?? 0);
+  }
+
+  // 2. Run enhanced risk check for each allocation
+  const alerts = [];
+  const today = new Date();
+  for (const alloc of allocations) {
     const endDate = new Date(alloc.end_at);
     const daysUntilEnd = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    let level = "SAFE";
-    let message = null;
-    if (daysUntilEnd < 0) {
-      level = "HIGH";
-      message = `已超出交期 ${Math.abs(daysUntilEnd)} 天，需立即处理`;
-    } else if (daysUntilEnd < 2) {
-      level = "HIGH";
-      message = `交期紧迫，仅剩 ${daysUntilEnd} 天缓冲`;
-    } else if (daysUntilEnd < 5) {
-      level = "MEDIUM";
-      message = `交期风险，剩余 ${daysUntilEnd} 天，建议提前沟通`;
-    }
+    const result = checkRisk(
+      { due_date: endDate },
+      { planned_end_date: endDate },
+      {
+        quality_score: qualityMap[alloc.factory_id] ?? null,
+        on_time_rate: onTimeMap[alloc.factory_id] ?? null,
+      },
+    );
 
     alerts.push({
       allocation_id: alloc.id,
-      risk_level: level,
+      risk_level: result.level,
       buffer_days: daysUntilEnd,
-      message,
+      message: result.message ?? null,
     });
   }
 
@@ -111,6 +136,6 @@ router.post("/scan", async (_req, res) => {
     summary,
     alerts: inserted,
   });
-});
+}));
 
 export default router;

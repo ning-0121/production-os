@@ -76,6 +76,10 @@
 .boardCard:hover {
   box-shadow: 0 8px 20px rgba(0,0,0,.25);
 }
+.boardCardSelected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 8px 20px rgba(0,0,0,.25);
+}
 
 .boardCardTop {
   display: flex;

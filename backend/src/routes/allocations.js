@@ -5,14 +5,16 @@ import { recommendFactories } from "../scheduler/recommend.js";
 import { calcProductionMinutes, pickCapability } from "../scheduler/calc.js";
 import { onOrderCompleted } from "../scheduler/calibrate.js";
 import { auditLog } from "../governance/audit.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
 // GET /api/allocations — list allocations, optionally filter by status
-router.get("/", async (req, res) => {
+router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("production_allocations")
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .order("start_at");
 
   if (req.query.status) {
@@ -25,22 +27,22 @@ router.get("/", async (req, res) => {
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // GET /api/allocations/:id
-router.get("/:id", async (req, res) => {
+router.get("/:id", asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from("production_allocations")
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .eq("id", req.params.id)
     .single();
 
   if (error) return res.status(404).json({ error: error.message });
   res.json(data);
-});
+}));
 
 // POST /api/allocations — create new allocation
-router.post("/", async (req, res) => {
+router.post("/", validate(schemas.createAllocation), asyncHandler(async (req, res) => {
   const { factory_id, product_type, quantity, start_at, end_at, status, priority, order_external_id } = req.body;
 
   const { data, error } = await supabase
@@ -55,16 +57,16 @@ router.post("/", async (req, res) => {
       priority: priority ?? 0,
       order_external_id,
     })
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
   res.status(201).json(data);
-});
+}));
 
 // PATCH /api/allocations/:id — update allocation (status, dates, etc.)
 // NOTE: Setting status to "confirmed" is blocked here — must use POST /:id/schedule
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", asyncHandler(async (req, res) => {
   if (req.body.status === "confirmed") {
     return res.status(403).json({
       error: 'Cannot manually set status to "confirmed". Use POST /api/allocations/:id/schedule for system-driven scheduling.',
@@ -84,7 +86,7 @@ router.patch("/:id", async (req, res) => {
     .from("production_allocations")
     .update(updates)
     .eq("id", req.params.id)
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .single();
 
   if (error) {
@@ -103,10 +105,10 @@ router.patch("/:id", async (req, res) => {
   }
 
   res.json(data);
-});
+}));
 
 // POST /api/allocations/:id/recommend — get AI-ranked factory recommendations
-router.post("/:id/recommend", async (req, res) => {
+router.post("/:id/recommend", asyncHandler(async (req, res) => {
   // 1. Load the allocation (the "order")
   const { data: alloc, error: allocErr } = await supabase
     .from("production_allocations")
@@ -176,10 +178,10 @@ router.post("/:id/recommend", async (req, res) => {
   };
   const recs = recommendFactories(order, factoryInputs, req.body.options);
   res.json(recs);
-});
+}));
 
 // POST /api/allocations/:id/schedule — validate capacity + assign factory
-router.post("/:id/schedule", async (req, res) => {
+router.post("/:id/schedule", asyncHandler(async (req, res) => {
   const { factory_id } = req.body;
   if (!factory_id) return res.status(400).json({ error: "factory_id is required" });
 
@@ -269,15 +271,15 @@ router.post("/:id/schedule", async (req, res) => {
       },
     })
     .eq("id", req.params.id)
-    .select("*, factories(id, name, code)")
+    .select("*, factories(id, name)")
     .single();
 
   if (updateErr) return res.status(400).json({ error: updateErr.message });
   res.json(updated);
-});
+}));
 
 // DELETE /api/allocations/:id
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", asyncHandler(async (req, res) => {
   const { error } = await supabase
     .from("production_allocations")
     .delete()
@@ -285,6 +287,6 @@ router.delete("/:id", async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   res.status(204).end();
-});
+}));
 
 export default router;

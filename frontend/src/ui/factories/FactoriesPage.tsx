@@ -2,11 +2,28 @@ import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { fetchFactories, updateCapability } from "../../services/api";
 import type { Factory, FactoryCapability } from "../../types";
+import "../orders/orders.css";
 import "./factories.css";
 
 export function FactoriesPage() {
-  const { data: factories, loading, error, refetch } = useAsync(() => fetchFactories(), []);
+  const { data: rawFactories, loading, error, refetch } = useAsync(() => fetchFactories(), []);
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = React.useState("");
+  const [searchText, setSearchText] = React.useState("");
+
+  const factories = React.useMemo(() => {
+    let list = rawFactories ?? [];
+    if (filterStatus) list = list.filter((f) => f.status === filterStatus);
+    if (searchText) {
+      const q = searchText.toLowerCase();
+      list = list.filter((f) =>
+        f.name.toLowerCase().includes(q) ||
+        (f.address ?? "").toLowerCase().includes(q) ||
+        f.code.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [rawFactories, filterStatus, searchText]);
 
   async function handleCapabilityUpdate(capId: string, field: string, value: number) {
     try {
@@ -17,9 +34,9 @@ export function FactoriesPage() {
     refetch();
   }
 
-  if (loading) return <div className="card"><div style={{ padding: 24, color: "var(--muted)" }}>加载中…</div></div>;
+  if (loading) return <div className="card"><div className="loadingCenter">加载中...</div></div>;
   if (error) return <div className="card"><div style={{ padding: 24, color: "var(--danger)" }}>加载失败: {error}</div></div>;
-  if (!factories) return null;
+  if (!rawFactories) return null;
 
   return (
     <div className="card">
@@ -28,7 +45,26 @@ export function FactoriesPage() {
           <h2>工厂列表</h2>
           <div className="hint">产能参数自动校准 — 每次订单完成后自动更新</div>
         </div>
-        <span className="pill">{factories.length} 工厂</span>
+        <span className="pill">{factories.length} / {rawFactories.length} 工厂</span>
+      </div>
+
+      <div className="filterBar">
+        <input
+          className="filterSearch"
+          placeholder="搜索工厂名称、地址..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+        <select
+          className="filterSelect"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+        >
+          <option value="">全部状态</option>
+          <option value="active">运营中</option>
+          <option value="inactive">停用</option>
+          <option value="maintenance">维护中</option>
+        </select>
       </div>
 
       <div className="ftable">

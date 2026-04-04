@@ -8,7 +8,7 @@ type AsyncState<T> =
 
 /**
  * Fetch data on mount (and whenever `deps` change).
- * Returns { data, error, loading, refetch }.
+ * Returns { data, error, loading, refetch, retry }.
  */
 export function useAsync<T>(
   fn: () => Promise<T>,
@@ -19,6 +19,7 @@ export function useAsync<T>(
     data: null,
     error: null,
   });
+  const [retryCount, setRetryCount] = useState(0);
 
   const execute = useCallback(async () => {
     setState((prev) => ({ status: "loading", data: prev.data, error: null }));
@@ -33,7 +34,7 @@ export function useAsync<T>(
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [...deps, retryCount]);
 
   useEffect(() => {
     void execute();
@@ -44,5 +45,6 @@ export function useAsync<T>(
     error: state.error,
     loading: state.status === "loading" || state.status === "idle",
     refetch: execute,
+    retry: () => setRetryCount((c) => c + 1),
   };
 }
