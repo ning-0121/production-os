@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { runAPS } from "../scheduler/aps.js";
 
 const router = Router();
 
@@ -201,6 +202,90 @@ router.post("/auto-schedule", asyncHandler(async (req, res) => {
       back: { start: backStartStr, end: backEnd, days: backDays, capacity_per_day: backCapacity },
     },
   });
+}));
+
+// POST /api/lines/batch-schedule — 一键全排：自动排所有 planned 订单
+router.post("/batch-schedule", asyncHandler(async (req, res) => {
+  const dryRun = req.body.dry_run !== false; // default: preview only
+
+  // 1. Load all planned (unscheduled) orders
+  const { data: allOrders, error: ordErr } = await supabase
+    .from("production_allocations")
+    .select("id, order_id, product_type, allocated_qty, planned_end_date, status")
+    .eq("status", "planned")
+    .order("planned_end_date");
+
+  if (ordErr) return res.status(500).json({ error: ordErr.message });
+
+  // Filter out orders already in line_schedules
+  const { data: existingSch } = await supabase
+    .from("line_schedules")
+    .select("allocation_id, line_id, process, end_date");
+
+  const scheduledIds = new Set((existingSch ?? []).map((s) => s.allocation_id));
+  const pendingOrders = (allOrders ?? []).filter((o) => !scheduledIds.has(o.id));
+
+  if (pendingOrders.length === 0) {
+    return res.json({ assignments: [], warnings: [{ type: "none", message: "没有待排产订单" }], summary: { total_orders: 0, scheduled: 0 } });
+  }
+
+  // 2. Load all production lines
+  const { data: rawLines, error: lineErr } = await supabase
+    .from("production_lines")
+    .select("*, factories(id, name)")
+    .eq("status", "active");
+
+  if (lineErr) return res.status(500).json({ error: lineErr.message });
+
+  const lines = (rawLines ?? []).map((l) => ({
+    id: l.id,
+    name: l.name,
+    factory_id: l.factory_id,
+    factory_name: l.factories?.name ?? "Unknown",
+    product_types: l.product_types ?? [],
+    front_capacity_per_day: l.front_capacity_per_day || 300,
+    back_capacity_per_day: l.back_capacity_per_day || 200,
+  }));
+
+  // 3. Run APS engine
+  const result = runAPS(pendingOrders, lines, existingSch ?? []);
+
+  // 4. If not dry run, persist to database
+  if (!dryRun && result.assignments.length > 0) {
+    const rows = [];
+    for (const a of result.assignments) {
+      // Get next seq for this line
+      const lineScheds = (existingSch ?? []).filter((s) => s.line_id === a.line_id && s.process === "front");
+      const existingAssignments = result.assignments.filter((x) => x.line_id === a.line_id);
+      const seqBase = lineScheds.length;
+      const seqOffset = existingAssignments.indexOf(a);
+
+      rows.push(
+        { line_id: a.line_id, allocation_id: a.allocation_id, process: "front", start_date: a.front.start, end_date: a.front.end, seq: seqBase + seqOffset + 1, status: "pending" },
+        { line_id: a.line_id, allocation_id: a.allocation_id, process: "back", start_date: a.back.start, end_date: a.back.end, seq: seqBase + seqOffset + 1, status: "pending" },
+      );
+    }
+
+    const { error: insertErr } = await supabase
+      .from("line_schedules")
+      .insert(rows);
+
+    if (insertErr) return res.status(500).json({ error: insertErr.message, result });
+
+    // Update allocation status to confirmed
+    const allocIds = result.assignments.map((a) => a.allocation_id);
+    await supabase
+      .from("production_allocations")
+      .update({ status: "confirmed" })
+      .in("id", allocIds);
+
+    result.persisted = true;
+  } else {
+    result.persisted = false;
+    result.dry_run = true;
+  }
+
+  res.json(result);
 }));
 
 // PATCH /api/lines/schedules/:id — update a schedule entry

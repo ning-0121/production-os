@@ -226,6 +226,32 @@ export function autoScheduleLine(params: {
   });
 }
 
+export function batchScheduleLines(dryRun = true): Promise<{
+  assignments: Array<{
+    order_id: string;
+    allocation_id: string;
+    product_type: string;
+    qty: number;
+    due_date: string;
+    line_id: string;
+    line_name: string;
+    front: { start: string; end: string; days: number };
+    back: { start: string; end: string; days: number };
+    delivery_ok: boolean;
+    days_late: number;
+    days_early: number;
+  }>;
+  warnings: Array<{ order_id?: string; type: string; message: string }>;
+  summary: { total_orders: number; scheduled: number; unscheduled: number; on_time: number; at_risk: number; line_load: Record<string, { orders: number; qty: number }> };
+  persisted?: boolean;
+  dry_run?: boolean;
+}> {
+  return request("/lines/batch-schedule", {
+    method: "POST",
+    body: JSON.stringify({ dry_run: dryRun }),
+  });
+}
+
 export function checkRisk(
   order: { due_date: string },
   allocation: { planned_end_date: string },

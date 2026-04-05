@@ -5,7 +5,7 @@ import "../orders/orders.css";
 import "./Gantt.css";
 import { useAsync } from "../../hooks/useAsync";
 import { useRealtimeRefetch } from "../../hooks/useRealtime";
-import { fetchProductionLines, fetchLineSchedules, fetchAllocations, autoScheduleLine } from "../../services/api";
+import { fetchProductionLines, fetchLineSchedules, fetchAllocations, autoScheduleLine, batchScheduleLines } from "../../services/api";
 import { useToast } from "../Toast";
 import type { ProductionLine, LineSchedule, Allocation } from "../../types";
 
@@ -23,6 +23,7 @@ export function GanttPage() {
 
   const [filterFactory, setFilterFactory] = React.useState("");
   const [showScheduler, setShowScheduler] = React.useState(false);
+  const [showBatch, setShowBatch] = React.useState(false);
   const { toast } = useToast();
 
   // Group lines by factory
@@ -88,7 +89,8 @@ export function GanttPage() {
             {factoryList.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
           <span className="pill">{format(today, "MM/dd")} → {format(timelineEnd, "MM/dd")}</span>
-          <button className="btn primary" onClick={() => setShowScheduler(true)}>+ 排单</button>
+          <button className="btn" onClick={() => setShowScheduler(true)}>+ 手动排单</button>
+          <button className="btn primary" onClick={() => setShowBatch(true)}>智能全排</button>
         </div>
       </div>
 
@@ -176,6 +178,15 @@ export function GanttPage() {
         />
       )}
 
+      {/* Batch Scheduler */}
+      {showBatch && (
+        <BatchSchedulerDrawer
+          onClose={() => setShowBatch(false)}
+          onScheduled={() => { setShowBatch(false); refetch(); toast("全部排产完成", "success"); }}
+          onError={(msg) => toast(msg, "error")}
+        />
+      )}
+
       {/* Legend */}
       <div className="ganttLegend">
         <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "#6ee7ff" }} /> 前道</div>
@@ -214,6 +225,136 @@ function ScheduleBlock({ schedule, process, today, totalDays }: {
     >
       <span className="schOrderId">{orderId}</span>
       <span className="schInfo">{qty}件 {days}天</span>
+    </div>
+  );
+}
+
+// ── Batch Scheduler Drawer ───────────────────────────────
+
+function BatchSchedulerDrawer({ onClose, onScheduled, onError }: {
+  onClose: () => void;
+  onScheduled: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [preview, setPreview] = React.useState<Awaited<ReturnType<typeof batchScheduleLines>> | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+
+  // Auto-preview on open
+  React.useEffect(() => {
+    setLoading(true);
+    batchScheduleLines(true)
+      .then((r) => setPreview(r))
+      .catch((err) => onError(err instanceof Error ? err.message : "预览失败"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleConfirm() {
+    setConfirming(true);
+    try {
+      await batchScheduleLines(false);
+      onScheduled();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "排产失败");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <div className="drawerOverlay" onClick={onClose}>
+      <div className="drawer batchDrawer" onClick={(e) => e.stopPropagation()}>
+        <div className="drawerHeader">
+          <h3>智能全排</h3>
+          <button className="drawerClose" onClick={onClose}>x</button>
+        </div>
+
+        {loading && <div className="loadingCenter">计算最优排产方案...</div>}
+
+        {preview && (
+          <div className="batchContent">
+            {/* Summary */}
+            <div className="batchSummary">
+              <div className="batchSummaryItem">
+                <span className="batchNum">{preview.summary.scheduled}</span>
+                <span>已排产</span>
+              </div>
+              <div className="batchSummaryItem">
+                <span className="batchNum batchNumGood">{preview.summary.on_time}</span>
+                <span>准时</span>
+              </div>
+              <div className="batchSummaryItem">
+                <span className="batchNum batchNumWarn">{preview.summary.at_risk}</span>
+                <span>有延期风险</span>
+              </div>
+              <div className="batchSummaryItem">
+                <span className="batchNum batchNumBad">{preview.summary.unscheduled}</span>
+                <span>无法排产</span>
+              </div>
+            </div>
+
+            {/* Assignment list */}
+            <div className="batchList">
+              {preview.assignments.map((a) => (
+                <div key={a.allocation_id} className={`batchItem ${a.delivery_ok ? "" : "batchItemLate"}`}>
+                  <div className="batchItemHeader">
+                    <span className="batchItemOrder">{a.order_id}</span>
+                    <span className="batchItemType">{a.product_type}</span>
+                    <span className="batchItemQty">{a.qty}件</span>
+                    {a.delivery_ok
+                      ? <span className="batchItemBadge batchBadgeOk">准时 (提前{a.days_early}天)</span>
+                      : <span className="batchItemBadge batchBadgeLate">延期{a.days_late}天</span>
+                    }
+                  </div>
+                  <div className="batchItemDetail">
+                    <span className="batchItemLine">{a.line_name}</span>
+                    <span className="processLabel processFront">前道</span>
+                    <span>{a.front.start}→{a.front.end} ({a.front.days}天)</span>
+                    <span className="processLabel processBack">后道</span>
+                    <span>{a.back.start}→{a.back.end} ({a.back.days}天)</span>
+                  </div>
+                  <div className="batchItemDue">
+                    交期 {a.due_date}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Warnings */}
+            {preview.warnings.length > 0 && (
+              <div className="batchWarnings">
+                <div className="batchWarningsTitle">注意事项</div>
+                {preview.warnings.map((w, i) => (
+                  <div key={i} className="batchWarnItem">{w.message}</div>
+                ))}
+              </div>
+            )}
+
+            {/* Line load summary */}
+            <div className="batchLineLoad">
+              <div className="batchLineLoadTitle">产线负载</div>
+              {Object.entries(preview.summary.line_load).map(([name, load]) => (
+                <div key={name} className="batchLineLoadItem">
+                  <span>{name}</span>
+                  <span>{(load as { orders: number; qty: number }).orders}单 / {(load as { orders: number; qty: number }).qty}件</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="orderActions" style={{ paddingTop: 12 }}>
+              <button className="btn" onClick={onClose}>取消</button>
+              <button
+                className="btn primary"
+                disabled={confirming || preview.assignments.length === 0}
+                onClick={handleConfirm}
+              >
+                {confirming ? "排产中..." : `确认排产 ${preview.assignments.length} 单`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
