@@ -206,6 +206,26 @@ export function fetchLineSchedules(): Promise<import("../types").LineSchedule[]>
   return request("/lines/schedules");
 }
 
+export function autoScheduleLine(params: {
+  line_id: string;
+  allocation_id: string;
+  front_days: number;
+}): Promise<{
+  scheduled: import("../types").LineSchedule[];
+  summary: {
+    order_id: string;
+    qty: number;
+    line_name: string;
+    front: { start: string; end: string; days: number };
+    back: { start: string; end: string; days: number; capacity_per_day: number };
+  };
+}> {
+  return request("/lines/auto-schedule", {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
 export function checkRisk(
   order: { due_date: string },
   allocation: { planned_end_date: string },

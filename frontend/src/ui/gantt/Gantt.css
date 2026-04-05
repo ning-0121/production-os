@@ -256,6 +256,48 @@
   border-radius: 4px;
 }
 
+/* ── Schedule Preview ────────────────────────────────── */
+
+.schedPreview {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedPreviewTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.schedPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.schedPreviewDays {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.schedPreviewWarn {
+  font-size: 11px;
+  color: #facc15;
+  background: rgba(250,204,21,.08);
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(250,204,21,.2);
+}
+
 /* ── Responsive ──────────────────────────────────────── */
 
 @media (max-width: 600px) {

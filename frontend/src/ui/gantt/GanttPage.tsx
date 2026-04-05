@@ -5,8 +5,9 @@ import "../orders/orders.css";
 import "./Gantt.css";
 import { useAsync } from "../../hooks/useAsync";
 import { useRealtimeRefetch } from "../../hooks/useRealtime";
-import { fetchProductionLines, fetchLineSchedules } from "../../services/api";
-import type { ProductionLine, LineSchedule } from "../../types";
+import { fetchProductionLines, fetchLineSchedules, fetchAllocations, autoScheduleLine } from "../../services/api";
+import { useToast } from "../Toast";
+import type { ProductionLine, LineSchedule, Allocation } from "../../types";
 
 const TIMELINE_DAYS = 30;
 
@@ -16,10 +17,13 @@ export function GanttPage() {
 
   const { data: lines, loading: loadingL } = useAsync(() => fetchProductionLines(), []);
   const { data: schedules, loading: loadingS, refetch } = useAsync(() => fetchLineSchedules(), []);
+  const { data: allAllocations } = useAsync(() => fetchAllocations(), []);
 
   useRealtimeRefetch("line_schedules", refetch);
 
   const [filterFactory, setFilterFactory] = React.useState("");
+  const [showScheduler, setShowScheduler] = React.useState(false);
+  const { toast } = useToast();
 
   // Group lines by factory
   const factoryGroups = React.useMemo(() => {
@@ -84,6 +88,7 @@ export function GanttPage() {
             {factoryList.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
           <span className="pill">{format(today, "MM/dd")} → {format(timelineEnd, "MM/dd")}</span>
+          <button className="btn primary" onClick={() => setShowScheduler(true)}>+ 排单</button>
         </div>
       </div>
 
@@ -159,6 +164,18 @@ export function GanttPage() {
         </div>
       </div>
 
+      {/* Scheduler Drawer */}
+      {showScheduler && (
+        <SchedulerDrawer
+          lines={lines ?? []}
+          allocations={allAllocations ?? []}
+          schedules={schedules ?? []}
+          onClose={() => setShowScheduler(false)}
+          onScheduled={() => { setShowScheduler(false); refetch(); toast("排单成功", "success"); }}
+          onError={(msg) => toast(msg, "error")}
+        />
+      )}
+
       {/* Legend */}
       <div className="ganttLegend">
         <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "#6ee7ff" }} /> 前道</div>
@@ -197,6 +214,178 @@ function ScheduleBlock({ schedule, process, today, totalDays }: {
     >
       <span className="schOrderId">{orderId}</span>
       <span className="schInfo">{qty}件 {days}天</span>
+    </div>
+  );
+}
+
+// ── Scheduler Drawer ────────────────────────────────────
+
+function SchedulerDrawer({ lines, allocations, schedules, onClose, onScheduled, onError }: {
+  lines: ProductionLine[];
+  allocations: Allocation[];
+  schedules: LineSchedule[];
+  onClose: () => void;
+  onScheduled: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [lineId, setLineId] = React.useState("");
+  const [allocId, setAllocId] = React.useState("");
+  const [frontDays, setFrontDays] = React.useState(5);
+  const [submitting, setSubmitting] = React.useState(false);
+
+  // Filter out already-scheduled allocations
+  const scheduledAllocIds = new Set(schedules.map((s) => s.allocation_id));
+  const availableOrders = allocations.filter((a) => !scheduledAllocIds.has(a.id));
+
+  // Preview calculation
+  const selectedLine = lines.find((l) => l.id === lineId);
+  const selectedOrder = allocations.find((a) => a.id === allocId);
+
+  const preview = React.useMemo(() => {
+    if (!selectedLine || !selectedOrder || !frontDays) return null;
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Find last front end on this line
+    const lineFronts = schedules.filter((s) => s.line_id === lineId && s.process === "front");
+    const lastFrontEnd = lineFronts.length > 0
+      ? lineFronts.reduce((max, s) => s.end_date > max ? s.end_date : max, "")
+      : today;
+    const frontStart = lastFrontEnd > today ? lastFrontEnd : today;
+
+    const frontStartDate = new Date(frontStart);
+    const frontEndDate = new Date(frontStartDate);
+    frontEndDate.setDate(frontEndDate.getDate() + frontDays);
+    const frontEnd = frontEndDate.toISOString().slice(0, 10);
+
+    // Find last back end on this line
+    const lineBacks = schedules.filter((s) => s.line_id === lineId && s.process === "back");
+    const lastBackEnd = lineBacks.length > 0
+      ? lineBacks.reduce((max, s) => s.end_date > max ? s.end_date : max, "")
+      : today;
+    const backStart = frontEnd > lastBackEnd ? frontEnd : lastBackEnd;
+
+    const backCap = selectedLine.back_capacity_per_day || 300;
+    const qty = selectedOrder.allocated_qty || 1000;
+    const backDays = Math.ceil(qty / backCap);
+    const backEndDate = new Date(backStart);
+    backEndDate.setDate(backEndDate.getDate() + backDays);
+
+    return {
+      frontStart,
+      frontEnd,
+      backStart,
+      backEnd: backEndDate.toISOString().slice(0, 10),
+      backDays,
+      backCap,
+      qty,
+      hasBackQueue: backStart > frontEnd,
+    };
+  }, [lineId, allocId, frontDays, selectedLine, selectedOrder, schedules]);
+
+  async function handleSubmit() {
+    if (!lineId || !allocId) return;
+    setSubmitting(true);
+    try {
+      await autoScheduleLine({ line_id: lineId, allocation_id: allocId, front_days: frontDays });
+      onScheduled();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "排单失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="drawerOverlay" onClick={onClose}>
+      <div className="drawer" onClick={(e) => e.stopPropagation()}>
+        <div className="drawerHeader">
+          <h3>智能排单</h3>
+          <button className="drawerClose" onClick={onClose}>x</button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "12px 0" }}>
+          {/* Select Line */}
+          <label className="orderField">
+            <span className="orderFieldLabel">选择产线 *</span>
+            <select className="orderInput" value={lineId} onChange={(e) => setLineId(e.target.value)}>
+              <option value="">请选择...</option>
+              {lines.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.factories?.name} - {l.name} (前{l.front_capacity_per_day}/天 后{l.back_capacity_per_day}/天)
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Select Order */}
+          <label className="orderField">
+            <span className="orderFieldLabel">选择订单 *</span>
+            <select className="orderInput" value={allocId} onChange={(e) => setAllocId(e.target.value)}>
+              <option value="">请选择...</option>
+              {availableOrders.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.order_id ?? a.id.slice(0, 8)} — {a.allocated_qty}件
+                </option>
+              ))}
+            </select>
+            {availableOrders.length === 0 && (
+              <span className="orderFieldError">没有可排的订单，请先在看板创建订单</span>
+            )}
+          </label>
+
+          {/* Front Days Input */}
+          <label className="orderField">
+            <span className="orderFieldLabel">前道天数 *</span>
+            <input
+              className="orderInput"
+              type="number"
+              min={1}
+              max={30}
+              value={frontDays}
+              onChange={(e) => setFrontDays(Number(e.target.value))}
+            />
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>前道需要几天完成这个订单</span>
+          </label>
+
+          {/* Preview */}
+          {preview && (
+            <div className="schedPreview">
+              <div className="schedPreviewTitle">排单预览</div>
+              <div className="schedPreviewRow">
+                <span className="processLabel processFront">前道</span>
+                <span>{preview.frontStart} → {preview.frontEnd}</span>
+                <span className="schedPreviewDays">{frontDays}天</span>
+              </div>
+              <div className="schedPreviewRow">
+                <span className="processLabel processBack">后道</span>
+                <span>{preview.backStart} → {preview.backEnd}</span>
+                <span className="schedPreviewDays">{preview.backDays}天 ({preview.backCap}件/天)</span>
+              </div>
+              {preview.hasBackQueue && (
+                <div className="schedPreviewWarn">
+                  后道需要排队：上一单后道 {preview.backStart} 才结束
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                共 {preview.qty} 件 | 前道结束后后道立即开始
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="orderActions">
+            <button className="btn" onClick={onClose}>取消</button>
+            <button
+              className="btn primary"
+              disabled={!lineId || !allocId || !frontDays || submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? "排单中..." : "确认排入"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
