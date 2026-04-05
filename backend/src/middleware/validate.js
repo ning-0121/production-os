@@ -37,8 +37,8 @@ export const schemas = {
   createAllocation: z.object({
     product_type: z.string().min(1, "产品类型不能为空"),
     quantity: z.number().int().positive("数量必须大于0"),
-    end_at: z.string().min(1, "交货日期不能为空"),
-    start_at: z.string().optional(),
+    end_date: z.string().min(1, "交货日期不能为空"),
+    start_date: z.string().optional(),
     factory_id: z.string().uuid().optional(),
     priority: z.number().int().min(0).max(10).optional(),
     status: z.enum(["planned", "confirmed", "in_progress", "completed", "cancelled"]).optional(),
@@ -48,8 +48,8 @@ export const schemas = {
 
   updateAllocation: z.object({
     status: z.enum(["planned", "confirmed", "in_progress", "completed", "cancelled"]).optional(),
-    start_at: z.string().optional(),
-    end_at: z.string().optional(),
+    start_date: z.string().optional(),
+    end_date: z.string().optional(),
     priority: z.number().int().min(0).max(10).optional(),
     factory_id: z.string().uuid().optional(),
     assumptions: z.record(z.unknown()).optional(),
@@ -95,8 +95,8 @@ export const schemas = {
     orders: z.array(z.object({
       product_type: z.string().min(1),
       quantity: z.number().int().positive(),
-      end_at: z.string().min(1),
-      start_at: z.string().optional(),
+      end_date: z.string().min(1),
+      start_date: z.string().optional(),
       priority: z.number().int().min(0).max(10).optional(),
       order_external_id: z.string().optional(),
     })).min(1, "至少需要一条订单").max(500, "单次最多导入500条"),

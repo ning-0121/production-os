@@ -13,8 +13,8 @@ router.post("/orders", validate(schemas.batchImportOrders), asyncHandler(async (
   const rows = orders.map((o) => ({
     product_type: o.product_type,
     quantity: o.quantity,
-    start_at: new Date().toISOString(),
-    end_at: o.end_at,
+    start_date: new Date().toISOString(),
+    end_date: o.end_date,
     status: "planned",
     priority: o.priority ?? 0,
     order_external_id: o.order_external_id ?? null,

@@ -43,7 +43,7 @@ router.post("/scan", asyncHandler(async (_req, res) => {
   const [allocRes, capRes, perfRes] = await Promise.all([
     supabase
       .from("production_allocations")
-      .select("id, product_type, quantity, start_at, end_at, status, factory_id")
+      .select("id, product_type, quantity, start_date, end_date, status, factory_id")
       .in("status", ["planned", "confirmed", "in_progress"]),
     supabase
       .from("factory_capabilities")
@@ -92,7 +92,7 @@ router.post("/scan", asyncHandler(async (_req, res) => {
   const alerts = [];
   const today = new Date();
   for (const alloc of allocations) {
-    const endDate = new Date(alloc.end_at);
+    const endDate = new Date(alloc.end_date);
     const daysUntilEnd = Math.floor((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     const result = checkRisk(

@@ -33,11 +33,11 @@ function toDate(d) {
 }
 
 function computeCompletionMetrics(allocation) {
-  const plannedStart = toDate(allocation.start_at);
-  const plannedEnd = toDate(allocation.end_at);
+  const plannedStart = toDate(allocation.start_date);
+  const plannedEnd = toDate(allocation.end_date);
   const actualEnd = new Date(); // completed now
 
-  // Actual start: use start_at (when it was scheduled to begin)
+  // Actual start: use start_date (when it was scheduled to begin)
   const actualStart = plannedStart;
 
   const plannedDurationDays = Math.max(1, differenceInCalendarDays(plannedEnd, plannedStart));

@@ -41,24 +41,24 @@ const capabilities = [
 
 const allocations = [
   // Valid planned
-  { id: "a1", factory_id: "f1", product_type: "widget-A", quantity: 1200, start_at: now.toISOString(), end_at: addDays(now, 12).toISOString(), status: "planned", priority: 0 },
-  { id: "a2", factory_id: "f2", product_type: "widget-A", quantity: 800, start_at: now.toISOString(), end_at: addDays(now, 8).toISOString(), status: "planned", priority: 2 },
+  { id: "a1", factory_id: "f1", product_type: "widget-A", quantity: 1200, start_date: now.toISOString(), end_date: addDays(now, 12).toISOString(), status: "planned", priority: 0 },
+  { id: "a2", factory_id: "f2", product_type: "widget-A", quantity: 800, start_date: now.toISOString(), end_date: addDays(now, 8).toISOString(), status: "planned", priority: 2 },
   // Past-due planned
-  { id: "a3", factory_id: "f1", product_type: "widget-B", quantity: 500, start_at: addDays(now, -10).toISOString(), end_at: addDays(now, -2).toISOString(), status: "planned", priority: 0 },
+  { id: "a3", factory_id: "f1", product_type: "widget-B", quantity: 500, start_date: addDays(now, -10).toISOString(), end_date: addDays(now, -2).toISOString(), status: "planned", priority: 0 },
   // Invalid quantity
-  { id: "a4", factory_id: "f1", product_type: "widget-A", quantity: 0, start_at: now.toISOString(), end_at: addDays(now, 5).toISOString(), status: "planned", priority: 0 },
-  // Missing end_at
-  { id: "a5", factory_id: "f1", product_type: "widget-A", quantity: 100, start_at: now.toISOString(), end_at: null, status: "planned", priority: 0 },
-  // end_at <= start_at
-  { id: "a6", factory_id: "f1", product_type: "widget-B", quantity: 200, start_at: addDays(now, 5).toISOString(), end_at: addDays(now, 3).toISOString(), status: "planned", priority: 0 },
+  { id: "a4", factory_id: "f1", product_type: "widget-A", quantity: 0, start_date: now.toISOString(), end_date: addDays(now, 5).toISOString(), status: "planned", priority: 0 },
+  // Missing end_date
+  { id: "a5", factory_id: "f1", product_type: "widget-A", quantity: 100, start_date: now.toISOString(), end_date: null, status: "planned", priority: 0 },
+  // end_date <= start_date
+  { id: "a6", factory_id: "f1", product_type: "widget-B", quantity: 200, start_date: addDays(now, 5).toISOString(), end_date: addDays(now, 3).toISOString(), status: "planned", priority: 0 },
   // Unsupported product type
-  { id: "a7", factory_id: "f1", product_type: "widget-Z", quantity: 100, start_at: now.toISOString(), end_at: addDays(now, 10).toISOString(), status: "planned", priority: 0 },
+  { id: "a7", factory_id: "f1", product_type: "widget-Z", quantity: 100, start_date: now.toISOString(), end_date: addDays(now, 10).toISOString(), status: "planned", priority: 0 },
   // Confirmed — allocated to inactive factory
-  { id: "a8", factory_id: "f4", product_type: "widget-B", quantity: 300, start_at: now.toISOString(), end_at: addDays(now, 7).toISOString(), status: "confirmed", priority: 0 },
+  { id: "a8", factory_id: "f4", product_type: "widget-B", quantity: 300, start_date: now.toISOString(), end_date: addDays(now, 7).toISOString(), status: "confirmed", priority: 0 },
   // Confirmed — allocated to non-existent factory
-  { id: "a9", factory_id: "f_gone", product_type: "widget-A", quantity: 100, start_at: now.toISOString(), end_at: addDays(now, 5).toISOString(), status: "in_progress", priority: 0 },
+  { id: "a9", factory_id: "f_gone", product_type: "widget-A", quantity: 100, start_date: now.toISOString(), end_date: addDays(now, 5).toISOString(), status: "in_progress", priority: 0 },
   // Completed — should not be deeply validated
-  { id: "a10", factory_id: "f1", product_type: "widget-A", quantity: 500, start_at: addDays(now, -20).toISOString(), end_at: addDays(now, -10).toISOString(), status: "completed", priority: 0 },
+  { id: "a10", factory_id: "f1", product_type: "widget-A", quantity: 500, start_date: addDays(now, -20).toISOString(), end_date: addDays(now, -10).toISOString(), status: "completed", priority: 0 },
 ];
 
 // ── Run validations (inline, same logic as validate-data.js) ──
@@ -92,8 +92,8 @@ for (const a of allocations) {
   if (!["planned", "confirmed", "in_progress"].includes(a.status)) continue;
   if (!a.product_type) issue("BLOCK", "allocations", a.id, "product_type", "Empty");
   if (!Number(a.quantity) || Number(a.quantity) <= 0) issue("BLOCK", "allocations", a.id, "quantity", "Invalid");
-  if (!a.end_at) issue("BLOCK", "allocations", a.id, "end_at", "Missing");
-  else if (a.start_at && new Date(a.end_at) <= new Date(a.start_at)) issue("BLOCK", "allocations", a.id, "end_at", "end <= start");
+  if (!a.end_date) issue("BLOCK", "allocations", a.id, "end_date", "Missing");
+  else if (a.start_date && new Date(a.end_date) <= new Date(a.start_date)) issue("BLOCK", "allocations", a.id, "end_date", "end <= start");
   if (a.product_type && !capTypes.has(a.product_type)) issue("WARN", "allocations", a.id, "product_type", `Unmatched: ${a.product_type}`);
 }
 
@@ -136,11 +136,11 @@ assert(blocking.some((i) => i.id === "c7" && i.field === "product_type"), "c7 em
 // a4 quantity=0 should BLOCK
 assert(blocking.some((i) => i.id === "a4" && i.field === "quantity"), "a4 invalid quantity detected");
 
-// a5 missing end_at should BLOCK
-assert(blocking.some((i) => i.id === "a5" && i.field === "end_at"), "a5 missing end_at detected");
+// a5 missing end_date should BLOCK
+assert(blocking.some((i) => i.id === "a5" && i.field === "end_date"), "a5 missing end_date detected");
 
-// a6 end_at <= start_at should BLOCK
-assert(blocking.some((i) => i.id === "a6" && i.field === "end_at"), "a6 end <= start detected");
+// a6 end_date <= start_date should BLOCK
+assert(blocking.some((i) => i.id === "a6" && i.field === "end_date"), "a6 end <= start detected");
 
 // a7 widget-Z should WARN (unmatched product type)
 assert(warnings.some((i) => i.id === "a7" && i.field === "product_type"), "a7 unmatched product_type detected");

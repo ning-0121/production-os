@@ -67,11 +67,11 @@ export function fetchAllocations(params?: {
 }
 
 export function createAllocation(data: {
-  factory_id: string;
+  factory_id?: string;
   product_type: string;
   quantity: number;
-  start_at: string;
-  end_at: string;
+  start_date: string;
+  end_date: string;
   status?: AllocationStatus;
   priority?: number;
   order_external_id?: string;

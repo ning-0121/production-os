@@ -41,8 +41,8 @@ export type Allocation = {
   order_external_id: string | null;
   product_type: string;
   quantity: number;
-  start_at: string;
-  end_at: string;
+  start_date: string;
+  end_date: string;
   status: AllocationStatus;
   priority: number;
   assumptions: Record<string, unknown>;

@@ -246,34 +246,34 @@ function validateAllocations(allocations, capabilities) {
       hasIssue = true;
     }
 
-    if (!a.start_at) {
-      issue("BLOCK", "production_allocations", a.id, "start_at", "Missing start_at");
+    if (!a.start_date) {
+      issue("BLOCK", "production_allocations", a.id, "start_date", "Missing start_date");
       hasIssue = true;
-    } else if (!isValid(parseISO(a.start_at))) {
-      issue("BLOCK", "production_allocations", a.id, "start_at", `Invalid date: ${a.start_at}`);
-      hasIssue = true;
-    }
-
-    if (!a.end_at) {
-      issue("BLOCK", "production_allocations", a.id, "end_at", "Missing end_at");
-      hasIssue = true;
-    } else if (!isValid(parseISO(a.end_at))) {
-      issue("BLOCK", "production_allocations", a.id, "end_at", `Invalid date: ${a.end_at}`);
+    } else if (!isValid(parseISO(a.start_date))) {
+      issue("BLOCK", "production_allocations", a.id, "start_date", `Invalid date: ${a.start_date}`);
       hasIssue = true;
     }
 
-    if (a.start_at && a.end_at) {
-      const s = parseISO(a.start_at);
-      const e = parseISO(a.end_at);
+    if (!a.end_date) {
+      issue("BLOCK", "production_allocations", a.id, "end_date", "Missing end_date");
+      hasIssue = true;
+    } else if (!isValid(parseISO(a.end_date))) {
+      issue("BLOCK", "production_allocations", a.id, "end_date", `Invalid date: ${a.end_date}`);
+      hasIssue = true;
+    }
+
+    if (a.start_date && a.end_date) {
+      const s = parseISO(a.start_date);
+      const e = parseISO(a.end_date);
       if (isValid(s) && isValid(e) && e <= s) {
-        issue("BLOCK", "production_allocations", a.id, "end_at", `end_at (${a.end_at}) <= start_at (${a.start_at})`);
+        issue("BLOCK", "production_allocations", a.id, "end_date", `end_date (${a.end_date}) <= start_date (${a.start_date})`);
         hasIssue = true;
       }
 
       if (a.status === "planned" && isValid(e)) {
         const daysLeft = differenceInCalendarDays(e, now);
         if (daysLeft < 0) {
-          issue("WARN", "production_allocations", a.id, "end_at", `Planned order is already past due by ${Math.abs(daysLeft)} days`);
+          issue("WARN", "production_allocations", a.id, "end_date", `Planned order is already past due by ${Math.abs(daysLeft)} days`);
           stats.past_due++;
         }
       }
@@ -423,7 +423,7 @@ async function runOptimizerPreview(data) {
     id: a.id,
     product_type: a.product_type,
     quantity: Number(a.quantity),
-    due_date: a.end_at,
+    due_date: a.end_date,
     priority: a.priority ?? 0,
     order_external_id: a.order_external_id,
   }));

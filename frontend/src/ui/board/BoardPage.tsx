@@ -360,7 +360,7 @@ function OrderCard({
       </div>
       <div className="boardCardFactory">{order.factories?.name ?? "未分配"}</div>
       <div className="boardCardDue">
-        交期 {order.end_at?.slice(0, 10)}
+        交期 {order.end_date?.slice(0, 10)}
         {riskLevel && bufferDays !== null && (
           <span className={`boardCardRiskBadge boardCardRiskBadge${riskLevel}`}>
             {riskLevel === "HIGH"
@@ -433,7 +433,7 @@ function ScheduleDrawer({
             <h3>智能排单</h3>
             <div className="drawerSub">
               {allocation.product_type} x{allocation.quantity}
-              {" | "}交期 {allocation.end_at?.slice(0, 10)}
+              {" | "}交期 {allocation.end_date?.slice(0, 10)}
             </div>
           </div>
           <button className="drawerClose" onClick={onClose}>x</button>

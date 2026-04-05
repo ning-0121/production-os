@@ -59,10 +59,10 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
   // 1. Fetch active allocations for this factory
   const { data: allocs, error: allocErr } = await supabase
     .from("production_allocations")
-    .select("id, product_type, quantity, start_at, end_at, status, priority")
+    .select("id, product_type, quantity, start_date, end_date, status, priority")
     .eq("factory_id", factory_id)
     .in("status", ["planned", "confirmed", "in_progress"])
-    .order("end_at");
+    .order("end_date");
 
   if (allocErr) return res.status(500).json({ error: allocErr.message });
 
@@ -96,7 +96,7 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
   const tasks = [];
 
   for (const alloc of allocs ?? []) {
-    const endDate = new Date(alloc.end_at);
+    const endDate = new Date(alloc.end_date);
     const risk = riskMap[alloc.id];
     const dueSoon = endDate <= threeDaysOut;
     const notStarted = alloc.status === "planned" || alloc.status === "confirmed";
@@ -112,14 +112,14 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
         task_type: "readiness_check",
         status: "open",
         priority: alloc.status === "planned" ? 2 : 1,
-        due_at: alloc.start_at,
+        due_at: alloc.start_date,
         metadata: {
           auto_generated: true,
           reason: "order_not_started",
           allocation_status: alloc.status,
           product_type: alloc.product_type,
           quantity: alloc.quantity,
-          end_at: alloc.end_at,
+          end_date: alloc.end_date,
         },
       });
     }
@@ -134,7 +134,7 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
         task_type: "risk_inspection",
         status: "open",
         priority: 3,
-        due_at: alloc.end_at,
+        due_at: alloc.end_date,
         metadata: {
           auto_generated: true,
           reason: "high_risk",
@@ -142,7 +142,7 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
           buffer_days: risk.buffer_days,
           product_type: alloc.product_type,
           quantity: alloc.quantity,
-          end_at: alloc.end_at,
+          end_date: alloc.end_date,
         },
       });
     }
@@ -158,14 +158,14 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
         task_type: "delivery_check",
         status: "open",
         priority: 2,
-        due_at: alloc.end_at,
+        due_at: alloc.end_date,
         metadata: {
           auto_generated: true,
           reason: "due_soon",
           days_remaining: daysLeft,
           product_type: alloc.product_type,
           quantity: alloc.quantity,
-          end_at: alloc.end_at,
+          end_date: alloc.end_date,
         },
       });
     }

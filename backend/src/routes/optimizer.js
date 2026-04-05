@@ -70,7 +70,7 @@ router.post("/run", async (req, res) => {
       const targetStatuses = forceUpdate ? ["planned", "confirmed"] : ["planned"];
       const { data: allocs, error } = await supabase
         .from("production_allocations")
-        .select("id, factory_id, product_type, quantity, start_at, end_at, status, priority, order_external_id, assumptions")
+        .select("id, factory_id, product_type, quantity, start_date, end_date, status, priority, order_external_id, assumptions")
         .in("status", targetStatuses)
         .order("priority", { ascending: false });
 
@@ -94,7 +94,7 @@ router.post("/run", async (req, res) => {
         id: a.id,
         product_type: a.product_type,
         quantity: Number(a.quantity),
-        due_date: a.end_at,
+        due_date: a.end_date,
         priority: a.priority ?? 0,
         order_external_id: a.order_external_id,
         _current_status: a.status,
@@ -135,9 +135,9 @@ router.post("/run", async (req, res) => {
     const windowEnd = addDays(new Date(), horizonDays).toISOString();
     const { data: existingAllocs } = await supabase
       .from("production_allocations")
-      .select("factory_id, quantity, product_type, start_at, end_at")
+      .select("factory_id, quantity, product_type, start_date, end_date")
       .in("status", ["confirmed", "in_progress"])
-      .lte("start_at", windowEnd);
+      .lte("start_date", windowEnd);
 
     const loadByFactory = {};
     for (const ea of existingAllocs ?? []) {
@@ -234,7 +234,7 @@ router.post("/run", async (req, res) => {
 router.get("/preview", async (_req, res) => {
   const { data: planned, error: e1 } = await supabase
     .from("production_allocations")
-    .select("id, product_type, quantity, end_at, priority")
+    .select("id, product_type, quantity, end_date, priority")
     .eq("status", "planned");
 
   const { data: factories, error: e2 } = await supabase
@@ -354,8 +354,8 @@ async function persistAllocations(allocations, runId, forceUpdate) {
       .from("production_allocations")
       .update({
         factory_id: alloc.factory_id,
-        start_at: alloc.planned_start_date,
-        end_at: alloc.planned_end_date,
+        start_date: alloc.planned_start_date,
+        end_date: alloc.planned_end_date,
         status: "confirmed",
         assumptions: {
           scheduled_by: "optimizer",
@@ -369,7 +369,7 @@ async function persistAllocations(allocations, runId, forceUpdate) {
       })
       .eq("id", alloc.order_id)
       .in("status", acceptableStatuses)  // optimistic lock
-      .select("id, factory_id, status, start_at, end_at")
+      .select("id, factory_id, status, start_date, end_date")
       .maybeSingle();
 
     if (error) {

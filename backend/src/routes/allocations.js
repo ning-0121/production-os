@@ -15,7 +15,7 @@ router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("production_allocations")
     .select("*, factories(id, name)")
-    .order("start_at");
+    .order("start_date");
 
   if (req.query.status) {
     query = query.eq("status", req.query.status);
@@ -43,20 +43,22 @@ router.get("/:id", asyncHandler(async (req, res) => {
 
 // POST /api/allocations — create new allocation
 router.post("/", validate(schemas.createAllocation), asyncHandler(async (req, res) => {
-  const { factory_id, product_type, quantity, start_at, end_at, status, priority, order_external_id } = req.body;
+  const { factory_id, product_type, quantity, start_date, end_date, status, priority, order_external_id } = req.body;
+
+  const row = {
+    product_type,
+    quantity,
+    start_date,
+    end_date,
+    status: status ?? "planned",
+    priority: priority ?? 0,
+    order_external_id,
+  };
+  if (factory_id) row.factory_id = factory_id;
 
   const { data, error } = await supabase
     .from("production_allocations")
-    .insert({
-      factory_id,
-      product_type,
-      quantity,
-      start_at,
-      end_at,
-      status: status ?? "planned",
-      priority: priority ?? 0,
-      order_external_id,
-    })
+    .insert(row)
     .select("*, factories(id, name)")
     .single();
 
@@ -74,7 +76,7 @@ router.patch("/:id", asyncHandler(async (req, res) => {
   }
 
   const allowed = [
-    "factory_id", "product_type", "quantity", "start_at", "end_at",
+    "factory_id", "product_type", "quantity", "start_date", "end_date",
     "status", "priority", "assumptions", "score_breakdown", "order_external_id",
   ];
   const updates = {};
@@ -129,9 +131,9 @@ router.post("/:id/recommend", asyncHandler(async (req, res) => {
   const windowEnd = addDays(new Date(), horizon).toISOString();
   const { data: existingAllocs } = await supabase
     .from("production_allocations")
-    .select("factory_id, start_at, end_at, quantity, product_type")
+    .select("factory_id, start_date, end_date, quantity, product_type")
     .in("status", ["planned", "confirmed", "in_progress"])
-    .lte("start_at", windowEnd);
+    .lte("start_date", windowEnd);
 
   const loadByFactory = {};
   for (const ea of existingAllocs ?? []) {
@@ -174,7 +176,7 @@ router.post("/:id/recommend", asyncHandler(async (req, res) => {
   const order = {
     product_type: alloc.product_type,
     quantity: alloc.quantity,
-    due_date: alloc.end_at,
+    due_date: alloc.end_date,
   };
   const recs = recommendFactories(order, factoryInputs, req.body.options);
   res.json(recs);
@@ -261,8 +263,8 @@ router.post("/:id/schedule", asyncHandler(async (req, res) => {
     .update({
       factory_id,
       capability_id: capability.id,
-      start_at: startAt.toISOString(),
-      end_at: endAt.toISOString(),
+      start_date: startAt.toISOString(),
+      end_date: endAt.toISOString(),
       status: "confirmed",
       assumptions: {
         scheduled_by: "smart_schedule",

@@ -7,7 +7,7 @@ import "./orders.css";
 type FormData = {
   product_type: string;
   quantity: number;
-  end_at: string;
+  end_date: string;
   priority: number;
   order_external_id: string;
 };
@@ -28,7 +28,7 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
     defaultValues: {
       product_type: "",
       quantity: 1,
-      end_at: "",
+      end_date: "",
       priority: 0,
       order_external_id: "",
     },
@@ -40,9 +40,8 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
       await createAllocation({
         product_type: data.product_type,
         quantity: data.quantity,
-        end_at: new Date(data.end_at).toISOString(),
-        start_at: new Date().toISOString(),
-        factory_id: undefined as unknown as string,
+        end_date: new Date(data.end_date).toISOString(),
+        start_date: new Date().toISOString(),
         priority: data.priority,
         order_external_id: data.order_external_id || undefined,
         status: "planned",
@@ -95,9 +94,9 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
             <input
               className="orderInput"
               type="date"
-              {...register("end_at", { required: "请选择交货日期" })}
+              {...register("end_date", { required: "请选择交货日期" })}
             />
-            {errors.end_at && <span className="orderFieldError">{errors.end_at.message}</span>}
+            {errors.end_date && <span className="orderFieldError">{errors.end_date.message}</span>}
           </label>
 
           <label className="orderField">

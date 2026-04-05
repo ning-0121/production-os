@@ -7,7 +7,7 @@ import "./orders.css";
 type ImportRow = {
   product_type: string;
   quantity: number;
-  end_at: string;
+  end_date: string;
   priority?: number;
   order_external_id?: string;
   _error?: string;
@@ -42,7 +42,7 @@ export function ImportDrawer({ onClose, onImported }: Props) {
           const r: ImportRow = {
             product_type: String(row["product_type"] ?? row["产品类型"] ?? row["产品"] ?? ""),
             quantity: Number(row["quantity"] ?? row["数量"] ?? 0),
-            end_at: parseDate(row["end_at"] ?? row["交货日期"] ?? row["交期"] ?? ""),
+            end_date: parseDate(row["end_date"] ?? row["end_at"] ?? row["交货日期"] ?? row["交期"] ?? ""),
             priority: Number(row["priority"] ?? row["优先级"] ?? 0),
             order_external_id: String(row["order_external_id"] ?? row["外部订单号"] ?? row["订单号"] ?? ""),
           };
@@ -50,7 +50,7 @@ export function ImportDrawer({ onClose, onImported }: Props) {
           // Validate
           if (!r.product_type) r._error = "缺少产品类型";
           else if (!r.quantity || r.quantity <= 0) r._error = "数量无效";
-          else if (!r.end_at) r._error = "交货日期无效";
+          else if (!r.end_date) r._error = "交货日期无效";
 
           return r;
         });
@@ -86,7 +86,7 @@ export function ImportDrawer({ onClose, onImported }: Props) {
       const orders = validRows.map((r) => ({
         product_type: r.product_type,
         quantity: r.quantity,
-        end_at: new Date(r.end_at).toISOString(),
+        end_date: new Date(r.end_date).toISOString(),
         priority: r.priority ?? 0,
         order_external_id: r.order_external_id || undefined,
       }));
@@ -135,7 +135,7 @@ export function ImportDrawer({ onClose, onImported }: Props) {
 
           {/* Column mapping hint */}
           <div className="importHint">
-            支持列名：product_type/产品类型、quantity/数量、end_at/交货日期、priority/优先级、order_external_id/订单号
+            支持列名：product_type/产品类型、quantity/数量、end_date/end_at/交货日期、priority/优先级、order_external_id/订单号
           </div>
 
           {/* Preview table */}
@@ -164,7 +164,7 @@ export function ImportDrawer({ onClose, onImported }: Props) {
                         <td>{i + 1}</td>
                         <td>{r.product_type || "-"}</td>
                         <td>{r.quantity || "-"}</td>
-                        <td>{r.end_at || "-"}</td>
+                        <td>{r.end_date || "-"}</td>
                         <td>{r.priority ?? 0}</td>
                         <td>{r._error ? <span style={{ color: "var(--danger)" }}>{r._error}</span> : <span style={{ color: "#22c55e" }}>ok</span>}</td>
                       </tr>

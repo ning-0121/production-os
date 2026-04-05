@@ -9,7 +9,7 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   // Run all queries in parallel
   const [allocRes, riskRes, perfRes, factRes] = await Promise.all([
     supabase.from("production_allocations")
-      .select("id, status, quantity, start_at, end_at, factory_id, product_type, created_at"),
+      .select("id, status, quantity, start_date, end_date, factory_id, product_type, created_at"),
     supabase.from("risk_alerts")
       .select("risk_level"),
     supabase.from("factory_performance_logs")
@@ -127,9 +127,9 @@ router.get("/accuracy", asyncHandler(async (_req, res) => {
   // Get completed allocations with performance logs
   const { data: completedAllocs } = await supabase
     .from("production_allocations")
-    .select("id, factory_id, product_type, quantity, start_at, end_at, status, factories(id, name)")
+    .select("id, factory_id, product_type, quantity, start_date, end_date, status, factories(id, name)")
     .eq("status", "completed")
-    .order("end_at", { ascending: false })
+    .order("end_date", { ascending: false })
     .limit(100);
 
   const { data: perfLogs } = await supabase
