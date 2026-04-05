@@ -137,8 +137,8 @@ export function GanttPage() {
       <div className="card">
         <div className="cardHeader">
           <div>
-            <h2>Production Schedule</h2>
-            <div className="hint">Drag blocks horizontally to reschedule. Click to open details.</div>
+            <h2>生产排期</h2>
+            <div className="hint">拖拽订单块调整排期 | 点击查看详情</div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <select
@@ -158,8 +158,8 @@ export function GanttPage() {
           <div className="gantt">
             <div className="axis">
               <div className="axisLeft">
-                <div className="big">Factories</div>
-                <div className="small">Rows</div>
+                <div className="big">工厂</div>
+                <div className="small">{filteredFactories.length} 行</div>
               </div>
               <div className="axisRight" ref={gridRef}>
                 {ticks.map((t) => (
@@ -196,13 +196,36 @@ export function GanttPage() {
 
       <div className="card">
         <div className="cardHeader">
-          <div>
-            <h2>Ranked Recommendations</h2>
-            <div className="hint">Select an order to get AI-powered factory recommendations.</div>
+          <h2>排产概览</h2>
+        </div>
+        <div className="ganttSummary">
+          <div className="ganttSummaryItem">
+            <div className="ganttSummaryDot" style={{ background: "var(--accent)" }} />
+            <span>{allOrders.filter((o) => o.status === "in_progress").length} 生产中</span>
+          </div>
+          <div className="ganttSummaryItem">
+            <div className="ganttSummaryDot" style={{ background: "#a78bfa" }} />
+            <span>{allOrders.filter((o) => o.status === "confirmed").length} 已排产</span>
+          </div>
+          <div className="ganttSummaryItem">
+            <div className="ganttSummaryDot" style={{ background: "#64748b" }} />
+            <span>{allOrders.filter((o) => o.status === "planned").length} 待排产</span>
+          </div>
+          <div className="ganttSummaryItem">
+            <div className="ganttSummaryDot" style={{ background: "#22c55e" }} />
+            <span>{allOrders.filter((o) => o.status === "completed").length} 已完成</span>
+          </div>
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
+            共 {filteredFactories.length} 工厂 | {allOrders.length} 订单
+            <br />拖拽订单块可调整排期
           </div>
         </div>
-        <div style={{ padding: 14, color: "var(--muted)", fontSize: 13 }}>
-          {factories.length} factories loaded from Supabase. Drag-to-reschedule persists to backend.
+        <div className="ganttLegend">
+          <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "rgba(100,116,139,.4)" }} /> 待排</div>
+          <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "rgba(167,139,250,.4)" }} /> 已排</div>
+          <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "rgba(110,231,255,.4)" }} /> 生产中</div>
+          <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "rgba(34,197,94,.35)" }} /> 完成</div>
+          <div className="ganttLegendItem"><div className="ganttLegendDot" style={{ background: "var(--danger)", width: 2, borderRadius: 1 }} /> 今天</div>
         </div>
       </div>
 
@@ -228,23 +251,36 @@ function FactoryRow({
 }) {
   const rowRef = React.useRef<HTMLDivElement | null>(null);
   const widthPx = rowRef.current?.getBoundingClientRect().width ?? 1;
+  const rowHeight = Math.max(56, orders.length * 38 + 16);
+
+  const statusLabel = orders.length === 0 ? "空闲" :
+    `${orders.filter((o) => o.status === "in_progress").length} 生产中`;
 
   return (
     <div className="row">
       <div className="rowLeft">
         <div className="name">{factory.name}</div>
-        <div className="meta">{orders.length} blocks</div>
+        <div className="meta">{orders.length} 订单 | {statusLabel}</div>
       </div>
-      <div className="rowRight" ref={rowRef}>
-        {orders.map((o) => {
+      <div className="rowRight" ref={rowRef} style={{ minHeight: rowHeight }}>
+        {/* Today marker */}
+        {(() => {
+          const todayX = dateToX(new Date(), timeline, widthPx);
+          if (todayX > 0 && todayX < widthPx) {
+            return <div className="todayLine" style={{ left: todayX }} />;
+          }
+          return null;
+        })()}
+        {orders.map((o, idx) => {
           const start = isoToDate(o.startAt);
           const end = isoToDate(o.endAt);
           const x1 = dateToX(start, timeline, widthPx);
           const x2 = dateToX(end, timeline, widthPx);
           const left = Math.max(0, Math.min(widthPx - 10, x1));
-          const w = Math.max(36, x2 - x1);
+          const w = Math.max(60, x2 - x1);
+          const top = 8 + idx * 38;
           return (
-            <OrderBlockView key={o.id} order={o} left={left} width={w} onOpen={() => onOpen(o.id)} />
+            <OrderBlockView key={o.id} order={o} left={left} width={w} top={top} onOpen={() => onOpen(o.id)} />
           );
         })}
       </div>
@@ -252,15 +288,31 @@ function FactoryRow({
   );
 }
 
+const STATUS_CLASS: Record<string, string> = {
+  planned: "blockPlanned",
+  confirmed: "blockConfirmed",
+  in_progress: "blockInProgress",
+  completed: "blockCompleted",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  planned: "待排",
+  confirmed: "已排",
+  in_progress: "生产中",
+  completed: "完成",
+};
+
 function OrderBlockView({
   order,
   left,
   width,
+  top,
   onOpen,
 }: {
   order: OrderBlock;
   left: number;
   width: number;
+  top: number;
   onOpen: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -269,12 +321,13 @@ function OrderBlockView({
   });
 
   const dx = transform?.x ?? 0;
+  const statusCls = STATUS_CLASS[order.status] ?? "blockPlanned";
 
   return (
     <div
       ref={setNodeRef}
-      className={`block ${isDragging ? "blockDragging" : ""}`}
-      style={{ left: left + dx, width }}
+      className={`block ${statusCls} ${isDragging ? "blockDragging" : ""}`}
+      style={{ left: left + dx, width, top }}
       onClick={(e) => {
         e.stopPropagation();
         onOpen();
@@ -282,11 +335,11 @@ function OrderBlockView({
       {...listeners}
       {...attributes}
     >
-      <div className="left">
-        <div className="pt">{order.productType}</div>
-        <div className="qty">Qty {order.quantity}</div>
+      <div className="blockLabel">
+        <span className="blockOrderId">{order.productType}</span>
+        <span className="blockQty">x{order.quantity}</span>
       </div>
-      <div className="badge">{order.status}</div>
+      {width > 100 && <span className="blockStatus">{STATUS_LABEL[order.status] ?? order.status}</span>}
     </div>
   );
 }
