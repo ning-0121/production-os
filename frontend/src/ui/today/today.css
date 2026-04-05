@@ -1,0 +1,266 @@
+/* ── Today Operations Page ────────────────────────────── */
+
+.todayPage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── KPI Row ─────────────────────────────────────────── */
+
+.todayKpiRow {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+}
+
+.todayKpiCard {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  text-align: center;
+}
+
+.todayKpiLabel {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.todayKpiValue {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+}
+
+/* ── AI Suggestions ──────────────────────────────────── */
+
+.todayAiBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(110,231,255,.12);
+  color: var(--accent);
+  border: 1px solid rgba(110,231,255,.25);
+  letter-spacing: .3px;
+}
+
+.todayAiList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+}
+
+.todayAiCard {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  transition: background .15s;
+}
+
+.todayAiCard:hover {
+  background: rgba(255,255,255,.05);
+}
+
+.todayAiCard--critical {
+  border-left: 3px solid var(--danger);
+}
+.todayAiCard--high {
+  border-left: 3px solid #facc15;
+}
+.todayAiCard--medium {
+  border-left: 3px solid var(--accent);
+}
+.todayAiCard--low {
+  border-left: 3px solid rgba(255,255,255,.15);
+}
+
+.todayAiCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.todayAiUrgency {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.todayAiUrgency--critical { background: rgba(251,113,133,.15); color: var(--danger); }
+.todayAiUrgency--high { background: rgba(250,204,21,.12); color: #facc15; }
+.todayAiUrgency--medium { background: rgba(110,231,255,.10); color: var(--accent); }
+.todayAiUrgency--low { background: rgba(255,255,255,.08); color: var(--muted); }
+
+.todayAiConfidence {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 2px 6px;
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+}
+
+.todayAiSummary {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.todayAiImpact {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+/* ── Grid Layout ─────────────────────────────────────── */
+
+.todayGrid {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 12px;
+}
+
+.todayRightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.todaySection {
+  overflow: hidden;
+}
+
+.todayList {
+  padding: 8px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* ── Risky Order Row ─────────────────────────────────── */
+
+.todayOrderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+
+.todayOrderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.todayOrderId {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.todayOrderMeta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.todayOrderDays {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.todayRisk--overdue .todayOrderDays,
+.todayOrderDays.todayRisk--overdue {
+  background: rgba(251,113,133,.15);
+  color: var(--danger);
+}
+
+.todayRisk--critical .todayOrderDays,
+.todayOrderDays.todayRisk--critical {
+  background: rgba(250,204,21,.12);
+  color: #facc15;
+}
+
+.todayRisk--warning .todayOrderDays,
+.todayOrderDays.todayRisk--warning {
+  background: rgba(110,231,255,.10);
+  color: var(--accent);
+}
+
+/* ── Factory Rows ────────────────────────────────────── */
+
+.todayFactoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+
+.todayFactoryName {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.todayFactoryScores {
+  display: flex;
+  gap: 6px;
+}
+
+.todayScore {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+}
+
+.todayScore--bad {
+  background: rgba(251,113,133,.12);
+  color: var(--danger);
+}
+
+/* ── Missing Report Row ──────────────────────────────── */
+
+.todayMissRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+
+.todayMissDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #facc15;
+  flex-shrink: 0;
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .todayKpiRow {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .todayGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .todayKpiValue {
+    font-size: 18px;
+  }
+}

@@ -105,8 +105,9 @@ router.post("/schedule", asyncHandler(async (req, res) => {
 }));
 
 // POST /api/lines/auto-schedule — 智能排单：输入前道天数，自动衔接
+// Supports dry_run: true to preview schedule without persisting
 router.post("/auto-schedule", asyncHandler(async (req, res) => {
-  const { line_id, allocation_id, front_days } = req.body;
+  const { line_id, allocation_id, front_days, dry_run } = req.body;
   if (!line_id || !allocation_id || !front_days) {
     return res.status(400).json({ error: "line_id, allocation_id, front_days are required" });
   }
@@ -119,10 +120,10 @@ router.post("/auto-schedule", asyncHandler(async (req, res) => {
     .single();
   if (lineErr) return res.status(404).json({ error: "Production line not found" });
 
-  // 2. Load allocation (get quantity)
+  // 2. Load allocation (get quantity + product_type)
   const { data: alloc, error: allocErr } = await supabase
     .from("production_allocations")
-    .select("id, order_id, allocated_qty")
+    .select("id, order_id, allocated_qty, product_type, planned_end_date")
     .eq("id", allocation_id)
     .single();
   if (allocErr) return res.status(404).json({ error: "Allocation not found" });
@@ -169,6 +170,33 @@ router.post("/auto-schedule", asyncHandler(async (req, res) => {
   backEndDate.setDate(backEndDate.getDate() + backDays);
   const backEnd = backEndDate.toISOString().slice(0, 10);
 
+  // Compute risk: compare backEnd vs due date
+  const dueDate = alloc.planned_end_date ? alloc.planned_end_date.slice(0, 10) : null;
+  let risk_level = "SAFE";
+  let buffer_days = 0;
+  if (dueDate) {
+    const dueMs = new Date(dueDate).getTime();
+    const endMs = new Date(backEnd).getTime();
+    buffer_days = Math.round((dueMs - endMs) / (1000 * 60 * 60 * 24));
+    if (buffer_days < 0) risk_level = "HIGH";
+    else if (buffer_days < 3) risk_level = "MEDIUM";
+  }
+
+  const summary = {
+    order_id: alloc.order_id,
+    product_type: alloc.product_type,
+    qty,
+    line_name: line.name,
+    front: { start: frontStart, end: frontEnd, days: Number(front_days) },
+    back: { start: backStartStr, end: backEnd, days: backDays, capacity_per_day: backCapacity },
+    risk: { level: risk_level, buffer_days, due_date: dueDate },
+  };
+
+  // Dry run: return preview without persisting
+  if (dry_run) {
+    return res.json({ dry_run: true, summary });
+  }
+
   // 8. Get next seq
   const { data: existing } = await supabase
     .from("line_schedules")
@@ -192,16 +220,13 @@ router.post("/auto-schedule", asyncHandler(async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
 
-  res.status(201).json({
-    scheduled: data,
-    summary: {
-      order_id: alloc.order_id,
-      qty,
-      line_name: line.name,
-      front: { start: frontStart, end: frontEnd, days: Number(front_days) },
-      back: { start: backStartStr, end: backEnd, days: backDays, capacity_per_day: backCapacity },
-    },
-  });
+  // Update allocation status to confirmed
+  await supabase
+    .from("production_allocations")
+    .update({ status: "confirmed" })
+    .eq("id", allocation_id);
+
+  res.status(201).json({ scheduled: data, summary });
 }));
 
 // POST /api/lines/batch-schedule — 一键全排：自动排所有 planned 订单

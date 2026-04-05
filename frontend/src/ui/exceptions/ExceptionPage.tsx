@@ -1,86 +1,130 @@
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
-import { fetchExceptions } from "../../services/api";
-import type { ExceptionItem } from "../../types";
+import { fetchExceptionsV2 } from "../../services/api";
+import type { ExceptionV2Response, AIAction } from "../../types";
 import "./exceptions.css";
 
-type SectionDef = {
-  type: ExceptionItem["type"];
-  title: string;
-  icon: string;
-  severity: "high" | "medium" | "low";
-};
-
-const SECTIONS: SectionDef[] = [
-  { type: "delayed", title: "延期订单", icon: "!", severity: "high" },
-  { type: "at_risk", title: "预计延期", icon: "~", severity: "medium" },
-  { type: "overloaded", title: "产线过载", icon: "#", severity: "medium" },
-  { type: "underperforming", title: "持续低效", icon: "-", severity: "low" },
-  { type: "unreported", title: "未报工厂", icon: "?", severity: "medium" },
-  { type: "unschedulable", title: "无法排产", icon: "X", severity: "high" },
-];
-
 export function ExceptionPage() {
-  const { data: exceptions, loading, error, refetch } = useAsync(
-    () => fetchExceptions(),
-    [],
-  );
+  const { data, loading, error, refetch } = useAsync(() => fetchExceptionsV2(), []);
 
-  // Group by type
-  const grouped = React.useMemo(() => {
-    const map: Record<string, ExceptionItem[]> = {};
-    for (const s of SECTIONS) {
-      map[s.type] = [];
-    }
-    if (exceptions) {
-      for (const exc of exceptions) {
-        if (map[exc.type]) {
-          map[exc.type].push(exc);
-        }
-      }
-    }
-    return map;
-  }, [exceptions]);
-
-  const totalCount = exceptions?.length ?? 0;
-
-  if (loading && !exceptions) {
-    return <div className="loadingCenter">加载异常数据...</div>;
-  }
-
+  if (loading && !data) return <div className="loadingCenter">加载异常数据...</div>;
   if (error) {
     return (
       <div className="emptyState">
         加载失败：{error}
         <br />
-        <button className="btn" onClick={refetch} style={{ marginTop: 8 }}>
-          重试
-        </button>
+        <button className="btn" onClick={refetch} style={{ marginTop: 8 }}>重试</button>
       </div>
     );
   }
+  if (!data) return null;
+
+  const { order_exceptions, factory_exceptions, resource_exceptions, incident_exceptions, ai_actions } = data;
+  const totalCount = order_exceptions.length + factory_exceptions.length + resource_exceptions.length + incident_exceptions.length;
 
   return (
     <div className="excPage">
       <div className="excPageHeader">
         <h2>异常中心</h2>
-        {totalCount > 0 && (
-          <span className="excTotalBadge">{totalCount} 项异常</span>
-        )}
+        {totalCount > 0 && <span className="excTotalBadge">{totalCount} 项异常</span>}
+        <button className="btn" onClick={refetch} style={{ marginLeft: "auto" }}>刷新</button>
       </div>
 
-      {SECTIONS.map((section) => {
-        const items = grouped[section.type] ?? [];
-        return (
-          <ExceptionSection
-            key={section.type}
-            section={section}
-            items={items}
-          />
-        );
-      })}
+      {/* AI Actions — action first */}
+      {ai_actions.length > 0 && (
+        <div className="excSection open">
+          <div className="excSectionHeader">
+            <span className="excSectionIcon excSectionIcon--ai">AI</span>
+            <span className="excSectionTitle">AI 行动建议</span>
+            <span className="excSectionCount excSectionCount--ai">{ai_actions.length}</span>
+          </div>
+          <div className="excItems">
+            {ai_actions.slice(0, 6).map((action) => (
+              <AIActionRow key={action.id} action={action} />
+            ))}
+          </div>
+        </div>
+      )}
 
-      {totalCount === 0 && (
+      {/* Order Exceptions */}
+      <ExceptionSection
+        title="订单异常"
+        icon="!"
+        severity="high"
+        items={order_exceptions}
+        renderItem={(item) => (
+          <div className="excItem" key={item.allocation_id ?? item.order_id}>
+            <span className={`excIcon excIcon--${item.severity}`}>!</span>
+            <div className="excItemBody">
+              <span className="excItemMsg">{item.message}</span>
+              <span className="excItemMeta">
+                {item.factory_name && <span>{item.factory_name}</span>}
+                {item.data?.qty != null && <span> | {String(item.data.qty)}件</span>}
+              </span>
+            </div>
+            <span className={`excSeverity excSeverity--${item.severity}`}>
+              {item.severity === "high" ? "严重" : item.severity === "medium" ? "警告" : "提示"}
+            </span>
+          </div>
+        )}
+      />
+
+      {/* Factory Exceptions */}
+      <ExceptionSection
+        title="工厂异常"
+        icon="F"
+        severity="medium"
+        items={factory_exceptions}
+        renderItem={(item) => (
+          <div className="excItem" key={item.factory_id}>
+            <span className={`excIcon excIcon--${item.severity}`}>F</span>
+            <div className="excItemBody">
+              <span className="excItemMsg">{item.message}</span>
+            </div>
+            <span className={`excSeverity excSeverity--${item.severity}`}>
+              {item.severity === "high" ? "严重" : item.severity === "medium" ? "警告" : "提示"}
+            </span>
+          </div>
+        )}
+      />
+
+      {/* Resource Exceptions */}
+      <ExceptionSection
+        title="资源异常"
+        icon="#"
+        severity="medium"
+        items={resource_exceptions}
+        renderItem={(item) => (
+          <div className="excItem" key={item.line_id ?? item.factory_id}>
+            <span className={`excIcon excIcon--${item.severity}`}>#</span>
+            <div className="excItemBody">
+              <span className="excItemMsg">{item.message}</span>
+            </div>
+            <span className={`excSeverity excSeverity--${item.severity}`}>
+              {item.severity === "high" ? "严重" : "警告"}
+            </span>
+          </div>
+        )}
+      />
+
+      {/* Incident Exceptions */}
+      <ExceptionSection
+        title="生产事件"
+        icon="X"
+        severity="high"
+        items={incident_exceptions}
+        renderItem={(item) => (
+          <div className="excItem" key={`${item.factory_id}-${item.order_id}`}>
+            <span className={`excIcon excIcon--${item.severity}`}>X</span>
+            <div className="excItemBody">
+              <span className="excItemMsg">{item.message}</span>
+            </div>
+            <span className={`excSeverity excSeverity--${item.severity}`}>严重</span>
+          </div>
+        )}
+      />
+
+      {totalCount === 0 && ai_actions.length === 0 && (
         <div className="emptyState">当前无异常，运行正常</div>
       )}
     </div>
@@ -89,56 +133,63 @@ export function ExceptionPage() {
 
 // ── Collapsible Section ─────────────────────────────────
 
-function ExceptionSection({
-  section,
+function ExceptionSection<T>({
+  title,
+  icon,
+  severity,
   items,
+  renderItem,
 }: {
-  section: SectionDef;
-  items: ExceptionItem[];
+  title: string;
+  icon: string;
+  severity: string;
+  items: T[];
+  renderItem: (item: T) => React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(items.length > 0);
 
-  // Auto-open when items appear
   React.useEffect(() => {
     if (items.length > 0) setOpen(true);
   }, [items.length]);
 
-  if (items.length === 0) {
-    return null;
-  }
+  if (items.length === 0) return null;
 
   return (
     <div className={`excSection${open ? " open" : ""}`}>
       <div className="excSectionHeader" onClick={() => setOpen(!open)}>
-        <span className={`excSectionIcon excSectionIcon--${section.severity}`}>
-          {section.icon}
-        </span>
-        <span className="excSectionTitle">{section.title}</span>
-        <span className={`excSectionCount excSectionCount--${section.severity}`}>
-          {items.length}
-        </span>
-        <span className="excSectionToggle">▼</span>
+        <span className={`excSectionIcon excSectionIcon--${severity}`}>{icon}</span>
+        <span className="excSectionTitle">{title}</span>
+        <span className={`excSectionCount excSectionCount--${severity}`}>{items.length}</span>
+        <span className="excSectionToggle">{open ? "▼" : "▶"}</span>
       </div>
+      {open && <div className="excItems">{items.map(renderItem)}</div>}
+    </div>
+  );
+}
 
-      {open && (
-        <div className="excItems">
-          {items.map((item, i) => (
-            <div className="excItem" key={i}>
-              <span className={`excIcon excIcon--${item.severity}`}>
-                {section.icon}
-              </span>
-              <span className="excItemMsg">{item.message}</span>
-              <span className={`excSeverity excSeverity--${item.severity}`}>
-                {item.severity === "high"
-                  ? "严重"
-                  : item.severity === "medium"
-                    ? "警告"
-                    : "提示"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+// ── AI Action Row ─────────────────────────────────────────
+
+function AIActionRow({ action }: { action: AIAction }) {
+  const urgencyLabels: Record<string, string> = {
+    critical: "紧急",
+    high: "重要",
+    medium: "建议",
+    low: "提示",
+  };
+
+  return (
+    <div className={`excItem excItem--ai excItem--ai-${action.urgency}`}>
+      <span className="excAiBadge">AI</span>
+      <div className="excItemBody">
+        <span className="excItemMsg">{action.summary}</span>
+        {action.impact && <span className="excItemMeta">{action.impact}</span>}
+      </div>
+      <div className="excAiRight">
+        <span className={`excSeverity excSeverity--${action.urgency === "critical" ? "high" : action.urgency === "high" ? "high" : "medium"}`}>
+          {urgencyLabels[action.urgency] ?? action.urgency}
+        </span>
+        <span className="excAiConfidence">{Math.round(action.confidence * 100)}%</span>
+      </div>
     </div>
   );
 }

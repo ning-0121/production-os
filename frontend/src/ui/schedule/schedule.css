@@ -1,20 +1,206 @@
-/* ── Schedule Page Layout ────────────────────────────── */
+/* ── V3 Schedule Board Layout ────────────────────────── */
 
-.schedPage {
+.schedBoard {
   display: flex;
-  gap: 0;
-  position: relative;
+  gap: 12px;
   min-height: 500px;
 }
 
 .schedMain {
   flex: 1;
   min-width: 0;
-  transition: margin-right .25s ease;
 }
 
-.schedDrawerOpen .schedMain {
-  margin-right: 380px;
+/* ── Unscheduled Panel (Left) ────────────────────────── */
+
+.unschedPanel {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.unschedHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0));
+}
+
+.unschedTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.unschedCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.unschedControls {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.unschedSearch {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+
+.unschedSearch:focus {
+  border-color: rgba(110,231,255,.35);
+  background: rgba(110,231,255,.04);
+}
+
+.unschedSearch::placeholder {
+  color: var(--muted);
+}
+
+.unschedSort {
+  display: flex;
+  gap: 4px;
+}
+
+.unschedSortBtn {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.unschedSortBtn.active {
+  background: rgba(110,231,255,.10);
+  border-color: rgba(110,231,255,.30);
+  color: var(--accent);
+}
+
+.unschedList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: calc(100vh - 280px);
+}
+
+/* ── Order Card (Draggable) ──────────────────────────── */
+
+.orderCard {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  cursor: grab;
+  transition: box-shadow .15s, border-color .15s, transform .1s;
+  user-select: none;
+  touch-action: none;
+}
+
+.orderCard:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  border-color: rgba(255,255,255,.18);
+}
+
+.orderCard:active {
+  cursor: grabbing;
+}
+
+.orderCard--overlay {
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  border-color: rgba(110,231,255,.40);
+  background: rgba(11,18,32,.95);
+  cursor: grabbing;
+}
+
+/* Urgency borders */
+.orderCard--high {
+  border-left: 3px solid var(--danger);
+}
+
+.orderCard--medium {
+  border-left: 3px solid #facc15;
+}
+
+.orderCard--low {
+  border-left: 3px solid #22c55e;
+}
+
+.orderCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.orderCardId {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orderCardUrgency {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.orderCardUrgency--high {
+  background: rgba(251,113,133,.15);
+  color: var(--danger);
+}
+
+.orderCardUrgency--medium {
+  background: rgba(250,204,21,.12);
+  color: #facc15;
+}
+
+.orderCardUrgency--low {
+  background: rgba(34,197,94,.10);
+  color: #22c55e;
+}
+
+.orderCardMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
 }
 
 /* ── Toolbar ────────────────────────────────────────── */
@@ -63,6 +249,19 @@
   background: rgba(110,231,255,.12);
   border-color: rgba(110,231,255,.35);
   color: var(--accent);
+}
+
+/* ── Filter select ──────────────────────────────────── */
+
+.filterSelect {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
 }
 
 /* ── Timeline Area ──────────────────────────────────── */
@@ -136,10 +335,10 @@
 
 .schedLineRow {
   display: flex;
-  min-height: 52px;
+  min-height: 56px;
   border-bottom: 1px solid rgba(255,255,255,.04);
   position: relative;
-  transition: background .15s;
+  transition: background .15s, border-color .15s;
 }
 
 .schedLineRow:hover {
@@ -147,16 +346,19 @@
 }
 
 /* Utilization heat backgrounds */
-.schedLineRow--low {
-  background: rgba(34,197,94,.04);
+.schedLineRow--low { background: rgba(34,197,94,.03); }
+.schedLineRow--mid { background: rgba(250,204,21,.03); }
+.schedLineRow--high { background: rgba(251,113,133,.03); }
+
+/* Drop target states */
+.schedLineRow--dropTarget {
+  border: 1px dashed rgba(110,231,255,.30);
+  border-radius: 4px;
 }
 
-.schedLineRow--mid {
-  background: rgba(250,204,21,.04);
-}
-
-.schedLineRow--high {
-  background: rgba(251,113,133,.04);
+.schedLineRow--dropHover {
+  background: rgba(110,231,255,.08) !important;
+  border-color: rgba(110,231,255,.50);
 }
 
 .schedLineInfo {
@@ -206,12 +408,28 @@
   text-align: right;
 }
 
+.schedLineSummary {
+  display: flex;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.schedLineStat {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.schedLineStat--danger {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* ── Timeline track for blocks ──────────────────────── */
 
 .schedTrack {
   flex: 1;
   position: relative;
-  min-height: 52px;
+  min-height: 56px;
 }
 
 /* ── Today Line ──────────────────────────────────────── */
@@ -267,6 +485,15 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   z-index: 5;
+}
+
+/* Risk border indicators */
+.schedBlock--riskHigh {
+  box-shadow: inset 0 0 0 1px rgba(251,113,133,.5);
+}
+
+.schedBlock--riskMedium {
+  box-shadow: inset 0 0 0 1px rgba(250,204,21,.4);
 }
 
 /* Product type colors */
@@ -366,16 +593,121 @@
   transition: width .3s ease;
 }
 
-.schedBlockProgressFill--good {
-  background: #22c55e;
+.schedBlockProgressFill--good { background: #22c55e; }
+.schedBlockProgressFill--warn { background: #facc15; }
+.schedBlockProgressFill--bad { background: var(--danger); }
+
+/* ── Confirm Dialog ──────────────────────────────────── */
+
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn .15s ease;
 }
 
-.schedBlockProgressFill--warn {
-  background: #facc15;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.schedBlockProgressFill--bad {
-  background: var(--danger);
+.confirmDialog {
+  width: min(420px, 92vw);
+  background: rgba(10,16,28,.96);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  overflow: hidden;
+  animation: dialogSlide .2s ease-out;
+}
+
+@keyframes dialogSlide {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.confirmHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0));
+}
+
+.confirmHeader h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.confirmBody {
+  padding: 16px;
+}
+
+.confirmRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.confirmLabel {
+  color: var(--muted);
+  min-width: 60px;
+}
+
+.confirmValue {
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmDays {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 6px;
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+}
+
+.confirmDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.confirmRisk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.confirmRisk.riskSafe { color: #22c55e; }
+.confirmRisk.riskMedium { color: #facc15; }
+.confirmRisk.riskHigh { color: var(--danger); }
+
+.confirmBuffer {
+  font-size: 11px;
+  font-weight: 400;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.06);
+}
+
+.confirmActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
 }
 
 /* ── Order Drawer (right-side panel) ──────────────────── */
@@ -435,9 +767,7 @@
 
 /* ── Drawer sections ────────────────────────────────── */
 
-.drawerSection {
-  margin-bottom: 16px;
-}
+.drawerSection { margin-bottom: 16px; }
 
 .drawerSectionTitle {
   font-size: 12px;
@@ -480,20 +810,9 @@
   font-weight: 600;
 }
 
-.drawerDeviation--good {
-  background: rgba(34,197,94,.12);
-  color: #22c55e;
-}
-
-.drawerDeviation--warn {
-  background: rgba(250,204,21,.12);
-  color: #facc15;
-}
-
-.drawerDeviation--bad {
-  background: rgba(251,113,133,.12);
-  color: var(--danger);
-}
+.drawerDeviation--good { background: rgba(34,197,94,.12); color: #22c55e; }
+.drawerDeviation--warn { background: rgba(250,204,21,.12); color: #facc15; }
+.drawerDeviation--bad { background: rgba(251,113,133,.12); color: var(--danger); }
 
 .drawerRecommendation {
   display: flex;
@@ -537,9 +856,175 @@
   margin-bottom: 4px;
 }
 
+/* ── AI Decision Panel ───────────────────────────────── */
+
+.aiPanel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.aiPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(110,231,255,.04), rgba(255,255,255,0));
+}
+
+.aiPanelTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.aiPanelBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+  letter-spacing: .3px;
+}
+
+.aiPanelHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.aiPanelCount {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aiPanelRefresh {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.aiPanelRefresh:hover {
+  background: rgba(255,255,255,.08);
+}
+
+.aiPanelToggle {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.aiPanelBody {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.aiActionItem {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02);
+}
+
+.aiActionItem--critical { border-left: 3px solid var(--danger); }
+.aiActionItem--high { border-left: 3px solid #facc15; }
+.aiActionItem--medium { border-left: 3px solid var(--accent); }
+.aiActionItem--low { border-left: 3px solid rgba(255,255,255,.15); }
+
+.aiActionTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.aiActionUrgency {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.aiActionUrgency--critical { background: rgba(251,113,133,.15); color: var(--danger); }
+.aiActionUrgency--high { background: rgba(250,204,21,.12); color: #facc15; }
+.aiActionUrgency--medium { background: rgba(110,231,255,.10); color: var(--accent); }
+.aiActionUrgency--low { background: rgba(255,255,255,.08); color: var(--muted); }
+
+.aiActionConfidence {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.aiActionSummary {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.aiActionImpact {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.aiPanelReasoning {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 8px;
+  background: rgba(255,255,255,.02);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
 /* ── Mobile ──────────────────────────────────────────── */
 
 @media (max-width: 600px) {
+  .schedBoard {
+    flex-direction: column;
+  }
+
+  .unschedPanel {
+    width: 100%;
+    max-height: 200px;
+  }
+
+  .unschedList {
+    max-height: 120px;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 8px;
+  }
+
+  .orderCard {
+    min-width: 160px;
+    flex-shrink: 0;
+  }
+
   .schedToolbar {
     flex-direction: column;
     align-items: stretch;
@@ -565,15 +1050,15 @@
     padding: 2px 4px;
   }
 
-  .schedDrawerOpen .schedMain {
-    margin-right: 0;
-  }
-
   .orderDrawer {
     width: 100vw;
   }
 
   .schedDateLabel {
     width: 100px;
+  }
+
+  .confirmDialog {
+    width: 95vw;
   }
 }

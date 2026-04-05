@@ -22,6 +22,9 @@ import linesRouter from "./routes/lines.js";
 import dailyReportsRouter from "./routes/daily-reports.js";
 import exceptionsRouter from "./routes/exceptions.js";
 import commandRouter from "./routes/command.js";
+import exceptionsV2Router from "./routes/exceptions-v2.js";
+import agentsRouter from "./routes/agents.js";
+import todayRouter from "./routes/today.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -149,6 +152,9 @@ app.use("/api/lines", linesRouter);
 app.use("/api/daily-reports", dailyReportsRouter);
 app.use("/api/exceptions", exceptionsRouter);
 app.use("/api/command", commandRouter);
+app.use("/api/exceptions/v2", exceptionsV2Router);
+app.use("/api/agents", agentsRouter);
+app.use("/api/today", todayRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

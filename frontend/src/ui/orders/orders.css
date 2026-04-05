@@ -1,3 +1,174 @@
+/* ── Order Center ────────────────────────────────────── */
+
+.orderCenter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.orderStatusRow {
+  display: flex;
+  gap: 8px;
+}
+
+.orderStatusCard {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: all .15s;
+}
+
+.orderStatusCard:hover {
+  background: rgba(255,255,255,.06);
+}
+
+.orderStatusCard--active {
+  border-color: rgba(110,231,255,.30);
+  background: rgba(110,231,255,.06);
+}
+
+.orderStatusCount {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.orderStatusLabel {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.orderToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.orderToolbarActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Order Table ─────────────────────────────────────── */
+
+.orderTable {
+  overflow-x: auto;
+}
+
+.orderTable table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.orderTable th {
+  text-align: left;
+  padding: 8px 12px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+  white-space: nowrap;
+}
+
+.orderTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  white-space: nowrap;
+}
+
+.orderTable tbody tr:hover {
+  background: rgba(255,255,255,.02);
+}
+
+.orderRow--overdue {
+  background: rgba(251,113,133,.04) !important;
+}
+
+.orderCellId {
+  font-weight: 600;
+}
+
+.orderDaysTag {
+  margin-left: 6px;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+}
+
+.orderDaysTag--overdue {
+  background: rgba(251,113,133,.15);
+  color: var(--danger);
+}
+
+.orderDaysTag--urgent {
+  background: rgba(250,204,21,.12);
+  color: #facc15;
+}
+
+.orderStatus {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.statusPlanned { background: rgba(250,204,21,.12); color: #facc15; }
+.statusConfirmed { background: rgba(110,231,255,.10); color: var(--accent); }
+.statusProgress { background: rgba(167,139,250,.12); color: #a78bfa; }
+.statusCompleted { background: rgba(34,197,94,.10); color: #22c55e; }
+.statusCancelled { background: rgba(255,255,255,.06); color: var(--muted); }
+
+.orderActionBtn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.orderActionBtn:hover {
+  background: rgba(255,255,255,.08);
+}
+
+.orderActionBtn--danger {
+  border-color: rgba(251,113,133,.25);
+  color: var(--danger);
+}
+
+.orderActionBtn--danger:hover {
+  background: rgba(251,113,133,.10);
+}
+
+.drawerClose {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
 /* ── Order Form ──────────────────────────────────────── */
 
 .orderForm {

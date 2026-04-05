@@ -209,6 +209,67 @@
   font-size: 13px;
 }
 
+/* ── AI Section ──────────────────────────────────────── */
+
+.excSectionIcon--ai {
+  background: rgba(110,231,255,.12);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.excSectionCount--ai {
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+}
+
+.excItem--ai {
+  border-left: 3px solid transparent;
+}
+
+.excItem--ai-critical { border-left-color: var(--danger); }
+.excItem--ai-high { border-left-color: #facc15; }
+.excItem--ai-medium { border-left-color: var(--accent); }
+.excItem--ai-low { border-left-color: rgba(255,255,255,.15); }
+
+.excAiBadge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(110,231,255,.12);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.excItemBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.excItemMeta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.excAiRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.excAiConfidence {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 2px 5px;
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+}
+
 /* ── Mobile ────────────────────────────────────────────── */
 
 @media (max-width: 600px) {

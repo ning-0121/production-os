@@ -15,6 +15,7 @@ import type {
   DailyProductionReport,
   DailyReportSummary,
   ExceptionItem,
+  ExceptionV2Response,
   Factory,
   GeoFence,
   OptimizerPreview,
@@ -24,6 +25,8 @@ import type {
   RiskAlert,
   RiskResult,
   RiskSummary,
+  TodayBriefing,
+  AIAction,
   VisitTask,
 } from "../types";
 
@@ -203,13 +206,42 @@ export function recommend(
 
 // ── Production Lines ────────────────────────────────────
 
-export function fetchProductionLines(): Promise<import("../types").ProductionLine[]> {
-  return request("/lines");
+export function fetchProductionLines(factoryId?: string): Promise<import("../types").ProductionLine[]> {
+  const qs = factoryId ? `?factory_id=${factoryId}` : "";
+  return request(`/lines${qs}`);
+}
+
+export function createProductionLine(data: {
+  factory_id: string;
+  name: string;
+  front_capacity_per_day?: number;
+  back_capacity_per_day?: number;
+}): Promise<import("../types").ProductionLine> {
+  return request("/lines", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateProductionLine(id: string, data: Partial<{
+  name: string;
+  front_capacity_per_day: number;
+  back_capacity_per_day: number;
+  status: string;
+}>): Promise<import("../types").ProductionLine> {
+  return request(`/lines/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 }
 
 export function fetchLineSchedules(): Promise<import("../types").LineSchedule[]> {
   return request("/lines/schedules");
 }
+
+export type AutoScheduleSummary = {
+  order_id: string;
+  product_type: string;
+  qty: number;
+  line_name: string;
+  front: { start: string; end: string; days: number };
+  back: { start: string; end: string; days: number; capacity_per_day: number };
+  risk: { level: "SAFE" | "MEDIUM" | "HIGH"; buffer_days: number; due_date: string | null };
+};
 
 export function autoScheduleLine(params: {
   line_id: string;
@@ -217,17 +249,25 @@ export function autoScheduleLine(params: {
   front_days: number;
 }): Promise<{
   scheduled: import("../types").LineSchedule[];
-  summary: {
-    order_id: string;
-    qty: number;
-    line_name: string;
-    front: { start: string; end: string; days: number };
-    back: { start: string; end: string; days: number; capacity_per_day: number };
-  };
+  summary: AutoScheduleSummary;
 }> {
   return request("/lines/auto-schedule", {
     method: "POST",
     body: JSON.stringify(params),
+  });
+}
+
+export function dryRunAutoSchedule(params: {
+  line_id: string;
+  allocation_id: string;
+  front_days: number;
+}): Promise<{
+  dry_run: true;
+  summary: AutoScheduleSummary;
+}> {
+  return request("/lines/auto-schedule", {
+    method: "POST",
+    body: JSON.stringify({ ...params, dry_run: true }),
   });
 }
 
@@ -309,12 +349,42 @@ export function fetchOrderCorrections(allocationId: string): Promise<OrderCorrec
 
 // ── V2: Exceptions ──────────────────────────────────────
 
-export function fetchExceptions(): Promise<ExceptionItem[]> {
-  return request("/exceptions");
+export async function fetchExceptions(): Promise<ExceptionItem[]> {
+  const res = await request<{ exceptions: ExceptionItem[] } | ExceptionItem[]>("/exceptions");
+  if (Array.isArray(res)) return res;
+  if (res && typeof res === "object" && "exceptions" in res && Array.isArray(res.exceptions)) return res.exceptions;
+  return [];
 }
 
 // ── V2: Command Center ──────────────────────────────────
 
 export function fetchCommandOverview(): Promise<CommandOverview> {
   return request("/command/overview");
+}
+
+// ── V3: Today Briefing ─────────────────────────────────
+
+export function fetchTodayBriefing(): Promise<TodayBriefing> {
+  return request("/today/briefing");
+}
+
+// ── V3: Exceptions V2 ──────────────────────────────────
+
+export function fetchExceptionsV2(): Promise<ExceptionV2Response> {
+  return request("/exceptions/v2");
+}
+
+// ── V3: AI Agents ──────────────────────────────────────
+
+export function runRiskPrediction(): Promise<{ agent: string; actions: AIAction[]; reasoning: string }> {
+  return request("/agents/risk-predict", { method: "POST" });
+}
+
+export function runProgressCorrection(): Promise<{
+  agent: string;
+  actions: AIAction[];
+  reasoning: string;
+  stats: { on_track: number; falling_behind: number; critical: number; total: number };
+}> {
+  return request("/agents/correct", { method: "POST" });
 }

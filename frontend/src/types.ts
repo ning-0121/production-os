@@ -260,3 +260,60 @@ export type DailyReportSummary = {
   abnormal_count: number;
   factories_reported: number;
 };
+
+// ── V3: AI Agent Types ────────────────────────────────────
+
+export type AIAction = {
+  id: string;
+  agent: string;
+  action_type: string;
+  target_type: string;
+  target_id: string;
+  summary: string;
+  urgency: "critical" | "high" | "medium" | "low";
+  impact: string;
+  confidence: number;
+  params: Record<string, unknown>;
+};
+
+export type ExceptionV2Response = {
+  timestamp: string;
+  order_exceptions: Array<ExceptionItem & { allocation_id?: string; factory_id?: string }>;
+  factory_exceptions: Array<{ type: string; severity: string; factory_id: string; factory_name: string; message: string; data?: Record<string, unknown> }>;
+  resource_exceptions: Array<{ type: string; severity: string; line_id?: string; line_name?: string; factory_id?: string; factory_name?: string; message: string; data?: Record<string, unknown> }>;
+  incident_exceptions: Array<{ type: string; severity: string; factory_id?: string; order_id?: string; message: string; data?: Record<string, unknown> }>;
+  ai_actions: AIAction[];
+};
+
+export type RiskyOrder = {
+  allocation_id: string;
+  order_id: string | null;
+  factory_name: string;
+  product_type: string;
+  qty: number;
+  due_date: string;
+  days_left: number;
+  status: string;
+  risk: "overdue" | "critical" | "warning";
+};
+
+export type TodayBriefing = {
+  timestamp: string;
+  kpi: {
+    active_orders: number;
+    today_output: number;
+    on_time_pct: number;
+    abnormal_count: number;
+    total_lines: number;
+    reported_factories: number;
+    total_factories: number;
+    unscheduled_count: number;
+  };
+  risky_orders: RiskyOrder[];
+  risky_factories: Array<{ factory_id: string; name: string; delay_score: number | null; quality_score: number | null; active_orders: number }>;
+  available_lines: Array<{ line_id: string; name: string; factory_name: string; factory_id: string; scheduled_orders: number; front_capacity: number; back_capacity: number; load_level: string }>;
+  missing_reports: Array<{ factory_id: string; name: string }>;
+  unscheduled_orders: Array<{ allocation_id: string; order_id: string | null; product_type: string; qty: number; due_date: string; factory_name: string }>;
+  trend: Array<{ date: string; output: number }>;
+  ai_suggestions: AIAction[];
+};
