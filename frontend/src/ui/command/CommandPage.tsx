@@ -25,23 +25,28 @@ export function CommandPage() {
   }
   if (!data) return null;
 
-  const topExceptions = (exceptions ?? data.top_exceptions ?? []).slice(0, 5);
+  const kpi = data.kpi ?? { active_orders: 0, today_output: 0, on_time_pct: 0, abnormal_count: 0 };
+  const factoryStatus = Array.isArray(data.factory_report_status) ? data.factory_report_status : [];
+  const trend = Array.isArray(data.recent_trend) ? data.recent_trend : [];
+  const topExceptions = Array.isArray(exceptions) ? exceptions.slice(0, 5)
+    : Array.isArray(data.top_exceptions) ? data.top_exceptions.slice(0, 5)
+    : [];
 
   return (
     <div className="cmdContainer">
       {/* KPI Cards */}
       <div className="cmdKpiRow">
-        <KpiCard label="在产订单" value={data.kpi.active_orders} accent />
-        <KpiCard label="今日产出" value={data.kpi.today_output.toLocaleString()} />
+        <KpiCard label="在产订单" value={kpi.active_orders} accent />
+        <KpiCard label="今日产出" value={(kpi.today_output ?? 0).toLocaleString()} />
         <KpiCard
           label="准时率%"
-          value={`${data.kpi.on_time_pct}%`}
-          color={data.kpi.on_time_pct >= 90 ? "#22c55e" : data.kpi.on_time_pct >= 70 ? "#facc15" : "#fb7185"}
+          value={`${kpi.on_time_pct ?? 0}%`}
+          color={(kpi.on_time_pct ?? 0) >= 90 ? "#22c55e" : (kpi.on_time_pct ?? 0) >= 70 ? "#facc15" : "#fb7185"}
         />
         <KpiCard
           label="异常数"
-          value={data.kpi.abnormal_count}
-          color={data.kpi.abnormal_count === 0 ? "#22c55e" : "#fb7185"}
+          value={kpi.abnormal_count ?? 0}
+          color={(kpi.abnormal_count ?? 0) === 0 ? "#22c55e" : "#fb7185"}
         />
       </div>
 
@@ -68,14 +73,14 @@ export function CommandPage() {
           <div className="cardHeader">
             <h2>工厂报工状态</h2>
             <span className="hint">
-              {data.factory_report_status.filter((f) => f.reported).length}/{data.factory_report_status.length} 已报
+              {factoryStatus.filter((f) => f.reported).length}/{factoryStatus.length} 已报
             </span>
           </div>
           <div className="cmdFactoryList">
-            {data.factory_report_status.length === 0 && (
+            {factoryStatus.length === 0 && (
               <div className="emptyState">暂无工厂数据</div>
             )}
-            {data.factory_report_status.map((f) => (
+            {factoryStatus.map((f) => (
               <div key={f.factory_id} className="cmdFactoryStatus">
                 <div className={`cmdFactoryDot ${f.reported ? "cmdFactoryDot--ok" : "cmdFactoryDot--miss"}`} />
                 <span className="cmdFactoryName">{f.name}</span>
@@ -95,7 +100,7 @@ export function CommandPage() {
         </div>
         <div className="cmdTrendWrap">
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={data.recent_trend} margin={{ top: 16, right: 16, bottom: 4, left: 0 }}>
+            <LineChart data={trend} margin={{ top: 16, right: 16, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.08)" />
               <XAxis
                 dataKey="date"
