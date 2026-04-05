@@ -28,10 +28,10 @@ function allocationToBlock(a: Allocation): OrderBlock {
   return {
     id: a.id,
     factoryId: a.factory_id,
-    productType: a.product_type,
-    quantity: a.quantity,
-    startAt: a.start_date,
-    endAt: a.end_date,
+    productType: a.order_id ?? a.id.slice(0, 8),
+    quantity: a.allocated_qty,
+    startAt: a.planned_start_date,
+    endAt: a.planned_end_date,
     status: a.status === "cancelled" ? "completed" : a.status,
   };
 }
@@ -110,7 +110,7 @@ export function GanttPage() {
     // Persist to backend
     if (newStart && newEnd) {
       try {
-        await updateAllocation(activeData.orderId, { start_date: newStart, end_date: newEnd } as Partial<Allocation>);
+        await updateAllocation(activeData.orderId, { planned_start_date: newStart, planned_end_date: newEnd } as Partial<Allocation>);
       } catch {
         refetch(); // revert on failure
       }

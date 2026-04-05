@@ -235,7 +235,7 @@ export function DashboardPage() {
           {data.product_breakdown.length > 0 && (
             <div className="card" style={{ marginTop: 12 }}>
               <div className="cardHeader">
-                <h2>产品类型分布</h2>
+                <h2>订单分布</h2>
               </div>
               <div className="chartWrap">
                 <ResponsiveContainer width="100%" height={200}>

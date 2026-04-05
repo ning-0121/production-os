@@ -7,30 +7,19 @@ const router = Router();
 
 // GET /api/geofences — list active geofences with factory name
 router.get("/", asyncHandler(async (req, res) => {
-  let query = supabase
+  const query = supabase
     .from("factory_geo_fences")
     .select("*, factories(id, name)")
-    .order("name");
-
-  if (req.query.active !== "false") {
-    query = query.eq("is_active", true);
-  }
+    .order("factory_id");
 
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  // PostGIS geography columns come back as WKT or GeoJSON depending on config.
-  // Normalize center to { lat, lng } for the frontend.
-  const normalized = (data ?? []).map((f) => {
-    let center = null;
-    if (f.center) {
-      // Supabase returns geography as GeoJSON: { type: "Point", coordinates: [lng, lat] }
-      if (typeof f.center === "object" && f.center.coordinates) {
-        center = { lng: f.center.coordinates[0], lat: f.center.coordinates[1] };
-      }
-    }
-    return { ...f, center };
-  });
+  // Normalize lat/lng to center object for frontend compatibility
+  const normalized = (data ?? []).map((f) => ({
+    ...f,
+    center: (f.lat != null && f.lng != null) ? { lat: f.lat, lng: f.lng } : null,
+  }));
 
   res.json(normalized);
 }));
@@ -45,7 +34,7 @@ router.get("/tasks", asyncHandler(async (req, res) => {
     .select("*")
     .eq("factory_id", factory_id)
     .in("status", ["open", "in_progress"])
-    .order("priority", { ascending: false });
+    .order("priority");
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
@@ -59,10 +48,10 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
   // 1. Fetch active allocations for this factory
   const { data: allocs, error: allocErr } = await supabase
     .from("production_allocations")
-    .select("id, product_type, quantity, start_date, end_date, status, priority")
+    .select("id, order_id, allocated_qty, planned_start_date, planned_end_date, status")
     .eq("factory_id", factory_id)
     .in("status", ["planned", "confirmed", "in_progress"])
-    .order("end_date");
+    .order("planned_end_date");
 
   if (allocErr) return res.status(500).json({ error: allocErr.message });
 
@@ -82,12 +71,12 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
   // 3. Fetch existing open tasks to avoid duplicates
   const { data: existingTasks } = await supabase
     .from("factory_visit_tasks")
-    .select("allocation_id, task_type")
+    .select("order_id, task_type")
     .eq("factory_id", factory_id)
     .in("status", ["open", "in_progress"]);
 
   const existingSet = new Set(
-    (existingTasks ?? []).map((t) => `${t.allocation_id}:${t.task_type}`),
+    (existingTasks ?? []).map((t) => `${t.order_id}:${t.task_type}`),
   );
 
   // 4. Generate tasks
@@ -96,77 +85,43 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
   const tasks = [];
 
   for (const alloc of allocs ?? []) {
-    const endDate = new Date(alloc.end_date);
+    const endDate = new Date(alloc.planned_end_date);
     const risk = riskMap[alloc.id];
     const dueSoon = endDate <= threeDaysOut;
     const notStarted = alloc.status === "planned" || alloc.status === "confirmed";
     const highRisk = risk?.risk_level === "HIGH";
+    const orderLabel = alloc.order_id ?? alloc.id.slice(0, 8);
 
     // Task: not started orders → check production readiness
-    if (notStarted && !existingSet.has(`${alloc.id}:readiness_check`)) {
+    if (notStarted && !existingSet.has(`${alloc.order_id}:readiness_check`)) {
       tasks.push({
         factory_id,
-        allocation_id: alloc.id,
-        title: `Check readiness: ${alloc.product_type} x${alloc.quantity}`,
-        description: `Order not yet started. Verify materials, tooling, and line capacity are prepared.`,
+        order_id: alloc.order_id,
         task_type: "readiness_check",
         status: "open",
         priority: alloc.status === "planned" ? 2 : 1,
-        due_at: alloc.start_date,
-        metadata: {
-          auto_generated: true,
-          reason: "order_not_started",
-          allocation_status: alloc.status,
-          product_type: alloc.product_type,
-          quantity: alloc.quantity,
-          end_date: alloc.end_date,
-        },
       });
     }
 
     // Task: high-risk orders → urgent inspection
-    if (highRisk && !existingSet.has(`${alloc.id}:risk_inspection`)) {
+    if (highRisk && !existingSet.has(`${alloc.order_id}:risk_inspection`)) {
       tasks.push({
         factory_id,
-        allocation_id: alloc.id,
-        title: `URGENT: ${alloc.product_type} x${alloc.quantity} — ${risk.message ?? "high risk"}`,
-        description: `High-risk order detected (buffer: ${risk.buffer_days}d). Inspect progress on production line.`,
+        order_id: alloc.order_id,
         task_type: "risk_inspection",
         status: "open",
         priority: 3,
-        due_at: alloc.end_date,
-        metadata: {
-          auto_generated: true,
-          reason: "high_risk",
-          risk_level: risk.risk_level,
-          buffer_days: risk.buffer_days,
-          product_type: alloc.product_type,
-          quantity: alloc.quantity,
-          end_date: alloc.end_date,
-        },
       });
     }
 
     // Task: due in <3 days → delivery verification
-    if (dueSoon && !highRisk && !existingSet.has(`${alloc.id}:delivery_check`)) {
-      const daysLeft = Math.max(0, Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+    if (dueSoon && !highRisk && !existingSet.has(`${alloc.order_id}:delivery_check`)) {
       tasks.push({
         factory_id,
-        allocation_id: alloc.id,
-        title: `Due soon (${daysLeft}d): ${alloc.product_type} x${alloc.quantity}`,
-        description: `Order due within 3 days. Verify output count and quality before shipment.`,
+        order_id: alloc.order_id,
         task_type: "delivery_check",
         status: "open",
         priority: 2,
-        due_at: alloc.end_date,
-        metadata: {
-          auto_generated: true,
-          reason: "due_soon",
-          days_remaining: daysLeft,
-          product_type: alloc.product_type,
-          quantity: alloc.quantity,
-          end_date: alloc.end_date,
-        },
       });
     }
   }
@@ -208,30 +163,14 @@ router.post("/generate-tasks", asyncHandler(async (req, res) => {
 
 // PATCH /api/geofences/tasks/:id — update task (status, notes, photo, checked_at)
 router.patch("/tasks/:id", asyncHandler(async (req, res) => {
-  // First load existing task to merge metadata
-  const { data: existing, error: loadErr } = await supabase
-    .from("factory_visit_tasks")
-    .select("metadata")
-    .eq("id", req.params.id)
-    .single();
-
-  if (loadErr) return res.status(404).json({ error: loadErr.message });
-
   const updates = {};
-  const directFields = ["status", "assigned_to", "title", "description"];
+  const directFields = ["status", "task_type", "priority"];
   for (const k of directFields) {
     if (req.body[k] !== undefined) updates[k] = req.body[k];
   }
 
-  // Merge metadata fields (notes, photo_url, checked_at, etc.) into existing metadata
-  const metaUpdates = {};
-  if (req.body.notes !== undefined) metaUpdates.notes = req.body.notes;
-  if (req.body.photo_url !== undefined) metaUpdates.photo_url = req.body.photo_url;
-  if (req.body.checked_at !== undefined) metaUpdates.checked_at = req.body.checked_at;
-  if (req.body.metadata !== undefined) Object.assign(metaUpdates, req.body.metadata);
-
-  if (Object.keys(metaUpdates).length > 0) {
-    updates.metadata = { ...(existing.metadata ?? {}), ...metaUpdates };
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: "No valid fields to update" });
   }
 
   const { data, error } = await supabase

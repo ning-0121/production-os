@@ -11,13 +11,11 @@ router.post("/orders", validate(schemas.batchImportOrders), asyncHandler(async (
   const { orders } = req.body;
 
   const rows = orders.map((o) => ({
-    product_type: o.product_type,
-    quantity: o.quantity,
-    start_date: new Date().toISOString(),
-    end_date: o.end_date,
+    allocated_qty: o.quantity,
+    planned_start_date: new Date().toISOString(),
+    planned_end_date: o.end_date,
     status: "planned",
-    priority: o.priority ?? 0,
-    order_external_id: o.order_external_id ?? null,
+    order_id: o.order_id ?? o.order_external_id ?? null,
   }));
 
   const { data, error } = await supabase

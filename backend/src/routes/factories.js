@@ -30,8 +30,8 @@ router.get("/:id", asyncHandler(async (req, res) => {
 // PATCH /api/factories/:id — update factory fields
 router.patch("/:id", asyncHandler(async (req, res) => {
   const allowed = [
-    "name", "code", "status", "address", "contact_name", "contact_phone",
-    "timezone", "work_calendar", "ai_profile", "constraints", "metadata",
+    "name", "status", "location", "lat", "lng",
+    "cooperation_score", "quality_score", "delay_score",
   ];
   const updates = {};
   for (const k of allowed) {
@@ -52,8 +52,7 @@ router.patch("/:id", asyncHandler(async (req, res) => {
 // PATCH /api/capabilities/:id — update a single capability row
 router.patch("/capabilities/:id", asyncHandler(async (req, res) => {
   const allowed = [
-    "base_capacity_units_per_day", "setup_minutes", "minutes_per_unit",
-    "cost_per_unit", "quality_score", "features",
+    "daily_capacity", "efficiency_rate", "overtime_factor", "product_type",
   ];
   const updates = {};
   for (const k of allowed) {

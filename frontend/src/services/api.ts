@@ -45,7 +45,7 @@ export function updateFactory(id: string, data: Partial<Factory>): Promise<Facto
 
 export function updateCapability(
   id: string,
-  data: Partial<{ base_capacity_units_per_day: number; quality_score: number; cost_per_unit: number }>,
+  data: Partial<{ daily_capacity: number; efficiency_rate: number; overtime_factor: number; product_type: string }>,
 ): Promise<unknown> {
   return request(`/factories/capabilities/${id}`, {
     method: "PATCH",
@@ -68,13 +68,11 @@ export function fetchAllocations(params?: {
 
 export function createAllocation(data: {
   factory_id?: string;
-  product_type: string;
-  quantity: number;
-  start_date: string;
-  end_date: string;
+  allocated_qty: number;
+  planned_start_date: string;
+  planned_end_date: string;
   status?: AllocationStatus;
-  priority?: number;
-  order_external_id?: string;
+  order_id?: string;
 }): Promise<Allocation> {
   return request("/allocations", {
     method: "POST",

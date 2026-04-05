@@ -9,14 +9,11 @@ router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("factory_performance_logs")
     .select("*, factories(id, name)")
-    .order("occurred_at", { ascending: false })
+    .order("actual_end_date", { ascending: false })
     .limit(Number(req.query.limit ?? 50));
 
   if (req.query.factory_id) {
     query = query.eq("factory_id", req.query.factory_id);
-  }
-  if (req.query.metric_type) {
-    query = query.eq("metric_type", req.query.metric_type);
   }
 
   const { data, error } = await query;
@@ -26,54 +23,41 @@ router.get("/", asyncHandler(async (req, res) => {
 
 // GET /api/performance/factory/:id/summary — calibration summary for a factory
 router.get("/factory/:id/summary", asyncHandler(async (req, res) => {
-  // Get all order_completion logs for this factory
+  // Get all performance logs for this factory
   const { data: logs, error } = await supabase
     .from("factory_performance_logs")
-    .select("metric_value, context, occurred_at")
+    .select("order_id, delay_days, actual_daily_output, quality_issue_count, actual_start_date, actual_end_date, notes")
     .eq("factory_id", req.params.id)
-    .eq("metric_type", "order_completion")
-    .order("occurred_at", { ascending: false })
+    .order("actual_end_date", { ascending: false })
     .limit(20);
 
   if (error) return res.status(500).json({ error: error.message });
   if (!logs || logs.length === 0) {
-    return res.json({ total_completions: 0, by_product_type: {} });
+    return res.json({ total_completions: 0, summary: {} });
   }
 
-  // Group by product_type
-  const byProduct = {};
+  let sumOutput = 0;
+  let sumDelay = 0;
+  let onTimeCount = 0;
+  let sumQualityIssues = 0;
+
   for (const log of logs) {
-    const pt = log.context?.product_type ?? "unknown";
-    if (!byProduct[pt]) {
-      byProduct[pt] = {
-        completions: 0,
-        avg_daily_output: 0,
-        avg_delay_days: 0,
-        avg_efficiency: 0,
-        on_time_rate: 0,
-        _sums: { output: 0, delay: 0, eff: 0, onTime: 0 },
-      };
-    }
-    const b = byProduct[pt];
-    b.completions++;
-    b._sums.output += Number(log.metric_value ?? 0);
-    b._sums.delay += Number(log.context?.delay_days ?? 0);
-    b._sums.eff += Number(log.context?.efficiency_rate ?? 1);
-    if (log.context?.on_time) b._sums.onTime++;
+    sumOutput += Number(log.actual_daily_output ?? 0);
+    sumDelay += Number(log.delay_days ?? 0);
+    sumQualityIssues += Number(log.quality_issue_count ?? 0);
+    if ((log.delay_days ?? 0) <= 0) onTimeCount++;
   }
 
-  for (const [, b] of Object.entries(byProduct)) {
-    const n = b.completions;
-    b.avg_daily_output = Math.round((b._sums.output / n) * 100) / 100;
-    b.avg_delay_days = Math.round((b._sums.delay / n) * 100) / 100;
-    b.avg_efficiency = Math.round((b._sums.eff / n) * 1000) / 1000;
-    b.on_time_rate = Math.round((b._sums.onTime / n) * 100) / 100;
-    delete b._sums;
-  }
+  const n = logs.length;
 
   res.json({
-    total_completions: logs.length,
-    by_product_type: byProduct,
+    total_completions: n,
+    summary: {
+      avg_daily_output: Math.round((sumOutput / n) * 100) / 100,
+      avg_delay_days: Math.round((sumDelay / n) * 100) / 100,
+      on_time_rate: Math.round((onTimeCount / n) * 100) / 100,
+      total_quality_issues: sumQualityIssues,
+    },
   });
 }));
 

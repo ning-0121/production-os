@@ -35,24 +35,25 @@ export function validate(schema) {
 
 export const schemas = {
   createAllocation: z.object({
-    product_type: z.string().min(1, "产品类型不能为空"),
-    quantity: z.number().int().positive("数量必须大于0"),
-    end_date: z.string().min(1, "交货日期不能为空"),
-    start_date: z.string().optional(),
+    allocated_qty: z.number().int().positive("数量必须大于0"),
+    planned_end_date: z.string().min(1, "交货日期不能为空"),
+    planned_start_date: z.string().optional(),
     factory_id: z.string().uuid().optional(),
-    priority: z.number().int().min(0).max(10).optional(),
     status: z.enum(["planned", "confirmed", "in_progress", "completed", "cancelled"]).optional(),
-    order_external_id: z.string().optional(),
-    assumptions: z.record(z.unknown()).optional(),
+    order_id: z.string().optional(),
+    recommendation_score: z.number().optional(),
+    is_locked: z.boolean().optional(),
   }),
 
   updateAllocation: z.object({
     status: z.enum(["planned", "confirmed", "in_progress", "completed", "cancelled"]).optional(),
-    start_date: z.string().optional(),
-    end_date: z.string().optional(),
-    priority: z.number().int().min(0).max(10).optional(),
+    planned_start_date: z.string().optional(),
+    planned_end_date: z.string().optional(),
     factory_id: z.string().uuid().optional(),
-    assumptions: z.record(z.unknown()).optional(),
+    allocated_qty: z.number().int().positive().optional(),
+    order_id: z.string().optional(),
+    recommendation_score: z.number().optional(),
+    is_locked: z.boolean().optional(),
   }).refine((data) => Object.keys(data).length > 0, {
     message: "至少需要提供一个要更新的字段",
   }),
@@ -60,22 +61,21 @@ export const schemas = {
   updateFactory: z.object({
     name: z.string().min(1).optional(),
     status: z.enum(["active", "inactive", "maintenance"]).optional(),
-    address: z.string().optional(),
-    timezone: z.string().optional(),
-    work_calendar: z.record(z.unknown()).optional(),
-    ai_profile: z.record(z.unknown()).optional(),
-    constraints: z.record(z.unknown()).optional(),
-    metadata: z.record(z.unknown()).optional(),
+    location: z.string().optional(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+    cooperation_score: z.number().optional(),
+    quality_score: z.number().optional(),
+    delay_score: z.number().optional(),
   }).refine((data) => Object.keys(data).length > 0, {
     message: "至少需要提供一个要更新的字段",
   }),
 
   updateCapability: z.object({
-    base_capacity_units_per_day: z.number().positive().optional(),
-    minutes_per_unit: z.number().positive().optional(),
-    quality_score: z.number().min(0).max(100).optional(),
-    cost_per_unit: z.number().min(0).optional(),
-    features: z.record(z.unknown()).optional(),
+    daily_capacity: z.number().positive().optional(),
+    efficiency_rate: z.number().optional(),
+    overtime_factor: z.number().optional(),
+    product_type: z.string().optional(),
   }).refine((data) => Object.keys(data).length > 0, {
     message: "至少需要提供一个要更新的字段",
   }),
@@ -93,11 +93,10 @@ export const schemas = {
 
   batchImportOrders: z.object({
     orders: z.array(z.object({
-      product_type: z.string().min(1),
       quantity: z.number().int().positive(),
       end_date: z.string().min(1),
       start_date: z.string().optional(),
-      priority: z.number().int().min(0).max(10).optional(),
+      order_id: z.string().optional(),
       order_external_id: z.string().optional(),
     })).min(1, "至少需要一条订单").max(500, "单次最多导入500条"),
   }),

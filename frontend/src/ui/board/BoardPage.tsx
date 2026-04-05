@@ -78,9 +78,8 @@ export function BoardPage() {
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((o) =>
-        o.product_type.toLowerCase().includes(q) ||
         o.id.toLowerCase().includes(q) ||
-        (o.order_external_id ?? "").toLowerCase().includes(q) ||
+        (o.order_id ?? "").toLowerCase().includes(q) ||
         (o.factories?.name ?? "").toLowerCase().includes(q)
       );
     }
@@ -355,12 +354,12 @@ function OrderCard({
         {isSelected && "ok"}
       </div>
       <div className="boardCardTop">
-        <span className="boardCardPt">{order.product_type}</span>
-        <span className="boardCardQty">x{order.quantity}</span>
+        <span className="boardCardPt">{order.order_id ?? order.id.slice(0, 8)}</span>
+        <span className="boardCardQty">x{order.allocated_qty}</span>
       </div>
       <div className="boardCardFactory">{order.factories?.name ?? "未分配"}</div>
       <div className="boardCardDue">
-        交期 {order.end_date?.slice(0, 10)}
+        交期 {order.planned_end_date?.slice(0, 10)}
         {riskLevel && bufferDays !== null && (
           <span className={`boardCardRiskBadge boardCardRiskBadge${riskLevel}`}>
             {riskLevel === "HIGH"
@@ -432,8 +431,8 @@ function ScheduleDrawer({
           <div>
             <h3>智能排单</h3>
             <div className="drawerSub">
-              {allocation.product_type} x{allocation.quantity}
-              {" | "}交期 {allocation.end_date?.slice(0, 10)}
+              {allocation.order_id ?? allocation.id.slice(0, 8)} x{allocation.allocated_qty}
+              {" | "}交期 {allocation.planned_end_date?.slice(0, 10)}
             </div>
           </div>
           <button className="drawerClose" onClick={onClose}>x</button>

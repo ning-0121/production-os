@@ -15,7 +15,7 @@ router.get("/", asyncHandler(async (req, res) => {
   let query = supabase
     .from("production_allocations")
     .select("*, factories(id, name)")
-    .order("start_date");
+    .order("planned_start_date");
 
   if (req.query.status) {
     query = query.eq("status", req.query.status);
@@ -43,16 +43,14 @@ router.get("/:id", asyncHandler(async (req, res) => {
 
 // POST /api/allocations — create new allocation
 router.post("/", validate(schemas.createAllocation), asyncHandler(async (req, res) => {
-  const { factory_id, product_type, quantity, start_date, end_date, status, priority, order_external_id } = req.body;
+  const { factory_id, allocated_qty, planned_start_date, planned_end_date, status, order_id } = req.body;
 
   const row = {
-    product_type,
-    quantity,
-    start_date,
-    end_date,
+    allocated_qty,
+    planned_start_date,
+    planned_end_date,
     status: status ?? "planned",
-    priority: priority ?? 0,
-    order_external_id,
+    order_id: order_id ?? null,
   };
   if (factory_id) row.factory_id = factory_id;
 
@@ -76,8 +74,8 @@ router.patch("/:id", asyncHandler(async (req, res) => {
   }
 
   const allowed = [
-    "factory_id", "product_type", "quantity", "start_date", "end_date",
-    "status", "priority", "assumptions", "score_breakdown", "order_external_id",
+    "factory_id", "allocated_qty", "planned_start_date", "planned_end_date",
+    "status", "order_id", "recommendation_score", "is_locked",
   ];
   const updates = {};
   for (const k of allowed) {
@@ -100,7 +98,7 @@ router.patch("/:id", asyncHandler(async (req, res) => {
 
   // Auto-trigger performance logging + recalibration on completion
   if (data.status === "completed") {
-    auditLog({ action: "calibration.auto_trigger", category: "calibration", result_status: "success", req, detail: { allocation_id: data.id, product_type: data.product_type } });
+    auditLog({ action: "calibration.auto_trigger", category: "calibration", result_status: "success", req, detail: { allocation_id: data.id, order_id: data.order_id } });
     onOrderCompleted(data).catch((err) => {
       auditLog({ action: "calibration.auto_trigger", category: "calibration", result_status: "failed", req, error_code: "calibration_error", detail: { allocation_id: data.id, error: err.message } });
     });
@@ -131,19 +129,21 @@ router.post("/:id/recommend", asyncHandler(async (req, res) => {
   const windowEnd = addDays(new Date(), horizon).toISOString();
   const { data: existingAllocs } = await supabase
     .from("production_allocations")
-    .select("factory_id, start_date, end_date, quantity, product_type")
+    .select("factory_id, planned_start_date, planned_end_date, allocated_qty")
     .in("status", ["planned", "confirmed", "in_progress"])
-    .lte("start_date", windowEnd);
+    .lte("planned_start_date", windowEnd);
 
   const loadByFactory = {};
   for (const ea of existingAllocs ?? []) {
     if (!loadByFactory[ea.factory_id]) loadByFactory[ea.factory_id] = 0;
-    // Rough estimate: find capability and compute minutes
+    // Rough estimate: use allocated_qty and derive minutes from daily_capacity
     const fac = factories.find((f) => f.id === ea.factory_id);
     if (fac) {
-      const cap = (fac.factory_capabilities ?? []).find((c) => c.product_type === ea.product_type);
+      const caps = fac.factory_capabilities ?? [];
+      const cap = caps[0]; // use first capability as estimate
       if (cap) {
-        loadByFactory[ea.factory_id] += (cap.setup_minutes || 0) + ea.quantity * (cap.minutes_per_unit || 0);
+        const minutesPerUnit = cap.daily_capacity > 0 ? 480 / cap.daily_capacity : 0;
+        loadByFactory[ea.factory_id] += ea.allocated_qty * minutesPerUnit;
       }
     }
   }
@@ -158,11 +158,15 @@ router.post("/:id/recommend", asyncHandler(async (req, res) => {
       name: f.name,
       capabilities: (f.factory_capabilities ?? []).map((c) => ({
         product_type: c.product_type,
-        setup_minutes: c.setup_minutes,
-        minutes_per_unit: c.minutes_per_unit,
-        base_capacity_units_per_day: c.base_capacity_units_per_day,
-        cost_per_unit: c.cost_per_unit,
-        quality_score: c.quality_score,
+        daily_capacity: c.daily_capacity,
+        efficiency_rate: c.efficiency_rate,
+        overtime_factor: c.overtime_factor,
+        // Derived fields for scheduler compatibility
+        setup_minutes: 0,
+        minutes_per_unit: c.daily_capacity > 0 ? 480 / c.daily_capacity : 0,
+        base_capacity_units_per_day: c.daily_capacity,
+        cost_per_unit: null,
+        quality_score: f.quality_score ?? null,
       })),
       capacity: { daily_capacity_minutes: dailyMinutes },
       load: {
@@ -174,9 +178,9 @@ router.post("/:id/recommend", asyncHandler(async (req, res) => {
 
   // 5. Run recommendation engine
   const order = {
-    product_type: alloc.product_type,
-    quantity: alloc.quantity,
-    due_date: alloc.end_date,
+    product_type: null, // product_type lives on capabilities, not allocations
+    quantity: alloc.allocated_qty,
+    due_date: alloc.planned_end_date,
   };
   const recs = recommendFactories(order, factoryInputs, req.body.options);
   res.json(recs);
@@ -203,19 +207,17 @@ router.post("/:id/schedule", asyncHandler(async (req, res) => {
     .single();
   if (facErr) return res.status(404).json({ error: "Factory not found" });
 
-  // 3. Find capability for this product type
-  const capability = (factory.factory_capabilities ?? []).find(
-    (c) => c.product_type === alloc.product_type,
-  );
+  // 3. Find capability (use first available since product_type is on capabilities, not allocations)
+  const capability = (factory.factory_capabilities ?? [])[0];
   if (!capability) {
     return res.status(400).json({
-      error: `Factory ${factory.name} has no capability for product type "${alloc.product_type}"`,
+      error: `Factory ${factory.name} has no capabilities configured`,
     });
   }
 
   // 4. Calculate production time
   const timing = calcProductionMinutes(
-    { quantity: alloc.quantity },
+    { quantity: alloc.allocated_qty },
     capability,
   );
 
@@ -228,19 +230,15 @@ router.post("/:id/schedule", asyncHandler(async (req, res) => {
   // Sum existing allocated minutes for this factory
   const { data: existingAllocs } = await supabase
     .from("production_allocations")
-    .select("quantity, product_type")
+    .select("allocated_qty")
     .eq("factory_id", factory_id)
     .in("status", ["planned", "confirmed", "in_progress"])
     .neq("id", req.params.id); // exclude current order
 
   let existingMinutes = 0;
   for (const ea of existingAllocs ?? []) {
-    const cap = (factory.factory_capabilities ?? []).find(
-      (c) => c.product_type === ea.product_type,
-    );
-    if (cap) {
-      existingMinutes += (cap.setup_minutes || 0) + ea.quantity * (cap.minutes_per_unit || 0);
-    }
+    const minutesPerUnit = capability.daily_capacity > 0 ? 480 / capability.daily_capacity : 0;
+    existingMinutes += ea.allocated_qty * minutesPerUnit;
   }
 
   const horizon = 30;
@@ -262,15 +260,10 @@ router.post("/:id/schedule", asyncHandler(async (req, res) => {
     .from("production_allocations")
     .update({
       factory_id,
-      capability_id: capability.id,
-      start_date: startAt.toISOString(),
-      end_date: endAt.toISOString(),
+      planned_start_date: startAt.toISOString(),
+      planned_end_date: endAt.toISOString(),
       status: "confirmed",
-      assumptions: {
-        scheduled_by: "smart_schedule",
-        timing,
-        utilization_pct: Math.round(newUtilization),
-      },
+      recommendation_score: Math.round(newUtilization),
     })
     .eq("id", req.params.id)
     .select("*, factories(id, name)")

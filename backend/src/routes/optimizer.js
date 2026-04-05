@@ -70,9 +70,9 @@ router.post("/run", async (req, res) => {
       const targetStatuses = forceUpdate ? ["planned", "confirmed"] : ["planned"];
       const { data: allocs, error } = await supabase
         .from("production_allocations")
-        .select("id, factory_id, product_type, quantity, start_date, end_date, status, priority, order_external_id, assumptions")
+        .select("id, factory_id, order_id, allocated_qty, planned_start_date, planned_end_date, status, recommendation_score, is_locked")
         .in("status", targetStatuses)
-        .order("priority", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) return res.status(500).json({ error: error.message });
 
@@ -82,8 +82,8 @@ router.post("/run", async (req, res) => {
       let skippedIdempotent = 0;
 
       for (const a of raw) {
-        const prevRunId = a.assumptions?.optimizer_run_id;
-        if (prevRunId === runId) {
+        // Skip locked allocations
+        if (a.is_locked) {
           skippedIdempotent++;
           continue;
         }
@@ -92,11 +92,11 @@ router.post("/run", async (req, res) => {
 
       orders = filtered.map((a) => ({
         id: a.id,
-        product_type: a.product_type,
-        quantity: Number(a.quantity),
-        due_date: a.end_date,
-        priority: a.priority ?? 0,
-        order_external_id: a.order_external_id,
+        product_type: null, // product_type is on capabilities, not allocations
+        quantity: Number(a.allocated_qty),
+        due_date: a.planned_end_date,
+        priority: 0,
+        order_id: a.order_id,
         _current_status: a.status,
       }));
 
@@ -135,18 +135,19 @@ router.post("/run", async (req, res) => {
     const windowEnd = addDays(new Date(), horizonDays).toISOString();
     const { data: existingAllocs } = await supabase
       .from("production_allocations")
-      .select("factory_id, quantity, product_type, start_date, end_date")
+      .select("factory_id, allocated_qty, planned_start_date, planned_end_date")
       .in("status", ["confirmed", "in_progress"])
-      .lte("start_date", windowEnd);
+      .lte("planned_start_date", windowEnd);
 
     const loadByFactory = {};
     for (const ea of existingAllocs ?? []) {
       if (!loadByFactory[ea.factory_id]) loadByFactory[ea.factory_id] = 0;
       const fac = rawFactories.find((f) => f.id === ea.factory_id);
       if (fac) {
-        const cap = (fac.factory_capabilities ?? []).find((c) => c.product_type === ea.product_type);
+        const cap = (fac.factory_capabilities ?? [])[0];
         if (cap) {
-          loadByFactory[ea.factory_id] += (Number(cap.setup_minutes) || 0) + Number(ea.quantity) * (Number(cap.minutes_per_unit) || 0);
+          const minutesPerUnit = cap.daily_capacity > 0 ? 480 / cap.daily_capacity : 0;
+          loadByFactory[ea.factory_id] += Number(ea.allocated_qty) * minutesPerUnit;
         }
       }
     }
@@ -162,11 +163,15 @@ router.post("/run", async (req, res) => {
         capabilities: (f.factory_capabilities ?? []).map((c) => ({
           id: c.id,
           product_type: c.product_type,
-          setup_minutes: Number(c.setup_minutes),
-          minutes_per_unit: Number(c.minutes_per_unit),
-          base_capacity_units_per_day: Number(c.base_capacity_units_per_day),
-          cost_per_unit: c.cost_per_unit != null ? Number(c.cost_per_unit) : null,
-          quality_score: c.quality_score != null ? Number(c.quality_score) : null,
+          daily_capacity: Number(c.daily_capacity),
+          efficiency_rate: c.efficiency_rate,
+          overtime_factor: c.overtime_factor,
+          // Derived fields for scheduler compatibility
+          setup_minutes: 0,
+          minutes_per_unit: c.daily_capacity > 0 ? 480 / Number(c.daily_capacity) : 0,
+          base_capacity_units_per_day: Number(c.daily_capacity),
+          cost_per_unit: null,
+          quality_score: f.quality_score != null ? Number(f.quality_score) : null,
         })),
         capacity: { daily_capacity_minutes: dailyMinutes },
         load: {
@@ -234,7 +239,7 @@ router.post("/run", async (req, res) => {
 router.get("/preview", async (_req, res) => {
   const { data: planned, error: e1 } = await supabase
     .from("production_allocations")
-    .select("id, product_type, quantity, end_date, priority")
+    .select("id, order_id, allocated_qty, planned_end_date")
     .eq("status", "planned");
 
   const { data: factories, error: e2 } = await supabase
@@ -244,16 +249,18 @@ router.get("/preview", async (_req, res) => {
 
   if (e1 || e2) return res.status(500).json({ error: (e1 ?? e2).message });
 
-  const productTypes = new Set((planned ?? []).map((p) => p.product_type));
-  const capableFactories = (factories ?? []).filter((f) =>
-    (f.factory_capabilities ?? []).some((c) => productTypes.has(c.product_type)),
-  );
+  const productTypes = new Set();
+  for (const f of factories ?? []) {
+    for (const c of f.factory_capabilities ?? []) {
+      productTypes.add(c.product_type);
+    }
+  }
 
   res.json({
     pending_orders: (planned ?? []).length,
-    total_quantity: (planned ?? []).reduce((s, p) => s + Number(p.quantity), 0),
+    total_quantity: (planned ?? []).reduce((s, p) => s + Number(p.allocated_qty), 0),
     product_types: [...productTypes],
-    available_factories: capableFactories.length,
+    available_factories: (factories ?? []).length,
     total_factories: (factories ?? []).length,
   });
 });
@@ -274,7 +281,7 @@ async function persistAllocations(allocations, runId, forceUpdate) {
   const orderIds = [...new Set(allocations.map((a) => a.order_id))];
   const { data: currentRows, error: loadErr } = await supabase
     .from("production_allocations")
-    .select("id, status, assumptions")
+    .select("id, status, is_locked")
     .in("id", orderIds);
 
   if (loadErr) {
@@ -318,13 +325,13 @@ async function persistAllocations(allocations, runId, forceUpdate) {
       continue;
     }
 
-    // ── Guard: already optimized by this same run_id ────
-    if (current.assumptions?.optimizer_run_id === runId) {
+    // ── Guard: locked allocation ────
+    if (current.is_locked) {
       summary.skipped++;
       summary.details.push({
         order_id: alloc.order_id,
         action: "skipped",
-        reason: "idempotent_duplicate",
+        reason: "allocation_locked",
       });
       continue;
     }
@@ -354,22 +361,14 @@ async function persistAllocations(allocations, runId, forceUpdate) {
       .from("production_allocations")
       .update({
         factory_id: alloc.factory_id,
-        start_date: alloc.planned_start_date,
-        end_date: alloc.planned_end_date,
+        planned_start_date: alloc.planned_start_date,
+        planned_end_date: alloc.planned_end_date,
         status: "confirmed",
-        assumptions: {
-          scheduled_by: "optimizer",
-          optimizer_run_id: runId,
-          optimizer_ran_at: new Date().toISOString(),
-          confidence_score: alloc.confidence_score,
-          reason: alloc.reason,
-          previous_status: current.status,
-        },
-        score_breakdown: alloc.score_breakdown,
+        recommendation_score: alloc.confidence_score ?? null,
       })
       .eq("id", alloc.order_id)
       .in("status", acceptableStatuses)  // optimistic lock
-      .select("id, factory_id, status, start_date, end_date")
+      .select("id, factory_id, status, planned_start_date, planned_end_date")
       .maybeSingle();
 
     if (error) {

@@ -47,8 +47,8 @@ export function GeofencePage() {
 
     let entered: GeoFence | null = null;
     for (const f of fences) {
-      if (!f.center || !f.radius_meters) continue;
-      if (haversineMeters(pos, f.center) <= f.radius_meters) {
+      if (!f.center || !f.radius) continue;
+      if (haversineMeters(pos, f.center) <= f.radius) {
         entered = f;
         break;
       }
@@ -58,7 +58,7 @@ export function GeofencePage() {
       setActiveFactoryId(entered.factory_id);
       if (lastEnteredRef.current !== entered.factory_id) {
         lastEnteredRef.current = entered.factory_id;
-        const name = entered.factories?.name ?? entered.name;
+        const name = entered.factories?.name ?? "Factory";
         notify("Entered factory", `${name} — generating tasks…`);
         // Auto-generate tasks on entry
         triggerTaskGeneration(entered.factory_id);
@@ -123,7 +123,7 @@ export function GeofencePage() {
             <span className="geoStatusLabel">Status</span>
             <span className={`geoStatusValue ${activeFence ? "geoStatusActive" : ""}`}>
               {activeFence
-                ? `Inside: ${activeFence.factories?.name ?? activeFence.name}`
+                ? `Inside: ${activeFence.factories?.name ?? "Factory"}`
                 : "Outside all fences"}
             </span>
           </div>
@@ -219,12 +219,6 @@ function ActionCard({
   onUpdate: () => void;
 }) {
   const [saving, setSaving] = React.useState(false);
-  const [noteText, setNoteText] = React.useState(
-    (task.metadata as Record<string, unknown>)?.notes as string ?? "",
-  );
-  const meta = task.metadata as Record<string, unknown>;
-  const riskLevel = meta?.risk_level as string | undefined;
-  const reason = meta?.reason as string | undefined;
 
   const priorityClass =
     task.priority >= 3 ? "actionPrioHigh" :
@@ -239,56 +233,11 @@ function ActionCard({
   async function markChecked() {
     setSaving(true);
     try {
-      await updateVisitTask(task.id, {
-        status: "done",
-        checked_at: new Date().toISOString(),
-      });
+      await updateVisitTask(task.id, { status: "done" });
       onUpdate();
     } catch { /* silent */ }
     setSaving(false);
   }
-
-  async function saveNote() {
-    setSaving(true);
-    try {
-      await updateVisitTask(task.id, { notes: noteText });
-    } catch { /* silent */ }
-    setSaving(false);
-  }
-
-  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSaving(true);
-    try {
-      // Upload to Supabase Storage
-      const { supabase } = await import("../../services/auth");
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `tasks/${task.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("visit-photos")
-        .upload(path, file, { upsert: true });
-
-      let photoUrl: string;
-      if (uploadErr) {
-        // Fallback to base64 if storage not configured
-        const reader = new FileReader();
-        photoUrl = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
-      } else {
-        const { data: urlData } = supabase.storage.from("visit-photos").getPublicUrl(path);
-        photoUrl = urlData.publicUrl;
-      }
-
-      await updateVisitTask(task.id, { photo_url: photoUrl });
-      onUpdate();
-    } catch { /* silent */ }
-    setSaving(false);
-  }
-
-  const hasPhoto = !!(meta?.photo_url);
 
   return (
     <div className={`actionCard ${priorityClass}`}>
@@ -301,12 +250,10 @@ function ActionCard({
             {saving ? "…" : ""}
           </div>
           <div className="actionCardInfo">
-            <div className="actionCardTitle">{task.title}</div>
+            <div className="actionCardTitle">{typeLabel}</div>
             <div className="actionCardMeta">
               <span className={`actionTypeBadge actionType_${task.task_type}`}>{typeLabel}</span>
-              {riskLevel === "HIGH" && <span className="actionRiskBadge">HIGH RISK</span>}
-              {reason === "due_soon" && <span className="actionDueBadge">DUE SOON</span>}
-              {hasPhoto && <span className="actionPhotoBadge">has photo</span>}
+              {task.order_id && <span className="pill">Order: {task.order_id}</span>}
             </div>
           </div>
         </div>
@@ -318,41 +265,6 @@ function ActionCard({
 
       {expanded && (
         <div className="actionExpanded">
-          {task.description && (
-            <div className="actionDesc">{task.description}</div>
-          )}
-
-          {/* Note input */}
-          <div className="actionField">
-            <label className="actionFieldLabel">Notes</label>
-            <textarea
-              className="actionTextarea"
-              rows={2}
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Add observation notes…"
-            />
-            <button className="btn actionSaveBtn" onClick={() => void saveNote()} disabled={saving}>
-              {saving ? "Saving…" : "Save Note"}
-            </button>
-          </div>
-
-          {/* Photo upload */}
-          <div className="actionField">
-            <label className="actionFieldLabel">Photo Evidence</label>
-            {hasPhoto && (
-              <img
-                className="actionPhoto"
-                src={meta.photo_url as string}
-                alt="Task photo"
-              />
-            )}
-            <label className="btn actionPhotoBtn">
-              {hasPhoto ? "Replace Photo" : "Upload Photo"}
-              <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} hidden />
-            </label>
-          </div>
-
           {/* Quick mark done */}
           <button className="btn primary actionDoneBtn" onClick={() => void markChecked()} disabled={saving}>
             {saving ? "Saving…" : "Mark Checked"}
@@ -375,20 +287,12 @@ function CompletedSection({ tasks }: { tasks: VisitTask[] }) {
       </button>
       {open && (
         <div className="actionCompletedList">
-          {tasks.map((t) => {
-            const meta = t.metadata as Record<string, unknown>;
-            return (
-              <div key={t.id} className="actionCompletedItem">
-                <span className="actionCompletedCheck">done</span>
-                <span className="actionCompletedTitle">{t.title}</span>
-                {typeof meta?.checked_at === "string" && (
-                  <span className="actionCompletedTime">
-                    {meta.checked_at.slice(11, 16)}
-                  </span>
-                )}
-              </div>
-            );
-          })}
+          {tasks.map((t) => (
+            <div key={t.id} className="actionCompletedItem">
+              <span className="actionCompletedCheck">done</span>
+              <span className="actionCompletedTitle">{t.task_type}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

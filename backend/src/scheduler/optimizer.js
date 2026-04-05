@@ -242,10 +242,8 @@ function assignOrder(order, state, horizonDays, options) {
   // Build allocation
   const allocation = {
     order_id: order.id,
-    order_external_id: order.order_external_id ?? null,
     factory_id: best.factory_id,
     factory_name: best.factory_name,
-    product_type: order.product_type,
     allocated_qty: order.quantity,
     planned_start_date: best.start_date,
     planned_end_date: best.end_date,

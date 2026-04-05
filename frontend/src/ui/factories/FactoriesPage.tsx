@@ -1,7 +1,7 @@
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { fetchFactories, updateCapability } from "../../services/api";
-import type { Factory, FactoryCapability } from "../../types";
+import type { Factory } from "../../types";
 import "../orders/orders.css";
 import "./factories.css";
 
@@ -18,8 +18,7 @@ export function FactoriesPage() {
       const q = searchText.toLowerCase();
       list = list.filter((f) =>
         f.name.toLowerCase().includes(q) ||
-        (f.address ?? "").toLowerCase().includes(q) ||
-        f.code.toLowerCase().includes(q)
+        (f.location ?? "").toLowerCase().includes(q)
       );
     }
     return list;
@@ -72,9 +71,9 @@ export function FactoriesPage() {
           <div className="ftcell ftname">名称</div>
           <div className="ftcell">地点</div>
           <div className="ftcell ftnum">日产能</div>
-          <div className="ftcell ftnum">单件耗时(min)</div>
+          <div className="ftcell ftnum">效率</div>
           <div className="ftcell ftnum">质量分</div>
-          <div className="ftcell ftnum">单件成本</div>
+          <div className="ftcell ftnum">协作分</div>
           <div className="ftcell ftnum">状态</div>
           <div className="ftcell">产品类型</div>
         </div>
@@ -83,11 +82,10 @@ export function FactoriesPage() {
           const editing = editingId === f.id;
           const caps = f.factory_capabilities ?? [];
           const bestCap = caps[0];
-          const dailyCapacity = bestCap?.base_capacity_units_per_day ?? 0;
-          const minutesPerUnit = bestCap?.minutes_per_unit ?? 0;
-          const qualityScore = bestCap?.quality_score ?? 0;
-          const costPerUnit = bestCap?.cost_per_unit ?? 0;
-          const calibration = getCalibrationInfo(bestCap);
+          const dailyCapacity = bestCap?.daily_capacity ?? 0;
+          const efficiencyRate = bestCap?.efficiency_rate ?? 0;
+          const qualityScore = f.quality_score ?? 0;
+          const cooperationScore = f.cooperation_score ?? 0;
 
           return (
             <React.Fragment key={f.id}>
@@ -96,7 +94,7 @@ export function FactoriesPage() {
                 onClick={() => setEditingId(editing ? null : f.id)}
               >
                 <div className="ftcell ftname">{f.name}</div>
-                <div className="ftcell">{f.address ?? "—"}</div>
+                <div className="ftcell">{f.location ?? "—"}</div>
                 <div className="ftcell ftnum">
                   {editing && bestCap ? (
                     <input
@@ -104,38 +102,10 @@ export function FactoriesPage() {
                       className="ftinput"
                       defaultValue={dailyCapacity}
                       onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => void handleCapabilityUpdate(bestCap.id, "base_capacity_units_per_day", Number(e.target.value))}
+                      onBlur={(e) => void handleCapabilityUpdate(bestCap.id, "daily_capacity", Number(e.target.value))}
                     />
                   ) : (
-                    <span>
-                      {dailyCapacity}
-                      {calibration && <span className="ftCalibrated" title="Auto-calibrated">*</span>}
-                    </span>
-                  )}
-                </div>
-                <div className="ftcell ftnum">
-                  {editing && bestCap ? (
-                    <input
-                      type="number"
-                      step="0.1"
-                      className="ftinput"
-                      defaultValue={minutesPerUnit}
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => void handleCapabilityUpdate(bestCap.id, "minutes_per_unit", Number(e.target.value))}
-                    />
-                  ) : minutesPerUnit}
-                </div>
-                <div className="ftcell ftnum">
-                  {editing && bestCap ? (
-                    <input
-                      type="number"
-                      className="ftinput"
-                      defaultValue={qualityScore}
-                      onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => void handleCapabilityUpdate(bestCap.id, "quality_score", Number(e.target.value))}
-                    />
-                  ) : (
-                    <ScoreBar value={qualityScore} />
+                    <span>{dailyCapacity}</span>
                   )}
                 </div>
                 <div className="ftcell ftnum">
@@ -144,11 +114,17 @@ export function FactoriesPage() {
                       type="number"
                       step="0.01"
                       className="ftinput"
-                      defaultValue={costPerUnit}
+                      defaultValue={efficiencyRate}
                       onClick={(e) => e.stopPropagation()}
-                      onBlur={(e) => void handleCapabilityUpdate(bestCap.id, "cost_per_unit", Number(e.target.value))}
+                      onBlur={(e) => void handleCapabilityUpdate(bestCap.id, "efficiency_rate", Number(e.target.value))}
                     />
-                  ) : `¥${costPerUnit}`}
+                  ) : (efficiencyRate ? `${(efficiencyRate * 100).toFixed(0)}%` : "—")}
+                </div>
+                <div className="ftcell ftnum">
+                  <ScoreBar value={qualityScore} />
+                </div>
+                <div className="ftcell ftnum">
+                  <ScoreBar value={cooperationScore} />
                 </div>
                 <div className="ftcell ftnum">
                   <span className="pill">{f.status}</span>
@@ -161,9 +137,6 @@ export function FactoriesPage() {
                   </div>
                 </div>
               </div>
-              {editing && calibration && (
-                <CalibrationRow calibration={calibration} />
-              )}
             </React.Fragment>
           );
         })}
@@ -173,54 +146,6 @@ export function FactoriesPage() {
 }
 
 // ── Helpers ─────────────────────────────────────────────
-
-type CalibrationInfo = {
-  last_calibrated_at: string;
-  calibration_samples: number;
-  avg_daily_output: number;
-  avg_delay_days: number;
-  avg_efficiency: number;
-  on_time_rate: number;
-};
-
-function getCalibrationInfo(cap: FactoryCapability | undefined): CalibrationInfo | null {
-  if (!cap?.features) return null;
-  const f = cap.features as Record<string, unknown>;
-  if (!f.last_calibrated_at) return null;
-  return f as unknown as CalibrationInfo;
-}
-
-function CalibrationRow({ calibration }: { calibration: CalibrationInfo }) {
-  const date = calibration.last_calibrated_at.slice(0, 10);
-  const onTimePct = Math.round(calibration.on_time_rate * 100);
-  const effPct = Math.round(calibration.avg_efficiency * 100);
-
-  return (
-    <div className="ftCalibrationRow">
-      <div className="ftCalibrationLabel">Auto-calibration</div>
-      <div className="ftCalibrationStats">
-        <span className="pill ftCalibPill">
-          {calibration.calibration_samples} samples
-        </span>
-        <span className="pill ftCalibPill">
-          {calibration.avg_daily_output} units/day avg
-        </span>
-        <span className="pill ftCalibPill">
-          {onTimePct}% on-time
-        </span>
-        <span className="pill ftCalibPill">
-          {effPct}% efficiency
-        </span>
-        <span className="pill ftCalibPill">
-          delay avg: {calibration.avg_delay_days > 0 ? "+" : ""}{calibration.avg_delay_days}d
-        </span>
-        <span className="ftCalibDate">
-          Last: {date}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function ScoreBar({ value }: { value: number }) {
   const color = value >= 85 ? "var(--accent)" : value >= 70 ? "var(--accent2)" : "var(--danger)";

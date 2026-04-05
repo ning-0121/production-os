@@ -5,11 +5,9 @@ import { useToast } from "../Toast";
 import "./orders.css";
 
 type FormData = {
-  product_type: string;
   quantity: number;
   end_date: string;
-  priority: number;
-  order_external_id: string;
+  order_id: string;
 };
 
 type Props = {
@@ -26,11 +24,9 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
     formState: { errors },
   } = useForm<FormData>({
     defaultValues: {
-      product_type: "",
       quantity: 1,
       end_date: "",
-      priority: 0,
-      order_external_id: "",
+      order_id: "",
     },
   });
 
@@ -38,12 +34,10 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
     setSubmitting(true);
     try {
       await createAllocation({
-        product_type: data.product_type,
-        quantity: data.quantity,
-        end_date: new Date(data.end_date).toISOString(),
-        start_date: new Date().toISOString(),
-        priority: data.priority,
-        order_external_id: data.order_external_id || undefined,
+        allocated_qty: data.quantity,
+        planned_end_date: new Date(data.end_date).toISOString(),
+        planned_start_date: new Date().toISOString(),
+        order_id: data.order_id || undefined,
         status: "planned",
       });
       toast("订单创建成功", "success");
@@ -64,16 +58,6 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
         </div>
 
         <form className="orderForm" onSubmit={handleSubmit(onSubmit)}>
-          <label className="orderField">
-            <span className="orderFieldLabel">产品类型 *</span>
-            <input
-              className="orderInput"
-              placeholder="例如：T-SHIRT-L"
-              {...register("product_type", { required: "请输入产品类型" })}
-            />
-            {errors.product_type && <span className="orderFieldError">{errors.product_type.message}</span>}
-          </label>
-
           <label className="orderField">
             <span className="orderFieldLabel">数量 *</span>
             <input
@@ -100,21 +84,11 @@ export function CreateOrderDrawer({ onClose, onCreated }: Props) {
           </label>
 
           <label className="orderField">
-            <span className="orderFieldLabel">优先级</span>
-            <select className="orderInput" {...register("priority", { valueAsNumber: true })}>
-              <option value={0}>普通</option>
-              <option value={1}>较高</option>
-              <option value={2}>紧急</option>
-              <option value={3}>最高</option>
-            </select>
-          </label>
-
-          <label className="orderField">
-            <span className="orderFieldLabel">外部订单号</span>
+            <span className="orderFieldLabel">订单号</span>
             <input
               className="orderInput"
               placeholder="可选，关联外部系统"
-              {...register("order_external_id")}
+              {...register("order_id")}
             />
           </label>
 

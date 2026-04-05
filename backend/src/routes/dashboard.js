@@ -9,16 +9,15 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   // Run all queries in parallel
   const [allocRes, riskRes, perfRes, factRes] = await Promise.all([
     supabase.from("production_allocations")
-      .select("id, status, quantity, start_date, end_date, factory_id, product_type, created_at"),
+      .select("id, status, allocated_qty, planned_start_date, planned_end_date, factory_id, order_id, created_at"),
     supabase.from("risk_alerts")
       .select("risk_level"),
     supabase.from("factory_performance_logs")
-      .select("metric_type, metric_value, occurred_at, factory_id, context")
-      .eq("metric_type", "order_completion")
-      .order("occurred_at", { ascending: false })
+      .select("delay_days, actual_daily_output, actual_end_date, factory_id")
+      .order("actual_end_date", { ascending: false })
       .limit(200),
     supabase.from("factories")
-      .select("id, name, factory_capabilities(base_capacity_units_per_day, minutes_per_unit)")
+      .select("id, name, factory_capabilities(daily_capacity)")
       .eq("status", "active"),
   ]);
 
@@ -32,7 +31,7 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   let totalQty = 0;
   for (const a of allocs) {
     statusCounts[a.status] = (statusCounts[a.status] ?? 0) + 1;
-    totalQty += Number(a.quantity ?? 0);
+    totalQty += Number(a.allocated_qty ?? 0);
   }
 
   // ── Risk distribution ─────────────────────────────────
@@ -46,7 +45,7 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   let completedCount = 0;
   for (const log of perfLogs) {
     completedCount++;
-    if (log.context?.on_time) onTimeCount++;
+    if ((log.delay_days ?? 0) <= 0) onTimeCount++;
   }
   const onTimeRate = completedCount > 0 ? Math.round((onTimeCount / completedCount) * 100) : 0;
 
@@ -54,8 +53,8 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   let totalDelay = 0;
   let delayCount = 0;
   for (const log of perfLogs) {
-    if (log.context?.delay_days != null) {
-      totalDelay += Number(log.context.delay_days);
+    if (log.delay_days != null) {
+      totalDelay += Number(log.delay_days);
       delayCount++;
     }
   }
@@ -66,12 +65,12 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   const factoryLoad = {};
   for (const a of activeAllocs) {
     if (!factoryLoad[a.factory_id]) factoryLoad[a.factory_id] = 0;
-    factoryLoad[a.factory_id] += Number(a.quantity ?? 0);
+    factoryLoad[a.factory_id] += Number(a.allocated_qty ?? 0);
   }
 
   const factoryUtilization = factories.map((f) => {
     const caps = f.factory_capabilities ?? [];
-    const dailyCap = caps.reduce((sum, c) => sum + Number(c.base_capacity_units_per_day ?? 0), 0);
+    const dailyCap = caps.reduce((sum, c) => sum + Number(c.daily_capacity ?? 0), 0);
     const load = factoryLoad[f.id] ?? 0;
     const utilPct = dailyCap > 0 ? Math.min(100, Math.round((load / (dailyCap * 30)) * 100)) : 0;
     return { factory_id: f.id, name: f.name, daily_capacity: dailyCap, current_load: load, utilization_pct: utilPct };
@@ -81,7 +80,7 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000);
   const dailyCompletions = {};
   for (const log of perfLogs) {
-    const d = new Date(log.occurred_at);
+    const d = new Date(log.actual_end_date);
     if (d >= thirtyDaysAgo) {
       const key = d.toISOString().slice(0, 10);
       dailyCompletions[key] = (dailyCompletions[key] ?? 0) + 1;
@@ -96,10 +95,11 @@ router.get("/stats", asyncHandler(async (_req, res) => {
     trend.push({ date: key, count: dailyCompletions[key] ?? 0 });
   }
 
-  // ── Product type breakdown ────────────────────────────
+  // ── Order breakdown (by order_id since product_type not on allocations) ─
   const productCounts = {};
   for (const a of allocs) {
-    productCounts[a.product_type] = (productCounts[a.product_type] ?? 0) + Number(a.quantity ?? 0);
+    const label = a.order_id ?? "unassigned";
+    productCounts[label] = (productCounts[label] ?? 0) + Number(a.allocated_qty ?? 0);
   }
 
   res.json({
@@ -127,16 +127,15 @@ router.get("/accuracy", asyncHandler(async (_req, res) => {
   // Get completed allocations with performance logs
   const { data: completedAllocs } = await supabase
     .from("production_allocations")
-    .select("id, factory_id, product_type, quantity, start_date, end_date, status, factories(id, name)")
+    .select("id, factory_id, order_id, allocated_qty, planned_start_date, planned_end_date, status, factories(id, name)")
     .eq("status", "completed")
-    .order("end_date", { ascending: false })
+    .order("planned_end_date", { ascending: false })
     .limit(100);
 
   const { data: perfLogs } = await supabase
     .from("factory_performance_logs")
-    .select("factory_id, metric_type, metric_value, context, occurred_at")
-    .in("metric_type", ["order_completion", "delay_days", "efficiency_rate"])
-    .order("occurred_at", { ascending: false })
+    .select("factory_id, delay_days, actual_daily_output, quality_issue_count, actual_end_date")
+    .order("actual_end_date", { ascending: false })
     .limit(500);
 
   // Group perf logs by factory
@@ -147,22 +146,14 @@ router.get("/accuracy", asyncHandler(async (_req, res) => {
         completions: 0,
         total_output: 0,
         total_delay: 0,
-        total_efficiency: 0,
         on_time: 0,
       };
     }
     const s = factoryStats[log.factory_id];
-    if (log.metric_type === "order_completion") {
-      s.completions++;
-      s.total_output += Number(log.metric_value ?? 0);
-      if (log.context?.on_time) s.on_time++;
-    }
-    if (log.metric_type === "delay_days") {
-      s.total_delay += Number(log.metric_value ?? 0);
-    }
-    if (log.metric_type === "efficiency_rate") {
-      s.total_efficiency += Number(log.metric_value ?? 0);
-    }
+    s.completions++;
+    s.total_output += Number(log.actual_daily_output ?? 0);
+    s.total_delay += Number(log.delay_days ?? 0);
+    if ((log.delay_days ?? 0) <= 0) s.on_time++;
   }
 
   // Build accuracy rows per factory
@@ -176,7 +167,7 @@ router.get("/accuracy", asyncHandler(async (_req, res) => {
       completions: s.completions,
       avg_daily_output: Math.round((s.total_output / n) * 10) / 10,
       avg_delay_days: Math.round((s.total_delay / n) * 10) / 10,
-      avg_efficiency: Math.round((s.total_efficiency / n) * 100),
+      avg_efficiency: 0, // no longer tracked as separate metric
       on_time_rate: Math.round((s.on_time / n) * 100),
     };
   });

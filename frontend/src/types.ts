@@ -2,19 +2,15 @@
 
 export type Factory = {
   id: string;
-  code: string;
   name: string;
+  location: string | null;
+  lat: number | null;
+  lng: number | null;
   status: "active" | "inactive" | "maintenance";
-  address: string | null;
-  contact_name: string | null;
-  contact_phone: string | null;
-  timezone: string;
-  work_calendar: Record<string, unknown>;
-  ai_profile: Record<string, unknown>;
-  constraints: Record<string, unknown>;
-  metadata: Record<string, unknown>;
+  cooperation_score: number | null;
+  quality_score: number | null;
+  delay_score: number | null;
   created_at: string;
-  updated_at: string;
   // joined
   factory_capabilities: FactoryCapability[];
 };
@@ -23,62 +19,49 @@ export type FactoryCapability = {
   id: string;
   factory_id: string;
   product_type: string;
-  process_type: string;
-  base_capacity_units_per_day: number;
-  setup_minutes: number;
-  minutes_per_unit: number;
-  cost_per_unit: number | null;
-  quality_score: number | null;
-  features: Record<string, unknown>;
+  daily_capacity: number;
+  efficiency_rate: number | null;
+  overtime_factor: number | null;
+  updated_at: string | null;
 };
 
 export type AllocationStatus = "planned" | "confirmed" | "in_progress" | "completed" | "cancelled";
 
 export type Allocation = {
   id: string;
+  order_id: string | null;
   factory_id: string;
-  capability_id: string | null;
-  order_external_id: string | null;
-  product_type: string;
-  quantity: number;
-  start_date: string;
-  end_date: string;
+  planned_start_date: string;
+  planned_end_date: string;
+  allocated_qty: number;
   status: AllocationStatus;
-  priority: number;
-  assumptions: Record<string, unknown>;
-  score_breakdown: Record<string, unknown>;
+  recommendation_score: number | null;
+  is_locked: boolean | null;
   created_at: string;
-  updated_at: string;
   // joined
-  factories: { id: string; name: string; code: string } | null;
+  factories: { id: string; name: string } | null;
 };
 
 export type GeoFence = {
   id: string;
   factory_id: string;
-  name: string;
-  fence_type: "radius" | "polygon";
+  lat: number | null;
+  lng: number | null;
+  radius: number | null;
+  // derived by backend for convenience
   center: { lat: number; lng: number } | null;
-  radius_meters: number | null;
-  is_active: boolean;
-  notification_prefs: Record<string, unknown>;
-  metadata: Record<string, unknown>;
   // joined
-  factories: { id: string; name: string; code: string } | null;
+  factories: { id: string; name: string } | null;
 };
 
 export type VisitTask = {
   id: string;
   factory_id: string;
-  title: string;
-  description: string | null;
+  order_id: string | null;
   task_type: string;
   status: "open" | "in_progress" | "done" | "blocked" | "cancelled";
   priority: number;
-  due_at: string | null;
-  assigned_to: string | null;
-  allocation_id: string | null;
-  metadata: Record<string, unknown>;
+  created_at: string;
 };
 
 // ── Risk alerts ─────────────────────────────────────────
@@ -94,10 +77,10 @@ export type RiskAlert = {
   created_at: string;
   // joined
   production_allocations?: {
-    product_type: string;
-    quantity: number;
+    order_id: string | null;
+    allocated_qty: number;
     factory_id: string;
-    factories: { id: string; name: string; code: string } | null;
+    factories: { id: string; name: string } | null;
   } | null;
 };
 
@@ -131,10 +114,8 @@ export type RiskResult = {
 
 export type OptimizedAllocation = {
   order_id: string;
-  order_external_id: string | null;
   factory_id: string;
   factory_name: string;
-  product_type: string;
   allocated_qty: number;
   planned_start_date: string;
   planned_end_date: string;
@@ -177,7 +158,7 @@ export type OptimizerSummary = {
 export type OptimizerResult = {
   allocations: OptimizedAllocation[];
   warnings: OptimizerWarning[];
-  unassigned: Array<{ id: string; product_type: string; quantity: number; reason: string }>;
+  unassigned: Array<{ id: string; quantity: number; reason: string }>;
   summary: OptimizerSummary;
   persisted?: Array<{ order_id: string; persisted: boolean; error: string | null }>;
 };

@@ -12,8 +12,10 @@ export function pickCapability(factory, productType) {
 
 export function calcProductionMinutes(order, capability) {
   const qty = Number(order.quantity ?? 0);
+  // Derive minutes_per_unit from daily_capacity if not directly available
+  const dailyCap = Number(capability?.daily_capacity ?? capability?.base_capacity_units_per_day ?? 0);
+  const perUnit = Number(capability?.minutes_per_unit ?? (dailyCap > 0 ? 480 / dailyCap : 0));
   const setup = Number(capability?.setup_minutes ?? 0);
-  const perUnit = Number(capability?.minutes_per_unit ?? 0);
   const production = Math.max(0, qty * perUnit);
   return {
     setup_minutes: Math.max(0, setup),
