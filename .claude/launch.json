@@ -3,10 +3,11 @@
   "configurations": [
     {
       "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["node_modules/.bin/vite"],
       "port": 5173,
-      "cwd": "frontend"
+      "cwd": "frontend",
+      "env": { "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin" }
     }
   ]
 }

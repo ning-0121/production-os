@@ -18,6 +18,7 @@ import pilotRouter from "./routes/pilot.js";
 import importRouter from "./routes/import.js";
 import batchRouter from "./routes/batch.js";
 import dashboardRouter from "./routes/dashboard.js";
+import linesRouter from "./routes/lines.js";
 
 // supabase.js validates SUPABASE_URL + SUPABASE_SERVICE_KEY at import time
 
@@ -139,6 +140,7 @@ app.use("/api/pilot", pilotRouter);
 app.use("/api/import", importRouter);
 app.use("/api/batch", batchRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/lines", linesRouter);
 
 // ── Health check ─────────────────────────────────────────
 app.get("/api/health", async (_req, res) => {

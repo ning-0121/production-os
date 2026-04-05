@@ -170,3 +170,30 @@ export type OptimizerPreview = {
   available_factories: number;
   total_factories: number;
 };
+
+// ── Production Lines ────────────────────────────────────
+
+export type ProductionLine = {
+  id: string;
+  factory_id: string;
+  name: string;
+  front_capacity_per_day: number;
+  back_capacity_per_day: number;
+  status: string;
+  created_at: string;
+  factories: { id: string; name: string } | null;
+};
+
+export type LineSchedule = {
+  id: string;
+  line_id: string;
+  allocation_id: string;
+  process: "front" | "back";
+  start_date: string;
+  end_date: string;
+  status: string;
+  seq: number;
+  created_at: string;
+  production_lines?: ProductionLine | null;
+  production_allocations?: { id: string; order_id: string; allocated_qty: number; status: string } | null;
+};

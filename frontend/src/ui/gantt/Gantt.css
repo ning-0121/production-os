@@ -1,250 +1,277 @@
 /* ── Gantt Layout ─────────────────────────────────────── */
 
-.ganttWrap{
-  position: relative;
-  width: 100%;
-  overflow: auto;
+.ganttWrap {
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
-.gantt{
-  min-width: 980px;
+.gantt {
+  min-width: 900px;
 }
 
-.ganttGrid{
-  position: relative;
-  border-top: 1px solid var(--border);
-}
+/* ── Timeline Header ─────────────────────────────────── */
 
-/* ── Axis ────────────────────────────────────────────── */
-
-.axis{
-  display:flex;
-  align-items:stretch;
-  gap: 0;
-  height: 46px;
-  border-bottom: 1px solid var(--border);
+.timelineHeader {
+  display: flex;
+  border-bottom: 2px solid var(--border);
   position: sticky;
   top: 0;
-  background: rgba(10,16,28,.85);
+  z-index: 5;
+  background: rgba(10,16,28,.92);
   backdrop-filter: blur(10px);
-  z-index: 4;
 }
 
-.axisLeft{
-  width: 200px;
-  flex: 0 0 auto;
+.timelineLabel {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
   border-right: 1px solid var(--border);
-  padding: 10px 12px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-}
-.axisLeft .big{ font-size: 13px; font-weight: 600; }
-.axisLeft .small{ font-size: 11px; color: var(--muted); margin-top: 2px;}
-
-.axisRight{
-  flex: 1 1 auto;
-  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.tick{
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(255,255,255,.06);
+.timelineDates {
+  display: flex;
+  flex: 1;
 }
-.tickLabel{
-  position: absolute;
-  top: 10px;
-  transform: translateX(-50%);
+
+.timelineDay {
+  flex: 1;
+  text-align: center;
+  padding: 6px 0;
   font-size: 11px;
   color: var(--muted);
-  white-space: nowrap;
+  border-right: 1px solid rgba(255,255,255,.04);
+  position: relative;
 }
 
-/* ── Today marker ────────────────────────────────────── */
-
-.todayLine{
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--danger);
-  z-index: 3;
-  pointer-events: none;
-}
-.todayLabel{
-  position: absolute;
-  top: -22px;
-  transform: translateX(-50%);
-  font-size: 10px;
+.timelineDayToday {
+  background: rgba(251,113,133,.08);
   color: var(--danger);
-  font-weight: 600;
-  white-space: nowrap;
-  background: rgba(251,113,133,.15);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 700;
 }
 
-/* ── Factory Row ─────────────────────────────────────── */
-
-.row{
-  display:flex;
-  align-items:stretch;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-}
-.row:hover{
+.timelineDayWeekend {
   background: rgba(255,255,255,.02);
 }
-.rowLeft{
-  width: 200px;
-  flex: 0 0 auto;
-  border-right: 1px solid var(--border);
-  padding: 12px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-}
-.rowLeft .name{ font-size: 13px; font-weight: 500; }
-.rowLeft .meta{ font-size: 11px; color: var(--muted); margin-top: 3px; }
 
-.rowRight{
-  position: relative;
-  flex: 1 1 auto;
-  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+.timelineMonth {
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  opacity: .6;
 }
 
-/* ── Order Block ─────────────────────────────────────── */
+/* ── Factory Group ───────────────────────────────────── */
 
-.block{
-  position: absolute;
-  height: 32px;
-  border-radius: 8px;
-  padding: 0 10px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 8px;
-  cursor: grab;
-  user-select: none;
-  transition: box-shadow .15s, transform .1s;
-  overflow: hidden;
-  font-size: 12px;
-  z-index: 2;
-}
-.block:active{ cursor: grabbing; }
-.block:hover{
-  box-shadow: 0 4px 16px rgba(0,0,0,.4);
-  z-index: 5;
+.factoryGroup {
+  border-bottom: 2px solid var(--border);
 }
 
-/* Status-based colors */
-.blockPlanned{
-  background: linear-gradient(135deg, rgba(100,116,139,.35), rgba(100,116,139,.20));
-  border: 1px solid rgba(100,116,139,.4);
-  color: rgba(255,255,255,.75);
-}
-.blockConfirmed{
-  background: linear-gradient(135deg, rgba(167,139,250,.30), rgba(167,139,250,.15));
-  border: 1px solid rgba(167,139,250,.45);
-  color: rgba(255,255,255,.9);
-}
-.blockInProgress{
-  background: linear-gradient(135deg, rgba(110,231,255,.28), rgba(110,231,255,.12));
-  border: 1px solid rgba(110,231,255,.5);
-  color: rgba(255,255,255,.95);
-}
-.blockCompleted{
-  background: linear-gradient(135deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
-  border: 1px solid rgba(34,197,94,.4);
-  color: rgba(255,255,255,.7);
+.factoryGroupHeader {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
 }
 
-.block .blockLabel{
+/* ── Line Group ──────────────────────────────────────── */
+
+.lineGroup {
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.lineRow {
+  display: flex;
+  min-height: 42px;
+}
+
+.lineRowBack {
+  border-top: 1px dashed rgba(255,255,255,.06);
+}
+
+.lineRow:hover {
+  background: rgba(255,255,255,.015);
+}
+
+.lineRowLabel {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  overflow: hidden;
+  border-right: 1px solid var(--border);
+  font-size: 12px;
 }
-.block .blockOrderId{
+
+.lineName {
+  font-weight: 500;
+  min-width: 28px;
+}
+
+.processLabel {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.processFront {
+  background: rgba(110,231,255,.15);
+  color: #6ee7ff;
+}
+
+.processBack {
+  background: rgba(167,139,250,.15);
+  color: #a78bfa;
+}
+
+.capacityLabel {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.lineRowTimeline {
+  flex: 1;
+  position: relative;
+  min-height: 42px;
+}
+
+/* ── Schedule Block ──────────────────────────────────── */
+
+.schBlock {
+  position: absolute;
+  top: 5px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-size: 11px;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow .15s, filter .15s;
+  z-index: 2;
+  gap: 4px;
+}
+
+.schBlock:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  filter: brightness(1.15);
+  z-index: 3;
+}
+
+.schFront {
+  background: linear-gradient(135deg, rgba(110,231,255,.28), rgba(110,231,255,.12));
+  border: 1px solid rgba(110,231,255,.4);
+  color: rgba(255,255,255,.95);
+}
+
+.schBack {
+  background: linear-gradient(135deg, rgba(167,139,250,.28), rgba(167,139,250,.12));
+  border: 1px solid rgba(167,139,250,.4);
+  color: rgba(255,255,255,.90);
+}
+
+.schCompleted {
+  opacity: .6;
+}
+
+.schInProgress {
+  box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 2px 8px rgba(0,0,0,.2);
+}
+
+.schPending {
+  opacity: .75;
+  border-style: dashed;
+}
+
+.schOrderId {
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.block .blockQty{
+
+.schInfo {
   font-size: 10px;
   opacity: .7;
   white-space: nowrap;
-}
-.block .blockStatus{
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255,255,255,.1);
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.blockDragging{
-  opacity: .75;
-  outline: 2px solid rgba(110,231,255,.4);
-  outline-offset: 1px;
-}
+/* ── Gap Indicator ───────────────────────────────────── */
 
-/* ── Right Panel (Summary) ───────────────────────────── */
-
-.ganttSummary{
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ganttSummaryItem{
+.schGap {
+  position: absolute;
+  top: 8px;
+  height: 26px;
+  border: 1.5px dashed var(--danger);
+  border-radius: 4px;
+  background: rgba(251,113,133,.06);
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.ganttSummaryDot{
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.schGapLabel {
+  font-size: 9px;
+  color: var(--danger);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.ganttLegend{
+/* ── Legend ───────────────────────────────────────────── */
+
+.ganttLegend {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
   padding: 10px 14px;
   border-top: 1px solid var(--border);
 }
-.ganttLegendItem{
+
+.ganttLegendItem {
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: 11px;
   color: var(--muted);
 }
-.ganttLegendDot{
+
+.ganttLegendDot {
   width: 12px;
   height: 12px;
   border-radius: 4px;
 }
 
+/* ── Responsive ──────────────────────────────────────── */
+
 @media (max-width: 600px) {
-  .axisLeft, .rowLeft {
-    width: 120px;
-    padding: 8px;
-  }
-  .block {
+  .timelineLabel, .lineRowLabel {
+    width: 110px;
+    padding: 4px 6px;
     font-size: 10px;
-    height: 28px;
-    padding: 0 6px;
+  }
+
+  .schBlock {
+    font-size: 9px;
+    height: 26px;
+    padding: 0 4px;
+  }
+
+  .capacityLabel {
+    display: none;
   }
 }

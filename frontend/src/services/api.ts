@@ -196,6 +196,16 @@ export function recommend(
   });
 }
 
+// ── Production Lines ────────────────────────────────────
+
+export function fetchProductionLines(): Promise<import("../types").ProductionLine[]> {
+  return request("/lines");
+}
+
+export function fetchLineSchedules(): Promise<import("../types").LineSchedule[]> {
+  return request("/lines/schedules");
+}
+
 export function checkRisk(
   order: { due_date: string },
   allocation: { planned_end_date: string },
