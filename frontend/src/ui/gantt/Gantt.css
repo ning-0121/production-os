@@ -298,137 +298,216 @@
   border: 1px solid rgba(250,204,21,.2);
 }
 
-/* ── Batch Scheduler ─────────────────────────────────── */
+/* ── Batch Scheduler (Full-screen Gantt Preview) ─────── */
 
-.batchDrawer {
-  width: min(600px, 96vw);
-  overflow-y: auto;
+.batchOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
-.batchContent {
+.batchPanel {
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  background: rgba(10,16,28,.96);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.6);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
-.batchSummary {
+.batchHeader {
   display: flex;
-  gap: 10px;
-}
-
-.batchSummaryItem {
-  flex: 1;
-  text-align: center;
-  padding: 10px 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--panel);
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.batchNum {
-  display: block;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.1;
-  margin-bottom: 2px;
-}
-
-.batchNumGood { color: #22c55e; }
-.batchNumWarn { color: #facc15; }
-.batchNumBad { color: var(--danger); }
-
-.batchList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 340px;
-  overflow-y: auto;
-}
-
-.batchItem {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
   background: rgba(255,255,255,.03);
 }
 
-.batchItemLate {
-  border-color: rgba(251,113,133,.3);
-  background: rgba(251,113,133,.04);
+.batchHeader h2 { margin: 0; font-size: 16px; }
+
+.batchHeaderSub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 10px;
 }
 
-.batchItemHeader {
+.batchGanttWrap {
+  flex: 1;
+  overflow: auto;
+  padding-bottom: 12px;
+}
+
+/* Timeline */
+.batchTimeline {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(10,16,28,.95);
+  border-bottom: 1px solid var(--border);
 }
 
-.batchItemOrder {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.batchItemType {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(110,231,255,.12);
-  color: var(--accent);
-}
-
-.batchItemQty {
+.batchTimelineLabel {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 6px 10px;
   font-size: 11px;
   color: var(--muted);
-}
-
-.batchItemBadge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
   font-weight: 600;
-  margin-left: auto;
+  border-right: 1px solid var(--border);
 }
 
-.batchBadgeOk {
-  background: rgba(34,197,94,.15);
-  color: #22c55e;
+.batchTimelineDates {
+  display: flex;
+  flex: 1;
 }
 
-.batchBadgeLate {
-  background: rgba(251,113,133,.15);
+.batchTimelineDay {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 4px 0;
+  border-right: 1px solid rgba(255,255,255,.03);
+}
+
+.batchTimelineDayToday {
+  background: rgba(251,113,133,.1);
   color: var(--danger);
+  font-weight: 700;
 }
 
-.batchItemDetail {
+.batchTimelineMonth {
+  display: block;
+  font-size: 9px;
+  opacity: .6;
+}
+
+/* Line groups */
+.batchLineGroup {
+  border-bottom: 2px solid rgba(255,255,255,.08);
+}
+
+.batchRow {
+  display: flex;
+  min-height: 40px;
+}
+
+.batchRowBack {
+  border-top: 1px dashed rgba(255,255,255,.06);
+}
+
+.batchRowLabel {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
+  border-right: 1px solid var(--border);
   font-size: 11px;
-  color: var(--muted);
-  flex-wrap: wrap;
 }
 
-.batchItemLine {
+.batchLineName {
   font-weight: 500;
-  color: var(--text);
-  margin-right: 4px;
-}
-
-.batchItemDue {
   font-size: 11px;
-  color: var(--muted);
-  margin-top: 4px;
+  min-width: 60px;
 }
 
+.batchRowBars {
+  flex: 1;
+  position: relative;
+  min-height: 40px;
+}
+
+/* Bars */
+.batchBar {
+  position: absolute;
+  top: 4px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  cursor: default;
+  overflow: hidden;
+  transition: filter .15s;
+  z-index: 2;
+}
+
+.batchBar:hover {
+  filter: brightness(1.3);
+  z-index: 3;
+}
+
+.batchBarLate {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 8px rgba(251,113,133,.2);
+}
+
+.batchBarText {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.batchBarSub {
+  font-size: 9px;
+  opacity: .7;
+  white-space: nowrap;
+}
+
+.batchBarWarn {
+  font-size: 9px;
+  color: var(--danger);
+  font-weight: 700;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* Due date markers (triangles on back row) */
+.batchDueMark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(250,204,21,.5);
+  z-index: 1;
+}
+
+.batchDueLabel {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: #facc15;
+  white-space: nowrap;
+  background: rgba(250,204,21,.15);
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+/* Warnings */
 .batchWarnings {
   border: 1px solid rgba(250,204,21,.25);
   background: rgba(250,204,21,.06);
   border-radius: 8px;
   padding: 10px 12px;
+  margin: 0 12px;
 }
 
 .batchWarningsTitle {
@@ -441,27 +520,6 @@
 .batchWarnItem {
   font-size: 11px;
   color: var(--muted);
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(255,255,255,.04);
-}
-
-.batchLineLoad {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.batchLineLoadTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.batchLineLoadItem {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
   padding: 3px 0;
   border-bottom: 1px solid rgba(255,255,255,.04);
 }

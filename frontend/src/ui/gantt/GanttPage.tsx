@@ -229,18 +229,20 @@ function ScheduleBlock({ schedule, process, today, totalDays }: {
   );
 }
 
-// ── Batch Scheduler Drawer ───────────────────────────────
+// ── Batch Scheduler (Full-screen visual Gantt preview) ───
+
+type BatchAssignment = Awaited<ReturnType<typeof batchScheduleLines>>["assignments"][0];
+type BatchResult = Awaited<ReturnType<typeof batchScheduleLines>>;
 
 function BatchSchedulerDrawer({ onClose, onScheduled, onError }: {
   onClose: () => void;
   onScheduled: () => void;
   onError: (msg: string) => void;
 }) {
-  const [preview, setPreview] = React.useState<Awaited<ReturnType<typeof batchScheduleLines>> | null>(null);
+  const [preview, setPreview] = React.useState<BatchResult | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
 
-  // Auto-preview on open
   React.useEffect(() => {
     setLoading(true);
     batchScheduleLines(true)
@@ -261,97 +263,184 @@ function BatchSchedulerDrawer({ onClose, onScheduled, onError }: {
     }
   }
 
+  // Compute timeline range from assignments
+  const { timeStart, timeEnd, totalDays } = React.useMemo(() => {
+    if (!preview || preview.assignments.length === 0) {
+      const s = startOfDay(new Date());
+      return { timeStart: s, timeEnd: addDays(s, 30), totalDays: 30 };
+    }
+    let minDate = preview.assignments[0].front.start;
+    let maxDate = preview.assignments[0].back.end;
+    for (const a of preview.assignments) {
+      if (a.front.start < minDate) minDate = a.front.start;
+      if (a.back.end > maxDate) maxDate = a.back.end;
+      if (a.due_date > maxDate) maxDate = a.due_date;
+    }
+    const s = startOfDay(new Date(minDate));
+    const e = addDays(new Date(maxDate), 2);
+    return { timeStart: s, timeEnd: e, totalDays: Math.max(14, differenceInCalendarDays(e, s)) };
+  }, [preview]);
+
+  // Group assignments by line
+  const lineGroups = React.useMemo(() => {
+    if (!preview) return [];
+    const map = new Map<string, { lineName: string; assignments: BatchAssignment[] }>();
+    for (const a of preview.assignments) {
+      if (!map.has(a.line_id)) map.set(a.line_id, { lineName: a.line_name, assignments: [] });
+      map.get(a.line_id)!.assignments.push(a);
+    }
+    return [...map.values()];
+  }, [preview]);
+
+  // Colors per product type
+  const productColors: Record<string, string> = {
+    "T恤": "#6ee7ff",
+    "裤子": "#a78bfa",
+    "卫衣": "#f59e0b",
+    "瑜伽裤": "#22c55e",
+    "外套": "#fb7185",
+  };
+
+  function pct(dateStr: string) {
+    return Math.max(0, Math.min(100, (differenceInCalendarDays(new Date(dateStr), timeStart) / totalDays) * 100));
+  }
+
+  function widthPct(start: string, end: string) {
+    return Math.max(1.5, (differenceInCalendarDays(new Date(end), new Date(start)) / totalDays) * 100);
+  }
+
   return (
-    <div className="drawerOverlay" onClick={onClose}>
-      <div className="drawer batchDrawer" onClick={(e) => e.stopPropagation()}>
-        <div className="drawerHeader">
-          <h3>智能全排</h3>
-          <button className="drawerClose" onClick={onClose}>x</button>
+    <div className="batchOverlay">
+      <div className="batchPanel">
+        {/* Header */}
+        <div className="batchHeader">
+          <div>
+            <h2>智能排产预览</h2>
+            {preview && (
+              <span className="batchHeaderSub">
+                {preview.summary.scheduled} 单 |
+                <span style={{ color: "#22c55e" }}> {preview.summary.on_time} 准时</span>
+                {preview.summary.at_risk > 0 && <span style={{ color: "var(--danger)" }}> {preview.summary.at_risk} 延期</span>}
+                {preview.summary.unscheduled > 0 && <span style={{ color: "var(--muted)" }}> {preview.summary.unscheduled} 未排</span>}
+              </span>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" onClick={onClose}>取消</button>
+            <button
+              className="btn primary"
+              disabled={confirming || !preview || preview.assignments.length === 0}
+              onClick={handleConfirm}
+            >
+              {confirming ? "排产中..." : `确认排产 ${preview?.assignments.length ?? 0} 单`}
+            </button>
+          </div>
         </div>
 
-        {loading && <div className="loadingCenter">计算最优排产方案...</div>}
+        {loading && <div className="loadingCenter" style={{ padding: 60 }}>计算最优排产方案...</div>}
 
         {preview && (
-          <div className="batchContent">
-            {/* Summary */}
-            <div className="batchSummary">
-              <div className="batchSummaryItem">
-                <span className="batchNum">{preview.summary.scheduled}</span>
-                <span>已排产</span>
-              </div>
-              <div className="batchSummaryItem">
-                <span className="batchNum batchNumGood">{preview.summary.on_time}</span>
-                <span>准时</span>
-              </div>
-              <div className="batchSummaryItem">
-                <span className="batchNum batchNumWarn">{preview.summary.at_risk}</span>
-                <span>有延期风险</span>
-              </div>
-              <div className="batchSummaryItem">
-                <span className="batchNum batchNumBad">{preview.summary.unscheduled}</span>
-                <span>无法排产</span>
+          <div className="batchGanttWrap">
+            {/* Timeline dates */}
+            <div className="batchTimeline">
+              <div className="batchTimelineLabel">产线</div>
+              <div className="batchTimelineDates">
+                {Array.from({ length: totalDays + 1 }, (_, i) => {
+                  const d = addDays(timeStart, i);
+                  const isToday = format(d, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+                  return (
+                    <div key={i} className={`batchTimelineDay ${isToday ? "batchTimelineDayToday" : ""}`}>
+                      {format(d, "d")}
+                      {(i === 0 || d.getDate() === 1) && <span className="batchTimelineMonth">{format(d, "M月")}</span>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Assignment list */}
-            <div className="batchList">
-              {preview.assignments.map((a) => (
-                <div key={a.allocation_id} className={`batchItem ${a.delivery_ok ? "" : "batchItemLate"}`}>
-                  <div className="batchItemHeader">
-                    <span className="batchItemOrder">{a.order_id}</span>
-                    <span className="batchItemType">{a.product_type}</span>
-                    <span className="batchItemQty">{a.qty}件</span>
-                    {a.delivery_ok
-                      ? <span className="batchItemBadge batchBadgeOk">准时 (提前{a.days_early}天)</span>
-                      : <span className="batchItemBadge batchBadgeLate">延期{a.days_late}天</span>
-                    }
-                  </div>
-                  <div className="batchItemDetail">
-                    <span className="batchItemLine">{a.line_name}</span>
+            {/* Line rows */}
+            {lineGroups.map((group) => (
+              <div key={group.lineName} className="batchLineGroup">
+                {/* Front row */}
+                <div className="batchRow">
+                  <div className="batchRowLabel">
+                    <span className="batchLineName">{group.lineName}</span>
                     <span className="processLabel processFront">前道</span>
-                    <span>{a.front.start}→{a.front.end} ({a.front.days}天)</span>
-                    <span className="processLabel processBack">后道</span>
-                    <span>{a.back.start}→{a.back.end} ({a.back.days}天)</span>
                   </div>
-                  <div className="batchItemDue">
-                    交期 {a.due_date}
+                  <div className="batchRowBars">
+                    {group.assignments.map((a) => {
+                      const color = productColors[a.product_type] ?? "#6ee7ff";
+                      return (
+                        <div
+                          key={a.allocation_id + "-f"}
+                          className="batchBar"
+                          style={{
+                            left: `${pct(a.front.start)}%`,
+                            width: `${widthPct(a.front.start, a.front.end)}%`,
+                            background: `linear-gradient(135deg, ${color}44, ${color}22)`,
+                            borderColor: `${color}88`,
+                          }}
+                          title={`${a.order_id} ${a.product_type} ${a.qty}件\n前道 ${a.front.start}→${a.front.end} (${a.front.days}天)`}
+                        >
+                          <span className="batchBarText" style={{ color }}>{a.order_id?.replace("ORD-2026-", "")}</span>
+                          <span className="batchBarSub">{a.product_type}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
-            </div>
+                {/* Back row */}
+                <div className="batchRow batchRowBack">
+                  <div className="batchRowLabel">
+                    <span className="batchLineName" />
+                    <span className="processLabel processBack">后道</span>
+                  </div>
+                  <div className="batchRowBars">
+                    {group.assignments.map((a) => {
+                      const color = productColors[a.product_type] ?? "#a78bfa";
+                      return (
+                        <div
+                          key={a.allocation_id + "-b"}
+                          className={`batchBar ${a.delivery_ok ? "" : "batchBarLate"}`}
+                          style={{
+                            left: `${pct(a.back.start)}%`,
+                            width: `${widthPct(a.back.start, a.back.end)}%`,
+                            background: `linear-gradient(135deg, ${color}33, ${color}18)`,
+                            borderColor: a.delivery_ok ? `${color}66` : "var(--danger)",
+                          }}
+                          title={`${a.order_id} 后道 ${a.back.start}→${a.back.end} (${a.back.days}天)\n交期 ${a.due_date} ${a.delivery_ok ? "✓准时" : `⚠延期${a.days_late}天`}`}
+                        >
+                          <span className="batchBarText">{a.order_id?.replace("ORD-2026-", "")}</span>
+                          <span className="batchBarSub">{a.qty}件</span>
+                          {!a.delivery_ok && <span className="batchBarWarn">延{a.days_late}天</span>}
+                        </div>
+                      );
+                    })}
+                    {/* Due date markers */}
+                    {group.assignments.map((a) => (
+                      <div
+                        key={a.allocation_id + "-due"}
+                        className="batchDueMark"
+                        style={{ left: `${pct(a.due_date)}%` }}
+                        title={`${a.order_id} 交期 ${a.due_date}`}
+                      >
+                        <span className="batchDueLabel">{a.order_id?.replace("ORD-2026-", "")}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
 
             {/* Warnings */}
             {preview.warnings.length > 0 && (
-              <div className="batchWarnings">
-                <div className="batchWarningsTitle">注意事项</div>
+              <div className="batchWarnings" style={{ margin: "12px 0" }}>
+                <div className="batchWarningsTitle">⚠ 注意</div>
                 {preview.warnings.map((w, i) => (
                   <div key={i} className="batchWarnItem">{w.message}</div>
                 ))}
               </div>
             )}
-
-            {/* Line load summary */}
-            <div className="batchLineLoad">
-              <div className="batchLineLoadTitle">产线负载</div>
-              {Object.entries(preview.summary.line_load).map(([name, load]) => (
-                <div key={name} className="batchLineLoadItem">
-                  <span>{name}</span>
-                  <span>{(load as { orders: number; qty: number }).orders}单 / {(load as { orders: number; qty: number }).qty}件</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Actions */}
-            <div className="orderActions" style={{ paddingTop: 12 }}>
-              <button className="btn" onClick={onClose}>取消</button>
-              <button
-                className="btn primary"
-                disabled={confirming || preview.assignments.length === 0}
-                onClick={handleConfirm}
-              >
-                {confirming ? "排产中..." : `确认排产 ${preview.assignments.length} 单`}
-              </button>
-            </div>
           </div>
         )}
       </div>
