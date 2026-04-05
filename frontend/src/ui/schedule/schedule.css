@@ -1,0 +1,579 @@
+/* ── Schedule Page Layout ────────────────────────────── */
+
+.schedPage {
+  display: flex;
+  gap: 0;
+  position: relative;
+  min-height: 500px;
+}
+
+.schedMain {
+  flex: 1;
+  min-width: 0;
+  transition: margin-right .25s ease;
+}
+
+.schedDrawerOpen .schedMain {
+  margin-right: 380px;
+}
+
+/* ── Toolbar ────────────────────────────────────────── */
+
+.schedToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0));
+}
+
+.schedToolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.schedToolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedZoomBtn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.schedZoomBtn:hover {
+  background: rgba(255,255,255,.08);
+  color: var(--text);
+}
+
+.schedZoomBtn.active {
+  background: rgba(110,231,255,.12);
+  border-color: rgba(110,231,255,.35);
+  color: var(--accent);
+}
+
+/* ── Timeline Area ──────────────────────────────────── */
+
+.schedTimeline {
+  overflow-x: auto;
+  overflow-y: visible;
+  position: relative;
+}
+
+.schedTimelineInner {
+  position: relative;
+  min-width: 800px;
+}
+
+/* ── Date Header ────────────────────────────────────── */
+
+.schedDateHeader {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(11,18,32,.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+
+.schedDateLabel {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.schedDates {
+  display: flex;
+  flex: 1;
+}
+
+.schedDateCell {
+  flex: 1;
+  text-align: center;
+  padding: 4px 0;
+  font-size: 10px;
+  color: var(--muted);
+  border-left: 1px solid rgba(255,255,255,.04);
+  min-width: 28px;
+}
+
+.schedDateCell--today {
+  color: var(--danger);
+  font-weight: 700;
+  background: rgba(251,113,133,.06);
+}
+
+.schedDateCell--weekend {
+  color: rgba(255,255,255,.3);
+  background: rgba(255,255,255,.02);
+}
+
+.schedDateMonth {
+  display: block;
+  font-size: 9px;
+  color: rgba(255,255,255,.35);
+  margin-top: 1px;
+}
+
+/* ── Production Line Row ────────────────────────────── */
+
+.schedLineRow {
+  display: flex;
+  min-height: 52px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  position: relative;
+  transition: background .15s;
+}
+
+.schedLineRow:hover {
+  background: rgba(255,255,255,.02);
+}
+
+/* Utilization heat backgrounds */
+.schedLineRow--low {
+  background: rgba(34,197,94,.04);
+}
+
+.schedLineRow--mid {
+  background: rgba(250,204,21,.04);
+}
+
+.schedLineRow--high {
+  background: rgba(251,113,133,.04);
+}
+
+.schedLineInfo {
+  width: 160px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+
+.schedLineName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedLineUtil {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.schedLineUtilBar {
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.schedLineUtilFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .3s ease;
+}
+
+.schedLineUtilPct {
+  font-size: 10px;
+  color: var(--muted);
+  min-width: 28px;
+  text-align: right;
+}
+
+/* ── Timeline track for blocks ──────────────────────── */
+
+.schedTrack {
+  flex: 1;
+  position: relative;
+  min-height: 52px;
+}
+
+/* ── Today Line ──────────────────────────────────────── */
+
+.schedTodayLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  z-index: 5;
+  pointer-events: none;
+  opacity: .7;
+}
+
+.schedTodayLine::after {
+  content: "今";
+  position: absolute;
+  top: -16px;
+  left: -6px;
+  font-size: 9px;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ── Order Block ──────────────────────────────────────── */
+
+.schedBlock {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.15);
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3px 6px;
+  font-size: 11px;
+  transition: box-shadow .15s, transform .1s;
+  z-index: 2;
+  min-width: 24px;
+}
+
+.schedBlock:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  transform: translateY(-1px);
+  z-index: 4;
+}
+
+.schedBlock.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  z-index: 5;
+}
+
+/* Product type colors */
+.schedBlock--tshirt {
+  background: linear-gradient(135deg, rgba(110,231,255,.25), rgba(110,231,255,.10));
+  border-color: rgba(110,231,255,.40);
+}
+
+.schedBlock--pants {
+  background: linear-gradient(135deg, rgba(167,139,250,.25), rgba(167,139,250,.10));
+  border-color: rgba(167,139,250,.40);
+}
+
+.schedBlock--hoodie {
+  background: linear-gradient(135deg, rgba(245,158,11,.25), rgba(245,158,11,.10));
+  border-color: rgba(245,158,11,.40);
+}
+
+.schedBlock--yoga {
+  background: linear-gradient(135deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
+  border-color: rgba(34,197,94,.40);
+}
+
+.schedBlock--jacket {
+  background: linear-gradient(135deg, rgba(251,113,133,.25), rgba(251,113,133,.10));
+  border-color: rgba(251,113,133,.40);
+}
+
+.schedBlock--default {
+  background: linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+  border-color: rgba(255,255,255,.20);
+}
+
+/* ── Block inner content ─────────────────────────────── */
+
+.schedBlockTop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
+}
+
+.schedBlockOrderId {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedBlockQty {
+  font-size: 10px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.schedBlockTags {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.schedMicroTag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(255,255,255,.08);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.schedMicroTag--front {
+  background: rgba(110,231,255,.15);
+  color: #6ee7ff;
+}
+
+.schedMicroTag--back {
+  background: rgba(167,139,250,.15);
+  color: #a78bfa;
+}
+
+/* ── Progress bar inside block ────────────────────────── */
+
+.schedBlockProgress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,.06);
+}
+
+.schedBlockProgressFill {
+  height: 100%;
+  border-radius: 0 0 0 6px;
+  transition: width .3s ease;
+}
+
+.schedBlockProgressFill--good {
+  background: #22c55e;
+}
+
+.schedBlockProgressFill--warn {
+  background: #facc15;
+}
+
+.schedBlockProgressFill--bad {
+  background: var(--danger);
+}
+
+/* ── Order Drawer (right-side panel) ──────────────────── */
+
+.orderDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(380px, 92vw);
+  background: rgba(10,16,28,.94);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 40px rgba(0,0,0,.5);
+  z-index: 100;
+  overflow-y: auto;
+  padding: 16px;
+  animation: drawerSlide .2s ease-out;
+}
+
+@keyframes drawerSlide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.orderDrawerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.orderDrawerHeader h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.orderDrawerClose {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.06);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.orderDrawerClose:hover {
+  background: rgba(255,255,255,.10);
+  color: var(--text);
+}
+
+/* ── Drawer sections ────────────────────────────────── */
+
+.drawerSection {
+  margin-bottom: 16px;
+}
+
+.drawerSectionTitle {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  margin-bottom: 8px;
+}
+
+.drawerProgress {
+  position: relative;
+  height: 8px;
+  background: rgba(255,255,255,.08);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.drawerProgressFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .3s ease;
+}
+
+.drawerProgressLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.drawerDeviation {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.drawerDeviation--good {
+  background: rgba(34,197,94,.12);
+  color: #22c55e;
+}
+
+.drawerDeviation--warn {
+  background: rgba(250,204,21,.12);
+  color: #facc15;
+}
+
+.drawerDeviation--bad {
+  background: rgba(251,113,133,.12);
+  color: var(--danger);
+}
+
+.drawerRecommendation {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.06);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.drawerRecommendation::before {
+  content: "AI";
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+  margin-top: 1px;
+}
+
+.drawerActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.drawerAbnormal {
+  padding: 6px 10px;
+  background: rgba(251,113,133,.08);
+  border: 1px solid rgba(251,113,133,.15);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 4px;
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .schedToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .schedToolbarLeft,
+  .schedToolbarRight {
+    flex-wrap: wrap;
+  }
+
+  .schedLineInfo {
+    width: 100px;
+    padding: 6px 8px;
+  }
+
+  .schedLineName {
+    font-size: 11px;
+  }
+
+  .schedBlock {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+
+  .schedDrawerOpen .schedMain {
+    margin-right: 0;
+  }
+
+  .orderDrawer {
+    width: 100vw;
+  }
+
+  .schedDateLabel {
+    width: 100px;
+  }
+}

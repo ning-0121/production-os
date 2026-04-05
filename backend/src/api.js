@@ -19,6 +19,11 @@ import importRouter from "./routes/import.js";
 import batchRouter from "./routes/batch.js";
 import dashboardRouter from "./routes/dashboard.js";
 import linesRouter from "./routes/lines.js";
+import dailyReportsRouter from "./routes/daily-reports.js";
+import exceptionsRouter from "./routes/exceptions.js";
+import commandRouter from "./routes/command.js";
+import { computeCorrections } from "./scheduler/correction.js";
+import { asyncHandler } from "./middleware/asyncHandler.js";
 
 // supabase.js validates SUPABASE_URL + SUPABASE_SERVICE_KEY at import time
 
@@ -141,6 +146,15 @@ app.use("/api/import", importRouter);
 app.use("/api/batch", batchRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/lines", linesRouter);
+app.use("/api/daily-reports", dailyReportsRouter);
+app.use("/api/exceptions", exceptionsRouter);
+app.use("/api/command", commandRouter);
+
+// ── Correction engine ───────────────────────────────────
+app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {
+  const result = await computeCorrections(supabase);
+  res.json(result);
+}));
 
 // ── Health check ─────────────────────────────────────────
 app.get("/api/health", async (_req, res) => {

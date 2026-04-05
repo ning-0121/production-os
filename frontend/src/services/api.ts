@@ -11,10 +11,15 @@ import { request } from "./client";
 import type {
   Allocation,
   AllocationStatus,
+  CommandOverview,
+  DailyProductionReport,
+  DailyReportSummary,
+  ExceptionItem,
   Factory,
   GeoFence,
   OptimizerPreview,
   OptimizerResult,
+  OrderCorrection,
   Recommendation,
   RiskAlert,
   RiskResult,
@@ -261,4 +266,55 @@ export function checkRisk(
     method: "POST",
     body: JSON.stringify({ order, allocation, options }),
   });
+}
+
+// ── V2: Daily Reports ───────────────────────────────────
+
+export function submitDailyReport(report: Omit<DailyProductionReport, "id" | "created_at">): Promise<DailyProductionReport> {
+  return request("/daily-reports", { method: "POST", body: JSON.stringify(report) });
+}
+
+export function submitDailyReportsBatch(reports: Array<Omit<DailyProductionReport, "id" | "created_at">>): Promise<{ created: number; failed: number }> {
+  return request("/daily-reports/batch", { method: "POST", body: JSON.stringify({ reports }) });
+}
+
+export function fetchDailyReports(params?: { date?: string; factory_id?: string }): Promise<DailyProductionReport[]> {
+  const qs = new URLSearchParams();
+  if (params?.date) qs.set("date", params.date);
+  if (params?.factory_id) qs.set("factory_id", params.factory_id);
+  const q = qs.toString();
+  return request(`/daily-reports${q ? `?${q}` : ""}`);
+}
+
+export function fetchUnreportedFactories(date?: string): Promise<Array<{ id: string; name: string }>> {
+  const d = date ?? new Date().toISOString().slice(0, 10);
+  return request(`/daily-reports/unreported?date=${d}`);
+}
+
+export function fetchDailyReportSummary(date?: string): Promise<DailyReportSummary> {
+  const d = date ?? new Date().toISOString().slice(0, 10);
+  return request(`/daily-reports/summary?date=${d}`);
+}
+
+// ── V2: Corrections ─────────────────────────────────────
+
+export function computeCorrections(): Promise<{ computed: number; warnings: number }> {
+  return request("/corrections/compute", { method: "POST" });
+}
+
+export function fetchOrderCorrections(allocationId: string): Promise<OrderCorrection[]> {
+  return request(`/daily-reports?allocation_id=${allocationId}`);
+  // Note: corrections are queried through daily-reports or a separate endpoint
+}
+
+// ── V2: Exceptions ──────────────────────────────────────
+
+export function fetchExceptions(): Promise<ExceptionItem[]> {
+  return request("/exceptions");
+}
+
+// ── V2: Command Center ──────────────────────────────────
+
+export function fetchCommandOverview(): Promise<CommandOverview> {
+  return request("/command/overview");
 }

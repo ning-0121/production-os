@@ -1,9 +1,9 @@
 import React from "react";
-import { BoardPage } from "./board/BoardPage";
-import { GanttPage } from "./gantt/GanttPage";
+import { CommandPage } from "./command/CommandPage";
+import { SchedulePage } from "./schedule/SchedulePage";
+import { DailyReportPage } from "./reports/DailyReportPage";
+import { ExceptionPage } from "./exceptions/ExceptionPage";
 import { FactoriesPage } from "./factories/FactoriesPage";
-import { GeofencePage } from "./geofence/GeofencePage";
-import { DashboardPage } from "./dashboard/DashboardPage";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ToastProvider } from "./Toast";
@@ -18,14 +18,14 @@ import type { AuditEntry } from "../services/audit";
 
 import "./auth/login.css";
 
-type TabKey = "board" | "schedule" | "factories" | "geofence" | "dashboard";
+type TabKey = "command" | "schedule" | "reports" | "exceptions" | "factories";
 
 const tabs: { key: TabKey; label: string }[] = [
-  { key: "board", label: "看板" },
-  { key: "schedule", label: "甘特图" },
-  { key: "factories", label: "工厂" },
-  { key: "geofence", label: "巡厂" },
-  { key: "dashboard", label: "数据" },
+  { key: "command", label: "指挥中心" },
+  { key: "schedule", label: "排产计划" },
+  { key: "reports", label: "日报中心" },
+  { key: "exceptions", label: "异常中心" },
+  { key: "factories", label: "工厂管理" },
 ];
 
 type RiskCounts = { HIGH: number; MEDIUM: number; SAFE: number; total: number };
@@ -76,7 +76,7 @@ export function App() {
 // ── Main App (after auth) ──────────────────────────────
 
 function MainApp({ user }: { user: AuthUser }) {
-  const [tab, setTab] = React.useState<TabKey>("board");
+  const [tab, setTab] = React.useState<TabKey>("command");
   const [risk, setRisk] = React.useState<RiskCounts | null>(null);
   const [riskError, setRiskError] = React.useState(false);
   const [apiHealth, setApiHealth] = React.useState<ApiHealth | null>(null);
@@ -248,11 +248,11 @@ function MainApp({ user }: { user: AuthUser }) {
         </div>
       )}
 
-      {tab === "board" && <BoardPage />}
-      {tab === "schedule" && <GanttPage />}
+      {tab === "command" && <CommandPage />}
+      {tab === "schedule" && <SchedulePage />}
+      {tab === "reports" && <DailyReportPage />}
+      {tab === "exceptions" && <ExceptionPage />}
       {tab === "factories" && <FactoriesPage />}
-      {tab === "geofence" && <GeofencePage />}
-      {tab === "dashboard" && <DashboardPage />}
     </div>
   );
 }

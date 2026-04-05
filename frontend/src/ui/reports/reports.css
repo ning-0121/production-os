@@ -1,0 +1,171 @@
+/* ── Daily Report Page ──────────────────────────────────── */
+
+.reportPage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Unreported Banner ─────────────────────────────────── */
+
+.unreportedBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: rgba(251,113,133,.12);
+  border: 1px solid rgba(251,113,133,.30);
+  color: var(--danger);
+  font-size: 13px;
+  animation: riskSlide .25s ease-out;
+}
+
+.unreportedBannerIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(251,113,133,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.unreportedBannerText {
+  flex: 1;
+  font-weight: 500;
+}
+
+/* ── Summary Bar ───────────────────────────────────────── */
+
+.reportSummaryBar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.reportSummaryCard {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reportSummaryLabel {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.reportSummaryValue {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+}
+
+.reportSummaryValue--accent {
+  color: var(--accent);
+}
+
+.reportSummaryValue--danger {
+  color: var(--danger);
+}
+
+/* ── Mode Toggle ───────────────────────────────────────── */
+
+.reportModeToggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,.04);
+  width: fit-content;
+}
+
+.reportModeBtn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, color .15s;
+}
+
+.reportModeBtn.active {
+  color: var(--text);
+  background: rgba(255,255,255,.10);
+}
+
+/* ── Report Form ───────────────────────────────────────── */
+
+.reportForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.reportFormRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.reportCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reportCheckbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.reportCheckLabel {
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ── Excel Upload (reuses import classes from orders.css) ─ */
+
+.reportUploadBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+/* ── Mobile ────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .reportSummaryBar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .reportFormRow {
+    grid-template-columns: 1fr;
+  }
+
+  .reportModeToggle {
+    width: 100%;
+  }
+
+  .reportModeBtn {
+    flex: 1;
+    text-align: center;
+  }
+}

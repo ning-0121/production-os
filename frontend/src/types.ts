@@ -197,3 +197,66 @@ export type LineSchedule = {
   production_lines?: ProductionLine | null;
   production_allocations?: { id: string; order_id: string; allocated_qty: number; status: string } | null;
 };
+
+// ── V2: Daily Production Reports ────────────────────────
+export type DailyProductionReport = {
+  id: string;
+  date: string;
+  factory_id: string;
+  line_id: string | null;
+  allocation_id: string | null;
+  order_id: string | null;
+  planned_output: number;
+  actual_output: number;
+  cumulative_output: number;
+  stage: string;
+  is_abnormal: boolean;
+  abnormal_reason: string | null;
+  note: string | null;
+  reporter: string | null;
+  created_at: string;
+};
+
+export type OrderCorrection = {
+  id: string;
+  allocation_id: string;
+  date: string;
+  planned_cumulative: number;
+  actual_cumulative: number;
+  deviation_pct: number;
+  estimated_end_date: string;
+  risk_status: "on_track" | "falling_behind" | "critical";
+  recommendations: Array<{ type: string; message: string; action?: string }>;
+  created_at: string;
+};
+
+export type ExceptionItem = {
+  type: "delayed" | "at_risk" | "overloaded" | "underperforming" | "unreported" | "unschedulable";
+  severity: "high" | "medium" | "low";
+  order_id?: string;
+  factory_name?: string;
+  line_name?: string;
+  message: string;
+  data?: Record<string, unknown>;
+};
+
+export type CommandOverview = {
+  kpi: {
+    active_orders: number;
+    today_output: number;
+    on_time_pct: number;
+    abnormal_count: number;
+    total_lines: number;
+    reported_factories: number;
+  };
+  top_exceptions: ExceptionItem[];
+  factory_report_status: Array<{ factory_id: string; name: string; reported: boolean }>;
+  recent_trend: Array<{ date: string; output: number }>;
+};
+
+export type DailyReportSummary = {
+  total_output: number;
+  orders_reported: number;
+  abnormal_count: number;
+  factories_reported: number;
+};
