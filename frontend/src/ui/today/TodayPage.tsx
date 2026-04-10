@@ -5,6 +5,7 @@ import {
 import { useAsync } from "../../hooks/useAsync";
 import { fetchTodayBriefing, saveAIActions, executeAIAction } from "../../services/api";
 import { useToast } from "../Toast";
+import { PageSkeleton } from "../Skeleton";
 import type { TodayBriefing, AIAction, RiskyOrder } from "../../types";
 import "./today.css";
 
@@ -12,7 +13,7 @@ export function TodayPage() {
   const { toast } = useToast();
   const { data, loading, error } = useAsync(() => fetchTodayBriefing(), []);
 
-  if (loading) return <div className="card"><div className="loadingCenter">加载中...</div></div>;
+  if (loading) return <PageSkeleton />;
   if (error) return <div className="card"><div style={{ padding: 24, color: "var(--danger)" }}>加载失败: {error}</div></div>;
   if (!data) return null;
 

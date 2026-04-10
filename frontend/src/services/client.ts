@@ -44,10 +44,14 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const token = getAccessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
     res = await fetch(url, {
       headers,
+      signal: controller.signal,
       ...init,
     });
+    clearTimeout(timeout);
   } catch (err) {
     // Network-level failure: retry once for GET requests
     const method = init?.method?.toUpperCase() ?? "GET";

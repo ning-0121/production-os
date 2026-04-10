@@ -1,6 +1,7 @@
 import React from "react";
 import { Sidebar } from "./layout/Sidebar";
 import type { ModuleKey } from "./layout/Sidebar";
+import { useAppStore } from "../stores/appStore";
 import { TodayPage } from "./today/TodayPage";
 import { SchedulePage } from "./schedule/SchedulePage";
 import { OrderCenterPage } from "./orders/OrderCenterPage";
@@ -62,7 +63,9 @@ export function App() {
 // ── Main App (after auth) ──────────────────────────────
 
 function MainApp({ user }: { user: AuthUser }) {
-  const [module, setModule] = React.useState<ModuleKey>("today");
+  const { activeModule, setActiveModule } = useAppStore();
+  const module = activeModule as ModuleKey;
+  const setModule = (m: ModuleKey) => setActiveModule(m);
   const [loggingOut, setLoggingOut] = React.useState(false);
   const [apiHealth, setApiHealth] = React.useState<ApiHealth | null>(null);
 
@@ -109,7 +112,7 @@ function MainApp({ user }: { user: AuthUser }) {
 // ── Scheduling Workbench (Order Center + Scheduling Board) ──
 
 function SchedulingWorkbench() {
-  const [subTab, setSubTab] = React.useState<"orders" | "board">("orders");
+  const { schedulingSubTab: subTab, setSchedulingSubTab: setSubTab } = useAppStore();
 
   return (
     <div>
@@ -136,7 +139,7 @@ function SchedulingWorkbench() {
 // ── Execution Module (combines Reports + Exceptions) ──────
 
 function ExecutionModule() {
-  const [subTab, setSubTab] = React.useState<"reports" | "exceptions">("reports");
+  const { executionSubTab: subTab, setExecutionSubTab: setSubTab } = useAppStore();
 
   return (
     <div>

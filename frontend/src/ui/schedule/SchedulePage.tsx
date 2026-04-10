@@ -86,6 +86,8 @@ export function SchedulePage() {
   const [selectedOrderId, setSelectedOrderId] = React.useState<string | null>(null);
   const [draggingAlloc, setDraggingAlloc] = React.useState<Allocation | null>(null);
   const [pending, setPending] = React.useState<PendingSchedule | null>(null);
+  const [frontDays, setFrontDays] = React.useState(DEFAULT_FRONT_DAYS);
+  const [recalculating, setRecalculating] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
 
@@ -258,9 +260,29 @@ export function SchedulePage() {
         allocation_id: alloc.id,
         front_days: DEFAULT_FRONT_DAYS,
       });
+      setFrontDays(DEFAULT_FRONT_DAYS);
       setPending({ allocationId: alloc.id, lineId, summary: result.summary });
     } catch (err) {
       toast(err instanceof Error ? err.message : "预览失败", "error");
+    }
+  }
+
+  // Recalculate when front_days changes
+  async function handleFrontDaysChange(days: number) {
+    setFrontDays(days);
+    if (!pending || days < 1) return;
+    setRecalculating(true);
+    try {
+      const result = await dryRunAutoSchedule({
+        line_id: pending.lineId,
+        allocation_id: pending.allocationId,
+        front_days: days,
+      });
+      setPending({ ...pending, summary: result.summary });
+    } catch {
+      // keep old summary on error
+    } finally {
+      setRecalculating(false);
     }
   }
 
@@ -439,6 +461,9 @@ export function SchedulePage() {
       {pending && (
         <ScheduleConfirmDialog
           summary={pending.summary}
+          frontDays={frontDays}
+          onFrontDaysChange={handleFrontDaysChange}
+          recalculating={recalculating}
           onSaveDraft={handleSaveDraft}
           onConfirm={handleConfirm}
           onCancel={() => setPending(null)}
