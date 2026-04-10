@@ -1,20 +1,17 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
 // POST /api/daily-reports — submit a single daily production report
-router.post("/", asyncHandler(async (req, res) => {
+router.post("/", validate(schemas.submitReport), asyncHandler(async (req, res) => {
   const {
     date, factory_id, line_id, allocation_id, order_id,
     planned_output, actual_output, cumulative_output,
     stage, is_abnormal, abnormal_reason, note, reporter,
   } = req.body;
-
-  if (!date || !factory_id) {
-    return res.status(400).json({ error: "date and factory_id are required" });
-  }
 
   const { data, error } = await supabase
     .from("daily_production_reports")
@@ -31,12 +28,8 @@ router.post("/", asyncHandler(async (req, res) => {
 }));
 
 // POST /api/daily-reports/batch — bulk upload array of reports
-router.post("/batch", asyncHandler(async (req, res) => {
-  const reports = req.body;
-
-  if (!Array.isArray(reports) || reports.length === 0) {
-    return res.status(400).json({ error: "Request body must be a non-empty array of reports" });
-  }
+router.post("/batch", validate(schemas.batchReports), asyncHandler(async (req, res) => {
+  const { reports } = req.body;
 
   const rows = reports.map((r) => ({
     date: r.date,

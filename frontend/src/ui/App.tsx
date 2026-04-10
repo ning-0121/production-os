@@ -8,7 +8,7 @@ import { DailyReportPage } from "./reports/DailyReportPage";
 import { ExceptionPage } from "./exceptions/ExceptionPage";
 import { FactoriesPage } from "./factories/FactoriesPage";
 import { LoginPage } from "./auth/LoginPage";
-import { ErrorBoundary } from "./ErrorBoundary";
+import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
 import { ToastProvider } from "./Toast";
 import { checkHealth } from "../services/api";
 import { supabase, logout, getSession, parseUser } from "../services/auth";
@@ -97,10 +97,10 @@ function MainApp({ user }: { user: AuthUser }) {
           </div>
         )}
 
-        {module === "today" && <TodayPage />}
-        {module === "scheduling" && <SchedulingWorkbench />}
-        {module === "execution" && <ExecutionModule />}
-        {module === "factories" && <FactoriesPage />}
+        {module === "today" && <PageBoundary name="今日运营"><TodayPage /></PageBoundary>}
+        {module === "scheduling" && <PageBoundary name="排产工作台"><SchedulingWorkbench /></PageBoundary>}
+        {module === "execution" && <PageBoundary name="生产执行"><ExecutionModule /></PageBoundary>}
+        {module === "factories" && <PageBoundary name="工厂资源"><FactoriesPage /></PageBoundary>}
       </main>
     </div>
   );

@@ -100,4 +100,70 @@ export const schemas = {
       order_external_id: z.string().optional(),
     })).min(1, "至少需要一条订单").max(500, "单次最多导入500条"),
   }),
+
+  // ── Production Lines ─────────────────────────────────
+  createLine: z.object({
+    factory_id: z.string().uuid("工厂ID格式错误"),
+    name: z.string().min(1, "产线名称不能为空"),
+    front_capacity_per_day: z.number().positive().optional(),
+    back_capacity_per_day: z.number().positive().optional(),
+  }),
+
+  updateLine: z.object({
+    name: z.string().min(1).optional(),
+    front_capacity_per_day: z.number().positive().optional(),
+    back_capacity_per_day: z.number().positive().optional(),
+    status: z.enum(["active", "inactive"]).optional(),
+  }).refine((data) => Object.keys(data).length > 0, {
+    message: "至少需要提供一个要更新的字段",
+  }),
+
+  // ── Auto Schedule ────────────────────────────────────
+  autoSchedule: z.object({
+    line_id: z.string().uuid("产线ID格式错误"),
+    allocation_id: z.string().uuid("订单ID格式错误"),
+    front_days: z.number().int().positive("前道天数必须大于0"),
+    dry_run: z.boolean().optional(),
+  }),
+
+  // ── Daily Reports ────────────────────────────────────
+  submitReport: z.object({
+    date: z.string().min(1, "日期不能为空"),
+    factory_id: z.string().uuid("工厂ID格式错误"),
+    line_id: z.string().uuid().nullable().optional(),
+    allocation_id: z.string().uuid().nullable().optional(),
+    order_id: z.string().nullable().optional(),
+    planned_output: z.number().default(0),
+    actual_output: z.number().min(0, "实际产出不能为负"),
+    cumulative_output: z.number().default(0),
+    stage: z.enum(["front", "back"]).default("front"),
+    is_abnormal: z.boolean().default(false),
+    abnormal_reason: z.string().nullable().optional(),
+    note: z.string().nullable().optional(),
+    reporter: z.string().nullable().optional(),
+  }),
+
+  batchReports: z.object({
+    reports: z.array(z.object({
+      date: z.string().min(1),
+      factory_id: z.string().uuid(),
+      line_id: z.string().uuid().nullable().optional(),
+      allocation_id: z.string().uuid().nullable().optional(),
+      order_id: z.string().nullable().optional(),
+      planned_output: z.number().default(0),
+      actual_output: z.number().min(0),
+      cumulative_output: z.number().default(0),
+      stage: z.string().default("front"),
+      is_abnormal: z.boolean().default(false),
+      abnormal_reason: z.string().nullable().optional(),
+      note: z.string().nullable().optional(),
+      reporter: z.string().nullable().optional(),
+    })).min(1, "至少需要一条日报").max(200, "单次最多200条"),
+  }),
+
+  // ── Batch Operations ─────────────────────────────────
+  batchAllocations: z.object({
+    action: z.enum(["confirm", "delete", "cancel", "start"]),
+    ids: z.array(z.string().uuid()).min(1, "至少选择一条记录").max(100, "单次最多100条"),
+  }),
 };

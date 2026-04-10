@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 import { runAPS } from "../scheduler/aps.js";
 
 const router = Router();
@@ -41,9 +42,8 @@ router.get("/schedules", asyncHandler(async (req, res) => {
 }));
 
 // POST /api/lines — create a production line
-router.post("/", asyncHandler(async (req, res) => {
+router.post("/", validate(schemas.createLine), asyncHandler(async (req, res) => {
   const { factory_id, name, front_capacity_per_day, back_capacity_per_day } = req.body;
-  if (!factory_id || !name) return res.status(400).json({ error: "factory_id and name required" });
 
   const { data, error } = await supabase
     .from("production_lines")
@@ -106,11 +106,8 @@ router.post("/schedule", asyncHandler(async (req, res) => {
 
 // POST /api/lines/auto-schedule — 智能排单：输入前道天数，自动衔接
 // Supports dry_run: true to preview schedule without persisting
-router.post("/auto-schedule", asyncHandler(async (req, res) => {
+router.post("/auto-schedule", validate(schemas.autoSchedule), asyncHandler(async (req, res) => {
   const { line_id, allocation_id, front_days, dry_run } = req.body;
-  if (!line_id || !allocation_id || !front_days) {
-    return res.status(400).json({ error: "line_id, allocation_id, front_days are required" });
-  }
 
   // 1. Load line info (get back_capacity_per_day)
   const { data: line, error: lineErr } = await supabase

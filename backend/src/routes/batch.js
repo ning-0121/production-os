@@ -1,20 +1,14 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 import { auditLog } from "../governance/audit.js";
 
 const router = Router();
 
 // POST /api/batch/allocations — batch operations on allocations
-router.post("/allocations", asyncHandler(async (req, res) => {
+router.post("/allocations", validate(schemas.batchAllocations), asyncHandler(async (req, res) => {
   const { ids, action } = req.body;
-
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: "ids 数组不能为空" });
-  }
-  if (!["confirm", "delete", "cancel", "start"].includes(action)) {
-    return res.status(400).json({ error: "action 必须是 confirm/delete/cancel/start" });
-  }
 
   let result;
   const summary = { success: 0, failed: 0, details: [] };

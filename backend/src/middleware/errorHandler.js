@@ -5,23 +5,28 @@
  * Must be registered AFTER all routes.
  */
 
-export function errorHandler(err, _req, res, _next) {
-  // Log the error for debugging
-  console.error("[ERROR]", err.message || err);
-  if (err.stack && process.env.NODE_ENV !== "production") {
-    console.error(err.stack);
-  }
+export function errorHandler(err, req, res, _next) {
+  const requestId = req.id ?? "unknown";
 
-  // Determine status code
+  // Structured error log
+  console.error(JSON.stringify({
+    level: "ERROR",
+    request_id: requestId,
+    method: req.method,
+    path: req.originalUrl,
+    error: err.message || String(err),
+    code: err.code,
+    stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
+  }));
+
   const status = err.status || err.statusCode || 500;
 
-  // Build response
   const response = {
     error: status === 500 ? "服务器内部错误" : err.message,
     code: err.code || "INTERNAL_ERROR",
+    request_id: requestId,
   };
 
-  // Include details in non-production environments
   if (process.env.NODE_ENV !== "production" && err.details) {
     response.details = err.details;
   }

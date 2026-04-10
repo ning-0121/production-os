@@ -8,6 +8,7 @@ import { can, resolveAction, resolveRole } from "./governance/policy.js";
 import { auditLog } from "./governance/audit.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { requestId, requestLogger } from "./middleware/requestId.js";
 import factoriesRouter from "./routes/factories.js";
 import allocationsRouter from "./routes/allocations.js";
 import geofencesRouter from "./routes/geofences.js";
@@ -35,6 +36,8 @@ const app = express();
 // ── Global middleware ───────────────────────────────────
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
+app.use(requestId);
+app.use(requestLogger);
 
 // ── Rate limiting ───────────────────────────────────────
 const globalLimiter = rateLimit({
@@ -192,4 +195,7 @@ app.post("/api/risk", (req, res) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Backend on http://localhost:${PORT}`));
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Backend on http://0.0.0.0:${PORT}`);
+  console.log(`Environment: PORT=${PORT}, PILOT_MODE=${PILOT_MODE}`);
+});
