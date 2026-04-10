@@ -144,6 +144,7 @@ export async function runAutomationScan(supabase) {
   // Log triggered rules
   if (triggered.length > 0) {
     const logs = triggered.slice(0, 20).map((t) => ({
+      rule_id: null, // built-in rules have no DB row; null FK is allowed
       rule_name: t.rule_name,
       trigger_type: t.trigger_type,
       trigger_context: t.context,
@@ -151,6 +152,7 @@ export async function runAutomationScan(supabase) {
       allocation_id: t.context.entity_type === "order" ? t.context.entity_id : null,
       factory_id: t.context.factory_id ?? (t.context.entity_type === "factory" ? t.context.entity_id : null),
       outcome: "triggered",
+      executed_at: new Date().toISOString(),
     }));
 
     await supabase.from("automation_logs").insert(logs).catch(() => {});

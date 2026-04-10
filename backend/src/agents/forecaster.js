@@ -52,9 +52,12 @@ export async function forecastFactoryCapacity(supabase, factoryId, horizonDays =
     entity_type: "factory",
     entity_id: factoryId,
     horizon_days: horizonDays,
+    forecast_date: null,
     predicted_value: Math.round(projectedOutput),
     unit: "units",
     confidence_score: Math.min(0.9, 0.4 + reports.length * 0.07),
+    actual_value: null,
+    error_pct: null,
     context: {
       daily_avg: Math.round(dailyAvg),
       daily_capacity: dailyCapacity,
@@ -90,9 +93,12 @@ export async function forecastOrderCompletion(supabase, allocationId) {
       forecast_type: "completion",
       entity_type: "order",
       entity_id: allocationId,
+      forecast_date: null,
       predicted_value: null,
       unit: "days",
       confidence_score: 0.2,
+      actual_value: null,
+      error_pct: null,
       context: { reason: "无日报数据，无法预测", cumulative: 0, remaining, total: totalQty },
     };
   }
@@ -119,6 +125,8 @@ export async function forecastOrderCompletion(supabase, allocationId) {
     predicted_value: remainingDays,
     unit: "days",
     confidence_score: Math.min(0.9, 0.3 + reports.length * 0.05),
+    actual_value: null,
+    error_pct: null,
     context: {
       order_id: alloc.order_id,
       total_qty: totalQty,
@@ -189,10 +197,13 @@ export async function forecastBottlenecks(supabase, horizonDays = 14) {
           forecast_type: "bottleneck",
           entity_type: "factory",
           entity_id: factory.id,
+          horizon_days: horizonDays,
           forecast_date: day.toISOString().slice(0, 10),
           predicted_value: dailyLoad[d],
           unit: "concurrent_orders",
           confidence_score: 0.7,
+          actual_value: null,
+          error_pct: null,
           context: {
             factory_name: factory.name,
             day_offset: d,
