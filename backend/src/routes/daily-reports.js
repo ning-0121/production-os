@@ -2,6 +2,7 @@ import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { validate, schemas } from "../middleware/validate.js";
+import { computeCorrections } from "../scheduler/correction.js";
 
 const router = Router();
 
@@ -24,6 +25,12 @@ router.post("/", validate(schemas.submitReport), asyncHandler(async (req, res) =
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
+
+  // Auto-trigger correction computation (fire-and-forget)
+  computeCorrections(supabase).catch((err) => {
+    console.error(JSON.stringify({ level: "WARN", msg: "Auto-correction failed", error: err.message }));
+  });
+
   res.status(201).json(data);
 }));
 
@@ -53,6 +60,12 @@ router.post("/batch", validate(schemas.batchReports), asyncHandler(async (req, r
     .select();
 
   if (error) return res.status(400).json({ error: error.message });
+
+  // Auto-trigger correction computation (fire-and-forget)
+  computeCorrections(supabase).catch((err) => {
+    console.error(JSON.stringify({ level: "WARN", msg: "Auto-correction failed after batch", error: err.message }));
+  });
+
   res.status(201).json({ inserted: data.length, data });
 }));
 

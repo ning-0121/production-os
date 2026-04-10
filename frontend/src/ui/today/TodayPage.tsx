@@ -3,11 +3,13 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { useAsync } from "../../hooks/useAsync";
-import { fetchTodayBriefing } from "../../services/api";
+import { fetchTodayBriefing, saveAIActions, executeAIAction } from "../../services/api";
+import { useToast } from "../Toast";
 import type { TodayBriefing, AIAction, RiskyOrder } from "../../types";
 import "./today.css";
 
 export function TodayPage() {
+  const { toast } = useToast();
   const { data, loading, error } = useAsync(() => fetchTodayBriefing(), []);
 
   if (loading) return <div className="card"><div className="loadingCenter">加载中...</div></div>;
@@ -44,7 +46,16 @@ export function TodayPage() {
           </div>
           <div className="todayAiList">
             {ai_suggestions.map((action) => (
-              <AIActionCard key={action.id} action={action} />
+              <AIActionCard key={action.id} action={action} onExecute={async (a) => {
+                try {
+                  const saved = await saveAIActions([a]);
+                  if (saved.saved > 0) {
+                    toast("已执行", "success");
+                  }
+                } catch {
+                  toast("执行失败", "error");
+                }
+              }} />
             ))}
           </div>
         </div>
@@ -143,8 +154,16 @@ function KpiCard({ label, value, color, accent }: { label: string; value: string
   );
 }
 
-function AIActionCard({ action }: { action: AIAction }) {
+function AIActionCard({ action, onExecute }: { action: AIAction; onExecute: (a: AIAction) => void }) {
+  const [executing, setExecuting] = React.useState(false);
   const urgencyClass = `todayAiCard--${action.urgency}`;
+
+  async function handleExecute() {
+    setExecuting(true);
+    await onExecute(action);
+    setExecuting(false);
+  }
+
   return (
     <div className={`todayAiCard ${urgencyClass}`}>
       <div className="todayAiCardTop">
@@ -155,6 +174,11 @@ function AIActionCard({ action }: { action: AIAction }) {
       </div>
       <div className="todayAiSummary">{action.summary}</div>
       <div className="todayAiImpact">{action.impact}</div>
+      <div className="todayAiActions">
+        <button className="btn primary" onClick={handleExecute} disabled={executing}>
+          {executing ? "执行中..." : "执行"}
+        </button>
+      </div>
     </div>
   );
 }

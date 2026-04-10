@@ -3,8 +3,10 @@ import type { AutoScheduleSummary } from "../../services/api";
 
 type Props = {
   summary: AutoScheduleSummary;
+  onSaveDraft: () => void;
   onConfirm: () => void;
   onCancel: () => void;
+  saving: boolean;
   confirming: boolean;
 };
 
@@ -14,14 +16,15 @@ const RISK_LABELS: Record<string, { label: string; cls: string }> = {
   HIGH: { label: "高风险", cls: "riskHigh" },
 };
 
-export function ScheduleConfirmDialog({ summary, onConfirm, onCancel, confirming }: Props) {
+export function ScheduleConfirmDialog({ summary, onSaveDraft, onConfirm, onCancel, saving, confirming }: Props) {
   const risk = RISK_LABELS[summary.risk.level] ?? RISK_LABELS.SAFE;
+  const busy = saving || confirming;
 
   return (
     <div className="confirmOverlay" onClick={onCancel}>
       <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
         <div className="confirmHeader">
-          <h3>排产确认</h3>
+          <h3>排产预览</h3>
           <button className="orderDrawerClose" onClick={onCancel}>x</button>
         </div>
 
@@ -82,9 +85,12 @@ export function ScheduleConfirmDialog({ summary, onConfirm, onCancel, confirming
         </div>
 
         <div className="confirmActions">
-          <button className="btn" onClick={onCancel} disabled={confirming}>取消</button>
-          <button className="btn primary" onClick={onConfirm} disabled={confirming}>
-            {confirming ? "排产中..." : "确认排产"}
+          <button className="btn" onClick={onCancel} disabled={busy}>取消</button>
+          <button className="btn" onClick={onSaveDraft} disabled={busy}>
+            {saving ? "保存中..." : "保存草稿"}
+          </button>
+          <button className="btn primary" onClick={onConfirm} disabled={busy}>
+            {confirming ? "确认中..." : "确认排产"}
           </button>
         </div>
       </div>

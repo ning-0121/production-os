@@ -26,6 +26,8 @@ import commandRouter from "./routes/command.js";
 import exceptionsV2Router from "./routes/exceptions-v2.js";
 import agentsRouter from "./routes/agents.js";
 import todayRouter from "./routes/today.js";
+import draftsRouter from "./routes/drafts.js";
+import aiActionsRouter from "./routes/ai-actions.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -158,6 +160,8 @@ app.use("/api/command", commandRouter);
 app.use("/api/exceptions/v2", exceptionsV2Router);
 app.use("/api/agents", agentsRouter);
 app.use("/api/today", todayRouter);
+app.use("/api/drafts", draftsRouter);
+app.use("/api/ai-actions", aiActionsRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

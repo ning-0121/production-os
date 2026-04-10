@@ -17,6 +17,8 @@ import {
   fetchAllocations,
   dryRunAutoSchedule,
   autoScheduleLine,
+  createDraft,
+  confirmDraft,
 } from "../../services/api";
 import type { AutoScheduleSummary } from "../../services/api";
 import { useToast } from "../Toast";
@@ -84,6 +86,7 @@ export function SchedulePage() {
   const [selectedOrderId, setSelectedOrderId] = React.useState<string | null>(null);
   const [draggingAlloc, setDraggingAlloc] = React.useState<Allocation | null>(null);
   const [pending, setPending] = React.useState<PendingSchedule | null>(null);
+  const [saving, setSaving] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
 
   const { toast } = useToast();
@@ -261,17 +264,54 @@ export function SchedulePage() {
     }
   }
 
-  // Confirm scheduling
+  // Save as draft (preview only, no line_schedules write)
+  async function handleSaveDraft() {
+    if (!pending) return;
+    setSaving(true);
+    try {
+      const s = pending.summary;
+      await createDraft({
+        allocation_id: pending.allocationId,
+        line_id: pending.lineId,
+        front_start: s.front.start,
+        front_end: s.front.end,
+        front_days: s.front.days,
+        back_start: s.back.start,
+        back_end: s.back.end,
+        back_days: s.back.days,
+        risk_level: s.risk.level,
+        buffer_days: s.risk.buffer_days,
+      });
+      toast("草稿已保存，待确认后生效", "success");
+      setPending(null);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "保存失败", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Confirm scheduling (draft → line_schedules + allocation status)
   async function handleConfirm() {
     if (!pending) return;
     setConfirming(true);
     try {
-      await autoScheduleLine({
-        line_id: pending.lineId,
+      // Create draft then immediately confirm
+      const s = pending.summary;
+      const draft = await createDraft({
         allocation_id: pending.allocationId,
-        front_days: DEFAULT_FRONT_DAYS,
+        line_id: pending.lineId,
+        front_start: s.front.start,
+        front_end: s.front.end,
+        front_days: s.front.days,
+        back_start: s.back.start,
+        back_end: s.back.end,
+        back_days: s.back.days,
+        risk_level: s.risk.level,
+        buffer_days: s.risk.buffer_days,
       });
-      toast("排产成功", "success");
+      await confirmDraft(draft.id as string);
+      toast("排产已确认", "success");
       setPending(null);
       refetchSchedules();
       refetchAllocations();
@@ -399,8 +439,10 @@ export function SchedulePage() {
       {pending && (
         <ScheduleConfirmDialog
           summary={pending.summary}
+          onSaveDraft={handleSaveDraft}
           onConfirm={handleConfirm}
           onCancel={() => setPending(null)}
+          saving={saving}
           confirming={confirming}
         />
       )}

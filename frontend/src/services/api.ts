@@ -380,6 +380,49 @@ export function runRiskPrediction(): Promise<{ agent: string; actions: AIAction[
   return request("/agents/risk-predict", { method: "POST" });
 }
 
+// ── V3: Schedule Drafts ────────────────────────────────
+
+export function fetchDrafts(): Promise<Array<Record<string, unknown>>> {
+  return request("/drafts");
+}
+
+export function createDraft(data: {
+  allocation_id: string;
+  line_id: string;
+  front_start: string;
+  front_end: string;
+  front_days: number;
+  back_start: string;
+  back_end: string;
+  back_days: number;
+  risk_level: string;
+  buffer_days: number;
+}): Promise<Record<string, unknown>> {
+  return request("/drafts", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function confirmDraft(draftId: string): Promise<{ confirmed: boolean }> {
+  return request(`/drafts/${draftId}/confirm`, { method: "POST" });
+}
+
+export function rejectDraft(draftId: string): Promise<Record<string, unknown>> {
+  return request(`/drafts/${draftId}/reject`, { method: "POST" });
+}
+
+// ── V3: AI Action Execution ────────────────────────────
+
+export function saveAIActions(actions: AIAction[]): Promise<{ saved: number }> {
+  return request("/ai-actions", { method: "POST", body: JSON.stringify({ actions }) });
+}
+
+export function executeAIAction(id: string): Promise<{ executed: boolean; result: { success: boolean; message: string } }> {
+  return request(`/ai-actions/${id}/execute`, { method: "POST" });
+}
+
+export function rejectAIAction(id: string): Promise<Record<string, unknown>> {
+  return request(`/ai-actions/${id}/reject`, { method: "POST" });
+}
+
 export function runProgressCorrection(): Promise<{
   agent: string;
   actions: AIAction[];
