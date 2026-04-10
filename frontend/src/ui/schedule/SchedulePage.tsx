@@ -27,6 +27,7 @@ import { OrderCard } from "./OrderCard";
 import { ScheduleConfirmDialog } from "./ScheduleConfirmDialog";
 import { OrderDetailDrawer } from "./OrderDetailDrawer";
 import { AIDecisionPanel } from "./AIDecisionPanel";
+import { ScenarioPanel } from "./ScenarioPanel";
 import type { ProductionLine, LineSchedule, Allocation } from "../../types";
 import "./schedule.css";
 
@@ -449,7 +450,13 @@ export function SchedulePage() {
         </div>
       </div>
 
-      {/* AI Decision Panel */}
+      {/* Scenario Panel — shows multi-plan comparison for selected order */}
+      <ScenarioPanel
+        allocationId={selectedOrderId}
+        onApplied={() => { refetchSchedules(); refetchAllocations(); }}
+      />
+
+      {/* AI Decision Panel — general suggestions */}
       <AIDecisionPanel />
 
       {/* Drag overlay */}

@@ -28,6 +28,9 @@ import agentsRouter from "./routes/agents.js";
 import todayRouter from "./routes/today.js";
 import draftsRouter from "./routes/drafts.js";
 import aiActionsRouter from "./routes/ai-actions.js";
+import scenariosRouter from "./routes/scenarios.js";
+import overridesRouter from "./routes/overrides.js";
+import incidentsRouter from "./routes/incidents.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -162,6 +165,9 @@ app.use("/api/agents", agentsRouter);
 app.use("/api/today", todayRouter);
 app.use("/api/drafts", draftsRouter);
 app.use("/api/ai-actions", aiActionsRouter);
+app.use("/api/orders", scenariosRouter);
+app.use("/api/overrides", overridesRouter);
+app.use("/api/incidents", incidentsRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { useAsync } from "../../hooks/useAsync";
-import { fetchTodayBriefing, saveAIActions, executeAIAction } from "../../services/api";
+import { fetchTodayBriefing, saveAIActions, executeAIAction, fetchOverrideStats } from "../../services/api";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import type { TodayBriefing, AIAction, RiskyOrder } from "../../types";
@@ -24,7 +24,7 @@ export function TodayPage() {
       {/* KPI Row */}
       <div className="todayKpiRow">
         <KpiCard label="在产订单" value={kpi.active_orders} accent />
-        <KpiCard label="今日产出" value={kpi.today_output.toLocaleString()} />
+        <KpiCard label="今日产出" value={(kpi.today_output ?? 0).toLocaleString()} />
         <KpiCard
           label="准时率"
           value={`${kpi.on_time_pct}%`}

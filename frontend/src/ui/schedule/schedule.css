@@ -873,6 +873,139 @@
   margin-bottom: 4px;
 }
 
+/* ── Scenario Panel ──────────────────────────────────── */
+
+.scenarioPanel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.scenarioPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(110,231,255,.04), rgba(255,255,255,0));
+}
+
+.scenarioList {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.scenarioCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color .15s;
+}
+
+.scenarioCard--best {
+  border-color: rgba(110,231,255,.30);
+}
+
+.scenarioCard--expanded {
+  background: rgba(255,255,255,.02);
+}
+
+.scenarioCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.scenarioCardHeader:hover {
+  background: rgba(255,255,255,.03);
+}
+
+.scenarioCardLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scenarioCardRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scenarioBestTag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+}
+
+.scenarioLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scenarioScore {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 6px;
+  background: rgba(255,255,255,.06);
+  border-radius: 4px;
+}
+
+.scenarioRisk {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.scenarioToggle {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.scenarioDetail {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  animation: detailSlide .15s ease-out;
+}
+
+.scenarioDetailRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+}
+
+.scenarioDetailRow span:first-child {
+  color: var(--muted);
+}
+
+.scenarioReason {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 8px;
+  background: rgba(255,255,255,.03);
+  border-radius: 6px;
+  line-height: 1.4;
+}
+
+.scenarioApplyBtn {
+  margin-top: 8px;
+  width: 100%;
+}
+
 /* ── AI Decision Panel ───────────────────────────────── */
 
 .aiPanel {

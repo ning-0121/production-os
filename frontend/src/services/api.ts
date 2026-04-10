@@ -423,6 +423,67 @@ export function rejectAIAction(id: string): Promise<Record<string, unknown>> {
   return request(`/ai-actions/${id}/reject`, { method: "POST" });
 }
 
+// ── V3: Scenarios ──────────────────────────────────────
+
+export type Scenario = {
+  id: string;
+  scenario_type: string;
+  scenario_label: string;
+  description?: string;
+  target_factory_name: string | null;
+  expected_finish_date: string | null;
+  risk_level: string;
+  buffer_days: number;
+  cost_change_pct: number;
+  impact_summary: string;
+  impacted_orders: Array<{ order_id: string; impact_type: string; estimated_delay_days: number }>;
+  recommendation_score: number;
+  recommendation_reason: string;
+  status: string;
+};
+
+export function fetchScenarios(allocationId: string): Promise<{ scenarios: Scenario[] }> {
+  return request(`/orders/${allocationId}/scenarios`);
+}
+
+export function applyScenario(allocationId: string, scenarioId: string, reason?: string): Promise<{ applied: boolean }> {
+  return request(`/orders/${allocationId}/scenarios/${scenarioId}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+// ── V3: Override Stats ─────────────────────────────────
+
+export function fetchOverrideStats(period?: string): Promise<{
+  adoption_rate_pct: number;
+  total_overrides: number;
+  total_decisions: number;
+  most_overridden_scenario: { type: string; count: number } | null;
+}> {
+  return request(`/overrides/stats${period ? `?period=${period}` : ""}`);
+}
+
+// ── V3: Incidents ──────────────────────────────────────
+
+export function fetchIncidents(): Promise<Array<Record<string, unknown>>> {
+  return request("/incidents");
+}
+
+export function createIncident(data: {
+  incident_type: string;
+  severity: string;
+  factory_id?: string;
+  description: string;
+  estimated_delay_days?: number;
+}): Promise<Record<string, unknown>> {
+  return request("/incidents", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function resolveIncident(id: string, notes?: string): Promise<Record<string, unknown>> {
+  return request(`/incidents/${id}/resolve`, { method: "POST", body: JSON.stringify({ notes }) });
+}
+
 export function runProgressCorrection(): Promise<{
   agent: string;
   actions: AIAction[];
