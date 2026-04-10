@@ -31,6 +31,9 @@ import aiActionsRouter from "./routes/ai-actions.js";
 import scenariosRouter from "./routes/scenarios.js";
 import overridesRouter from "./routes/overrides.js";
 import incidentsRouter from "./routes/incidents.js";
+import memoryRouter from "./routes/memory.js";
+import forecastsRouter from "./routes/forecasts.js";
+import automationRouter from "./routes/automation.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -168,6 +171,9 @@ app.use("/api/ai-actions", aiActionsRouter);
 app.use("/api/orders", scenariosRouter);
 app.use("/api/overrides", overridesRouter);
 app.use("/api/incidents", incidentsRouter);
+app.use("/api/memory", memoryRouter);
+app.use("/api/forecasts", forecastsRouter);
+app.use("/api/automation", automationRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

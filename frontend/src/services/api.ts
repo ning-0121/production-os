@@ -484,6 +484,48 @@ export function resolveIncident(id: string, notes?: string): Promise<Record<stri
   return request(`/incidents/${id}/resolve`, { method: "POST", body: JSON.stringify({ notes }) });
 }
 
+// ── V3: Memory ─────────────────────────────────────────
+
+export function fetchMemoryProfile(entityType: string, entityId: string): Promise<Array<{ metric_type: string; value: number; sample_count: number; trend: string }>> {
+  return request(`/memory/${entityType}/${entityId}`);
+}
+
+export function refreshMemory(): Promise<{ refreshed: number }> {
+  return request("/memory/refresh", { method: "POST" });
+}
+
+// ── V3: Forecasts ──────────────────────────────────────
+
+export function fetchForecasts(type?: string): Promise<Array<Record<string, unknown>>> {
+  return request(`/forecasts${type ? `?type=${type}` : ""}`);
+}
+
+export function runForecasts(): Promise<{ total: number; capacity_risks: number; late_orders: number; bottleneck_days: number }> {
+  return request("/forecasts/run", { method: "POST" });
+}
+
+export function fetchBottlenecks(horizon?: number): Promise<Array<Record<string, unknown>>> {
+  return request(`/forecasts/bottlenecks${horizon ? `?horizon=${horizon}` : ""}`);
+}
+
+// ── V3: Automation ─────────────────────────────────────
+
+export function runAutomationScan(): Promise<{ scanned: number; triggered: number; actions: AIAction[] }> {
+  return request("/automation/scan", { method: "POST" });
+}
+
+export function fetchAutomationLogs(): Promise<Array<Record<string, unknown>>> {
+  return request("/automation/logs");
+}
+
+export function fetchWatchlist(): Promise<Array<{ id: string; entity_type: string; entity_id: string; reason: string; status: string; escalation_deadline: string | null }>> {
+  return request("/automation/watchlist");
+}
+
+export function addToWatchlist(data: { entity_type: string; entity_id: string; reason: string; escalation_hours?: number }): Promise<Record<string, unknown>> {
+  return request("/automation/watchlist", { method: "POST", body: JSON.stringify(data) });
+}
+
 export function runProgressCorrection(): Promise<{
   agent: string;
   actions: AIAction[];

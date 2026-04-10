@@ -6,6 +6,8 @@ import { useAsync } from "../../hooks/useAsync";
 import { fetchTodayBriefing, saveAIActions, executeAIAction, fetchOverrideStats } from "../../services/api";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
+import { ForecastSection } from "./ForecastSection";
+import { WatchlistSection } from "./WatchlistSection";
 import type { TodayBriefing, AIAction, RiskyOrder } from "../../types";
 import "./today.css";
 
@@ -121,6 +123,12 @@ export function TodayPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Forecast + Watchlist */}
+      <div className="todayGrid">
+        <ForecastSection />
+        <WatchlistSection />
       </div>
 
       {/* Trend Chart */}
