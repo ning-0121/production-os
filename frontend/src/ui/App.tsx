@@ -8,6 +8,11 @@ import { OrderCenterPage } from "./orders/OrderCenterPage";
 import { DailyReportPage } from "./reports/DailyReportPage";
 import { ExceptionPage } from "./exceptions/ExceptionPage";
 import { FactoriesPage } from "./factories/FactoriesPage";
+import { MaterialsPage } from "./materials/MaterialsPage";
+import { ProcurementPage } from "./materials/ProcurementPage";
+import { BOMPage } from "./materials/BOMPage";
+import { QualityPage } from "./quality/QualityPage";
+import { ReworkPage } from "./quality/ReworkPage";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
 import { ToastProvider } from "./Toast";
@@ -103,6 +108,8 @@ function MainApp({ user }: { user: AuthUser }) {
         {module === "today" && <PageBoundary name="今日运营"><TodayPage /></PageBoundary>}
         {module === "scheduling" && <PageBoundary name="排产工作台"><SchedulingWorkbench /></PageBoundary>}
         {module === "execution" && <PageBoundary name="生产执行"><ExecutionModule /></PageBoundary>}
+        {module === "materials" && <PageBoundary name="物料采购"><MaterialsModule /></PageBoundary>}
+        {module === "quality" && <PageBoundary name="品质中心"><QualityModule /></PageBoundary>}
         {module === "factories" && <PageBoundary name="工厂资源"><FactoriesPage /></PageBoundary>}
       </main>
     </div>
@@ -159,6 +166,42 @@ function ExecutionModule() {
       </div>
       {subTab === "reports" && <DailyReportPage />}
       {subTab === "exceptions" && <ExceptionPage />}
+    </div>
+  );
+}
+
+// ── Materials Module ──────────────────────────────────────
+
+function MaterialsModule() {
+  const { materialsSubTab: subTab, setMaterialsSubTab: setSubTab } = useAppStore();
+
+  return (
+    <div>
+      <div className="subTabs">
+        <button className={`subTab ${subTab === "overview" ? "subTab--active" : ""}`} onClick={() => setSubTab("overview")}>物料总览</button>
+        <button className={`subTab ${subTab === "procurement" ? "subTab--active" : ""}`} onClick={() => setSubTab("procurement")}>采购管理</button>
+        <button className={`subTab ${subTab === "bom" ? "subTab--active" : ""}`} onClick={() => setSubTab("bom")}>BOM</button>
+      </div>
+      {subTab === "overview" && <MaterialsPage />}
+      {subTab === "procurement" && <ProcurementPage />}
+      {subTab === "bom" && <BOMPage />}
+    </div>
+  );
+}
+
+// ── Quality Module ────────────────────────────────────────
+
+function QualityModule() {
+  const { qualitySubTab: subTab, setQualitySubTab: setSubTab } = useAppStore();
+
+  return (
+    <div>
+      <div className="subTabs">
+        <button className={`subTab ${subTab === "inspections" ? "subTab--active" : ""}`} onClick={() => setSubTab("inspections")}>验货中心</button>
+        <button className={`subTab ${subTab === "reworks" ? "subTab--active" : ""}`} onClick={() => setSubTab("reworks")}>返工管理</button>
+      </div>
+      {subTab === "inspections" && <QualityPage />}
+      {subTab === "reworks" && <ReworkPage />}
     </div>
   );
 }

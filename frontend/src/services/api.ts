@@ -526,6 +526,121 @@ export function addToWatchlist(data: { entity_type: string; entity_id: string; r
   return request("/automation/watchlist", { method: "POST", body: JSON.stringify(data) });
 }
 
+// ── V4: Orders V2 ──────────────────────────────────────
+
+export function fetchOrdersV2(params?: { status?: string; product_type?: string }): Promise<Array<Record<string, unknown>>> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.product_type) qs.set("product_type", params.product_type);
+  const q = qs.toString();
+  return request(`/orders-v2${q ? `?${q}` : ""}`);
+}
+
+export function createOrderV2(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/orders-v2", { method: "POST", body: JSON.stringify(data) });
+}
+
+// ── V4: Materials ──────────────────────────────────────
+
+export function fetchMaterials(category?: string): Promise<Array<Record<string, unknown>>> {
+  return request(`/materials${category ? `?category=${category}` : ""}`);
+}
+
+export function createMaterial(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/materials", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function fetchMaterialInventory(materialId: string): Promise<Array<Record<string, unknown>>> {
+  return request(`/materials/${materialId}/inventory`);
+}
+
+export function fetchBOM(styleNumber: string): Promise<Array<Record<string, unknown>>> {
+  return request(`/materials/bom/${styleNumber}`);
+}
+
+export function createBOM(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/materials/bom", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function checkMaterialReadiness(orderId: string): Promise<{ ready: boolean; critical_shortages: number; requirements: Array<Record<string, unknown>> }> {
+  return request("/materials/readiness/check", { method: "POST", body: JSON.stringify({ order_id: orderId }) });
+}
+
+// ── V4: Procurement ────────────────────────────────────
+
+export function fetchSuppliers(): Promise<Array<Record<string, unknown>>> {
+  return request("/procurement/suppliers");
+}
+
+export function createSupplier(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/procurement/suppliers", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function fetchPurchaseOrders(status?: string): Promise<Array<Record<string, unknown>>> {
+  return request(`/procurement/purchase-orders${status ? `?status=${status}` : ""}`);
+}
+
+export function createPurchaseOrder(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/procurement/purchase-orders", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function receivePurchaseOrder(poId: string, lines: Array<{ line_id: string; qty_received: number; qty_rejected?: number }>): Promise<Record<string, unknown>> {
+  return request(`/procurement/purchase-orders/${poId}/receive`, { method: "PATCH", body: JSON.stringify({ lines }) });
+}
+
+export function fetchFabricInspections(): Promise<Array<Record<string, unknown>>> {
+  return request("/procurement/inspections");
+}
+
+export function createFabricInspection(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/procurement/inspections", { method: "POST", body: JSON.stringify(data) });
+}
+
+// ── V4: Quality ────────────────────────────────────────
+
+export function fetchQCInspections(params?: { order_id?: string; factory_id?: string; type?: string }): Promise<Array<Record<string, unknown>>> {
+  const qs = new URLSearchParams();
+  if (params?.order_id) qs.set("order_id", params.order_id);
+  if (params?.factory_id) qs.set("factory_id", params.factory_id);
+  if (params?.type) qs.set("type", params.type);
+  const q = qs.toString();
+  return request(`/quality/inspections${q ? `?${q}` : ""}`);
+}
+
+export function createQCInspection(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/quality/inspections", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function fetchDefectLibrary(): Promise<Array<Record<string, unknown>>> {
+  return request("/quality/defects/library");
+}
+
+export function fetchReworks(status?: string): Promise<Array<Record<string, unknown>>> {
+  return request(`/quality/reworks${status ? `?status=${status}` : ""}`);
+}
+
+export function createRework(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/quality/reworks", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateRework(id: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request(`/quality/reworks/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function fetchOrderFinancials(orderId: string): Promise<Record<string, unknown>> {
+  return request(`/quality/financials/${orderId}`);
+}
+
+export function upsertOrderFinancials(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return request("/quality/financials", { method: "POST", body: JSON.stringify(data) });
+}
+
+// ── V4: Material Agent ─────────────────────────────────
+
+export function runMaterialCheck(): Promise<{ actions: AIAction[]; reasoning: string }> {
+  return request("/agents/material-check", { method: "POST" });
+}
+
 export function runProgressCorrection(): Promise<{
   agent: string;
   actions: AIAction[];

@@ -1,0 +1,44 @@
+.matPage { display: flex; flex-direction: column; gap: 12px; }
+
+.matList { padding: 0; }
+.matCard { border-bottom: 1px solid rgba(255,255,255,.04); cursor: pointer; transition: background .15s; }
+.matCard:hover { background: rgba(255,255,255,.02); }
+.matCard--expanded { background: rgba(255,255,255,.03); }
+.matCardHeader { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 12px; }
+.matCardMain { display: flex; align-items: center; gap: 10px; }
+.matCode { font-size: 13px; font-weight: 600; color: var(--accent); }
+.matName { font-size: 13px; }
+.matCardMeta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.matUnit { font-size: 11px; color: var(--muted); }
+.matColorCount { font-size: 11px; color: var(--muted); }
+.matColorList { padding: 0 14px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+.matColorChip { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; background: rgba(255,255,255,.03); }
+.matColorDot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,.15); }
+.matPantone { font-size: 10px; color: var(--muted); }
+
+/* PO Lines */
+.poLines { padding: 8px 14px; background: rgba(255,255,255,.02); border-top: 1px solid var(--border); }
+.poLine { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,.03); }
+.poLine:last-child { border-bottom: none; }
+
+/* BOM */
+.bomOrderList { padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
+.bomOrderCard { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
+.bomOrderCard:hover { background: rgba(255,255,255,.04); }
+.bomOrderCard--active { border-color: rgba(110,231,255,.35); background: rgba(110,231,255,.06); }
+
+.bomReqList { padding: 8px 14px; }
+.bomReqRow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px; }
+.bomReqRow--shortage { background: rgba(251,113,133,.04); padding: 8px 10px; border-radius: 6px; margin-bottom: 4px; }
+.bomReqLeft { display: flex; align-items: center; gap: 8px; }
+.bomReqMaterial { font-weight: 500; }
+.bomCritical { font-size: 10px; padding: 2px 5px; border-radius: 4px; background: rgba(251,113,133,.12); color: var(--danger); font-weight: 600; }
+.bomReqRight { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
+.bomShortage { color: var(--danger); font-weight: 600; }
+.bomSufficient { color: #22c55e; }
+.pillDanger { background: rgba(251,113,133,.15) !important; color: var(--danger) !important; border-color: rgba(251,113,133,.25) !important; }
+
+@media (max-width: 600px) {
+  .matCardHeader { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .bomOrderCard { flex-wrap: wrap; }
+}

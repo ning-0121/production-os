@@ -26,6 +26,14 @@ type AppState = {
   executionSubTab: "reports" | "exceptions";
   setExecutionSubTab: (tab: "reports" | "exceptions") => void;
 
+  // Materials state
+  materialsSubTab: "overview" | "procurement" | "bom";
+  setMaterialsSubTab: (tab: "overview" | "procurement" | "bom") => void;
+
+  // Quality state
+  qualitySubTab: "inspections" | "reworks";
+  setQualitySubTab: (tab: "inspections" | "reworks") => void;
+
   // Data refresh triggers (increment to force refetch)
   refreshKey: number;
   triggerRefresh: () => void;
@@ -43,6 +51,12 @@ export const useAppStore = create<AppState>((set) => ({
 
   executionSubTab: "reports",
   setExecutionSubTab: (tab) => set({ executionSubTab: tab }),
+
+  materialsSubTab: "overview",
+  setMaterialsSubTab: (tab) => set({ materialsSubTab: tab }),
+
+  qualitySubTab: "inspections",
+  setQualitySubTab: (tab) => set({ qualitySubTab: tab }),
 
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),

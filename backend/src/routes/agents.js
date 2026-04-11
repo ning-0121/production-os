@@ -8,6 +8,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import { runRiskPredictor } from "../agents/risk-predictor.js";
 import { runCorrector } from "../agents/corrector.js";
 import { runCalibrator } from "../agents/calibrator.js";
+import { runMaterialAgent } from "../agents/material-agent.js";
 
 const router = Router();
 
@@ -102,6 +103,25 @@ router.post("/calibrate", asyncHandler(async (_req, res) => {
     ...result,
     timestamp: new Date().toISOString(),
   });
+}));
+
+// POST /api/agents/material-check — run material readiness agent
+router.post("/material-check", asyncHandler(async (_req, res) => {
+  const [ordersRes, reqsRes, posRes, invRes] = await Promise.all([
+    supabase.from("orders").select("id, order_number, product_type, total_qty, due_date, status").in("status", ["new", "confirmed", "in_production"]),
+    supabase.from("material_requirements").select("*"),
+    supabase.from("purchase_orders").select("id, po_number, supplier_id, order_id, expected_date, status").in("status", ["sent", "confirmed"]),
+    supabase.from("material_inventory").select("material_id, qty_on_hand, qty_reserved"),
+  ]);
+
+  const result = runMaterialAgent({
+    orders: ordersRes.data ?? [],
+    requirements: reqsRes.data ?? [],
+    purchaseOrders: posRes.data ?? [],
+    inventory: invRes.data ?? [],
+  });
+
+  res.json({ agent: "material-agent", ...result, timestamp: new Date().toISOString() });
 }));
 
 export default router;
