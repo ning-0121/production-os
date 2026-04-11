@@ -19,8 +19,8 @@ type AppState = {
   setActiveModule: (m: string) => void;
 
   // Scheduling state
-  schedulingSubTab: "orders" | "board";
-  setSchedulingSubTab: (tab: "orders" | "board") => void;
+  schedulingSubTab: "orders" | "board" | "profit";
+  setSchedulingSubTab: (tab: "orders" | "board" | "profit") => void;
 
   // Execution state
   executionSubTab: "reports" | "exceptions";

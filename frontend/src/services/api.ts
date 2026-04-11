@@ -635,6 +635,63 @@ export function upsertOrderFinancials(data: Record<string, unknown>): Promise<Re
   return request("/quality/financials", { method: "POST", body: JSON.stringify(data) });
 }
 
+// ── V4: Profit Dashboard ───────────────────────────────
+
+export type ProfitDashboard = {
+  kpi: {
+    total_revenue: number;
+    total_cost: number;
+    gross_profit: number;
+    gross_margin_pct: number;
+    rework_loss: number;
+    freight_loss: number;
+    low_margin_count: number;
+    negative_count: number;
+    total_orders: number;
+  };
+  orders: Array<{
+    order_id: string;
+    order_number: string;
+    product_type: string;
+    customer_name: string;
+    customer_vip: string;
+    revenue: number;
+    fabric_cost: number;
+    trim_cost: number;
+    cmt_cost: number;
+    rework_cost: number;
+    freight_cost: number;
+    duty_cost: number;
+    compensation_cost: number;
+    total_cost: number;
+    gross_profit: number;
+    margin_pct: number;
+    risk_tag: string;
+    status: string;
+  }>;
+  customers: Array<{
+    name: string;
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin_pct: number;
+    orders: number;
+    rework_cost: number;
+  }>;
+  factories: Array<{
+    factory_id: string;
+    name: string;
+    quality_score: number;
+    delay_score: number;
+    rework_cost: number;
+  }>;
+  insights: AIAction[];
+};
+
+export function fetchProfitDashboard(): Promise<ProfitDashboard> {
+  return request("/profit/dashboard");
+}
+
 // ── V4: Material Agent ─────────────────────────────────
 
 export function runMaterialCheck(): Promise<{ actions: AIAction[]; reasoning: string }> {

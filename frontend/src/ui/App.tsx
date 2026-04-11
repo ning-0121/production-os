@@ -13,6 +13,7 @@ import { ProcurementPage } from "./materials/ProcurementPage";
 import { BOMPage } from "./materials/BOMPage";
 import { QualityPage } from "./quality/QualityPage";
 import { ReworkPage } from "./quality/ReworkPage";
+import { ProfitPage } from "./profit/ProfitPage";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
 import { ToastProvider } from "./Toast";
@@ -136,9 +137,16 @@ function SchedulingWorkbench() {
         >
           排产看板
         </button>
+        <button
+          className={`subTab ${subTab === "profit" ? "subTab--active" : ""}`}
+          onClick={() => setSubTab("profit")}
+        >
+          订单损益
+        </button>
       </div>
       {subTab === "orders" && <OrderCenterPage />}
       {subTab === "board" && <SchedulePage />}
+      {subTab === "profit" && <ProfitPage />}
     </div>
   );
 }
