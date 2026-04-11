@@ -34,6 +34,10 @@ import incidentsRouter from "./routes/incidents.js";
 import memoryRouter from "./routes/memory.js";
 import forecastsRouter from "./routes/forecasts.js";
 import automationRouter from "./routes/automation.js";
+import ordersV2Router from "./routes/orders-v2.js";
+import materialsRouter from "./routes/materials.js";
+import procurementRouter from "./routes/procurement.js";
+import qualityRouter from "./routes/quality.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -174,6 +178,10 @@ app.use("/api/incidents", incidentsRouter);
 app.use("/api/memory", memoryRouter);
 app.use("/api/forecasts", forecastsRouter);
 app.use("/api/automation", automationRouter);
+app.use("/api/orders-v2", ordersV2Router);
+app.use("/api/materials", materialsRouter);
+app.use("/api/procurement", procurementRouter);
+app.use("/api/quality", qualityRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {
