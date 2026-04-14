@@ -24,6 +24,16 @@ export async function login(email: string, password: string) {
   return data;
 }
 
+export async function signup(email: string, password: string, name?: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name: name ?? email.split("@")[0], role: "admin" } },
+  });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function logout() {
   const { error } = await supabase.auth.signOut();
   if (error) throw new Error(error.message);
