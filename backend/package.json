@@ -18,6 +18,8 @@
     "date-fns": "^4.1.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.3.1",
+    "json-rules-engine": "^7.3.1",
+    "simple-statistics": "^7.8.9",
     "zod": "^4.3.6"
   }
 }
