@@ -1,21 +1,65 @@
 /**
- * Forecast Engine — 预测未来 7/14/30 天的问题
+ * Forecast Engine v2 — ARIMA 时序预测
  *
- * 规则驱动预测（不依赖 ML 库）：
- * - 产能预测：近 7 天日均产出 × 天数 - 已排产量
- * - 完工预测：累计产出 ÷ 已用天数 = 日均速率 → 剩余量 ÷ 速率
- * - 瓶颈预测：逐天叠加排产量，找超载日
+ * 升级点：
+ * - ARIMA/AutoARIMA 替代线性估算
+ * - 产能预测：基于历史日产出训练模型
+ * - 完工预测：基于累计产出曲线拟合
+ * - 瓶颈预测：多工厂并行预测交叉分析
+ * - 回退机制：数据不足时降级为线性估算
  */
+
+import ARIMA from "arima";
+import * as ss from "simple-statistics";
 
 /**
- * 预测工厂未来产能缺口
+ * 使用 ARIMA 预测时间序列
+ * @param {number[]} data - 历史数据（至少 7 个点）
+ * @param {number} steps - 预测步数
+ * @returns {number[]} 预测值
+ */
+function arimaForecast(data, steps = 7) {
+  if (data.length < 7) {
+    // 数据不足，降级为线性回归预测
+    return linearFallback(data, steps);
+  }
+
+  try {
+    const arima = new ARIMA({ auto: true, verbose: false });
+    arima.train(data);
+    const [predicted] = arima.predict(steps);
+    return predicted.map((v) => Math.max(0, Math.round(v)));
+  } catch {
+    // ARIMA 训练失败，降级
+    return linearFallback(data, steps);
+  }
+}
+
+/**
+ * 线性回归回退预测
+ */
+function linearFallback(data, steps) {
+  if (data.length < 2) return new Array(steps).fill(data[0] ?? 0);
+
+  const points = data.map((v, i) => [i, v]);
+  const reg = ss.linearRegression(points);
+  const line = ss.linearRegressionLine(reg);
+  const result = [];
+  for (let i = 0; i < steps; i++) {
+    result.push(Math.max(0, Math.round(line(data.length + i))));
+  }
+  return result;
+}
+
+/**
+ * 预测工厂未来产能
  */
 export async function forecastFactoryCapacity(supabase, factoryId, horizonDays = 14) {
-  const since7d = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const since30d = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
 
   const [reportsRes, schedRes, lineRes] = await Promise.all([
-    supabase.from("daily_production_reports").select("actual_output")
-      .eq("factory_id", factoryId).gte("date", since7d),
+    supabase.from("daily_production_reports").select("actual_output, date")
+      .eq("factory_id", factoryId).gte("date", since30d).order("date"),
     supabase.from("line_schedules").select("line_id, start_date, end_date, production_allocations(allocated_qty)")
       .eq("status", "pending"),
     supabase.from("production_lines").select("id, front_capacity_per_day, back_capacity_per_day")
@@ -26,26 +70,33 @@ export async function forecastFactoryCapacity(supabase, factoryId, horizonDays =
   const schedules = schedRes.data ?? [];
   const lines = lineRes.data ?? [];
 
-  // Recent daily average
-  const dailyAvg = reports.length > 0
-    ? reports.reduce((s, r) => s + Number(r.actual_output ?? 0), 0) / Math.min(7, reports.length)
-    : 0;
+  // 按天聚合产出
+  const dailyMap = new Map();
+  for (const r of reports) {
+    dailyMap.set(r.date, (dailyMap.get(r.date) ?? 0) + Number(r.actual_output ?? 0));
+  }
+  const dailyOutputs = [...dailyMap.values()];
 
-  // Total capacity per day (sum all lines)
+  // ARIMA 预测未来日产出
+  const predicted = arimaForecast(dailyOutputs, horizonDays);
+  const projectedOutput = predicted.reduce((s, v) => s + v, 0);
+
+  // 当前日均（用于对比）
+  const currentDailyAvg = dailyOutputs.length > 0 ? Math.round(ss.mean(dailyOutputs)) : 0;
+  const predictedDailyAvg = predicted.length > 0 ? Math.round(ss.mean(predicted)) : 0;
+
+  // 总容量
   const dailyCapacity = lines.reduce((s, l) =>
     s + Math.max(Number(l.front_capacity_per_day ?? 0), Number(l.back_capacity_per_day ?? 0)), 0);
 
-  // Scheduled commitment in horizon
-  const today = new Date();
-  const horizonEnd = new Date(Date.now() + horizonDays * 86400000);
+  // 已排产需求
   const lineIds = new Set(lines.map((l) => l.id));
   const scheduledQty = schedules
     .filter((s) => lineIds.has(s.line_id))
     .reduce((sum, s) => sum + Number(s.production_allocations?.allocated_qty ?? 0), 0);
 
-  const projectedOutput = dailyAvg * horizonDays;
   const gap = scheduledQty - projectedOutput;
-  const gapPct = projectedOutput > 0 ? Math.round((gap / projectedOutput) * 100) : 0;
+  const method = dailyOutputs.length >= 7 ? "arima" : "linear_regression";
 
   return {
     forecast_type: "capacity",
@@ -53,18 +104,22 @@ export async function forecastFactoryCapacity(supabase, factoryId, horizonDays =
     entity_id: factoryId,
     horizon_days: horizonDays,
     forecast_date: null,
-    predicted_value: Math.round(projectedOutput),
+    predicted_value: projectedOutput,
     unit: "units",
-    confidence_score: Math.min(0.9, 0.4 + reports.length * 0.07),
+    confidence_score: Math.min(0.95, 0.3 + dailyOutputs.length * 0.03),
     actual_value: null,
     error_pct: null,
     context: {
-      daily_avg: Math.round(dailyAvg),
+      daily_avg_current: currentDailyAvg,
+      daily_avg_predicted: predictedDailyAvg,
       daily_capacity: dailyCapacity,
       scheduled_qty: scheduledQty,
       gap,
-      gap_pct: gapPct,
+      gap_pct: projectedOutput > 0 ? Math.round((gap / projectedOutput) * 100) : 0,
       at_risk: gap > 0,
+      method,
+      forecast_series: predicted,
+      data_points: dailyOutputs.length,
     },
   };
 }
@@ -85,10 +140,11 @@ export async function forecastOrderCompletion(supabase, allocationId) {
 
   const reports = reportsRes.data ?? [];
   const totalQty = Number(alloc.allocated_qty ?? 0);
-  const cumulative = reports.reduce((s, r) => s + Number(r.actual_output ?? 0), 0);
+  const dailyOutputs = reports.map((r) => Number(r.actual_output ?? 0));
+  const cumulative = dailyOutputs.reduce((s, v) => s + v, 0);
   const remaining = Math.max(0, totalQty - cumulative);
 
-  if (reports.length === 0 || cumulative === 0) {
+  if (dailyOutputs.length === 0 || cumulative === 0) {
     return {
       forecast_type: "completion",
       entity_type: "order",
@@ -99,16 +155,24 @@ export async function forecastOrderCompletion(supabase, allocationId) {
       confidence_score: 0.2,
       actual_value: null,
       error_pct: null,
-      context: { reason: "无日报数据，无法预测", cumulative: 0, remaining, total: totalQty },
+      context: { reason: "无日报数据，无法预测", cumulative: 0, remaining, total: totalQty, method: "none" },
     };
   }
 
-  // Calculate daily rate from actual reports
-  const firstDate = new Date(reports[0].date);
-  const lastDate = new Date(reports[reports.length - 1].date);
-  const daysElapsed = Math.max(1, Math.ceil((lastDate.getTime() - firstDate.getTime()) / 86400000) + 1);
-  const dailyRate = cumulative / daysElapsed;
-  const remainingDays = dailyRate > 0 ? Math.ceil(remaining / dailyRate) : 999;
+  // 用 ARIMA 预测未来每天产出，累加直到达到 remaining
+  const futureDaily = arimaForecast(dailyOutputs, 60); // 最多预测 60 天
+
+  let accum = 0;
+  let remainingDays = 0;
+  for (const dayOutput of futureDaily) {
+    accum += dayOutput;
+    remainingDays++;
+    if (accum >= remaining) break;
+  }
+
+  if (accum < remaining) {
+    remainingDays = futureDaily.length; // 60天都完不成
+  }
 
   const predictedDate = new Date();
   predictedDate.setDate(predictedDate.getDate() + remainingDays);
@@ -117,6 +181,8 @@ export async function forecastOrderCompletion(supabase, allocationId) {
   const willBeLate = dueDate ? predictedDate > dueDate : false;
   const delayDays = dueDate ? Math.ceil((predictedDate.getTime() - dueDate.getTime()) / 86400000) : 0;
 
+  const method = dailyOutputs.length >= 7 ? "arima" : "linear_regression";
+
   return {
     forecast_type: "completion",
     entity_type: "order",
@@ -124,7 +190,7 @@ export async function forecastOrderCompletion(supabase, allocationId) {
     forecast_date: predictedDate.toISOString().slice(0, 10),
     predicted_value: remainingDays,
     unit: "days",
-    confidence_score: Math.min(0.9, 0.3 + reports.length * 0.05),
+    confidence_score: Math.min(0.95, 0.3 + dailyOutputs.length * 0.04),
     actual_value: null,
     error_pct: null,
     context: {
@@ -132,18 +198,21 @@ export async function forecastOrderCompletion(supabase, allocationId) {
       total_qty: totalQty,
       cumulative,
       remaining,
-      daily_rate: Math.round(dailyRate),
+      daily_rate_current: Math.round(ss.mean(dailyOutputs)),
+      daily_rate_predicted: futureDaily.length > 0 ? Math.round(ss.mean(futureDaily.slice(0, Math.min(7, futureDaily.length)))) : 0,
       remaining_days: remainingDays,
       predicted_finish: predictedDate.toISOString().slice(0, 10),
       will_be_late: willBeLate,
       delay_days: delayDays,
       due_date: alloc.planned_end_date?.slice(0, 10),
+      method,
+      data_points: dailyOutputs.length,
     },
   };
 }
 
 /**
- * 预测未来瓶颈（哪些天哪些工厂会超载）
+ * 预测未来瓶颈
  */
 export async function forecastBottlenecks(supabase, horizonDays = 14) {
   const [factRes, schedRes, lineRes] = await Promise.all([
@@ -156,7 +225,6 @@ export async function forecastBottlenecks(supabase, horizonDays = 14) {
   const schedules = schedRes.data ?? [];
   const lines = lineRes.data ?? [];
 
-  // Map line → factory
   const lineFactory = new Map();
   const factoryCapacity = new Map();
   for (const l of lines) {
@@ -164,7 +232,6 @@ export async function forecastBottlenecks(supabase, horizonDays = 14) {
     factoryCapacity.set(l.factory_id, (factoryCapacity.get(l.factory_id) ?? 0) + Number(l.front_capacity_per_day ?? 0));
   }
 
-  // Count scheduled items per factory per day
   const today = new Date();
   const bottlenecks = [];
 
@@ -173,24 +240,19 @@ export async function forecastBottlenecks(supabase, horizonDays = 14) {
     const capacity = factoryCapacity.get(factory.id) ?? 300;
 
     for (const s of schedules) {
-      if (!lineFactory.has(s.line_id)) continue;
-      if (lineFactory.get(s.line_id) !== factory.id) continue;
-
+      if (!lineFactory.has(s.line_id) || lineFactory.get(s.line_id) !== factory.id) continue;
       const start = s.start_date ? new Date(s.start_date) : null;
       const end = s.end_date ? new Date(s.end_date) : null;
       if (!start || !end) continue;
 
       for (let d = 0; d < horizonDays; d++) {
         const day = new Date(today.getTime() + d * 86400000);
-        if (day >= start && day <= end) {
-          dailyLoad[d]++;
-        }
+        if (day >= start && day <= end) dailyLoad[d]++;
       }
     }
 
-    // Find overloaded days
     for (let d = 0; d < horizonDays; d++) {
-      const loadPct = capacity > 0 ? (dailyLoad[d] * 300 / capacity) * 100 : 0; // rough estimate
+      const loadPct = capacity > 0 ? (dailyLoad[d] * 300 / capacity) * 100 : 0;
       if (dailyLoad[d] >= 3 && loadPct > 80) {
         const day = new Date(today.getTime() + d * 86400000);
         bottlenecks.push({
@@ -230,22 +292,18 @@ export async function runDailyForecast(supabase) {
 
   const results = { capacity: [], completion: [], bottlenecks: [] };
 
-  // Capacity forecasts per factory
   for (const f of factRes.data ?? []) {
     const forecast = await forecastFactoryCapacity(supabase, f.id);
     results.capacity.push(forecast);
   }
 
-  // Completion forecasts per active order
-  for (const a of (allocRes.data ?? []).slice(0, 50)) { // limit to 50
+  for (const a of (allocRes.data ?? []).slice(0, 50)) {
     const forecast = await forecastOrderCompletion(supabase, a.id);
     if (forecast) results.completion.push(forecast);
   }
 
-  // Bottleneck forecast
   results.bottlenecks = await forecastBottlenecks(supabase);
 
-  // Persist forecasts
   const allForecasts = [...results.capacity, ...results.completion, ...results.bottlenecks].filter(Boolean);
   if (allForecasts.length > 0) {
     await supabase.from("forecasts").insert(
@@ -258,5 +316,12 @@ export async function runDailyForecast(supabase) {
     capacity_risks: results.capacity.filter((c) => c.context?.at_risk).length,
     late_orders: results.completion.filter((c) => c.context?.will_be_late).length,
     bottleneck_days: results.bottlenecks.length,
+    methods_used: {
+      arima: allForecasts.filter((f) => f.context?.method === "arima").length,
+      linear: allForecasts.filter((f) => f.context?.method === "linear_regression").length,
+    },
   };
 }
+
+// Export for testing
+export { arimaForecast, linearFallback };

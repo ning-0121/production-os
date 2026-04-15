@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/api.js",
     "dev": "node src/api.js",
-    "test": "node --test tests/scheduler.test.js tests/agents.test.js",
+    "test": "node --test tests/scheduler.test.js tests/agents.test.js tests/forecast.test.js",
     "test:scheduler": "node src/scheduler/demo.js",
     "test:optimizer": "node src/scheduler/optimizer-test.js",
     "test:validate": "node src/scripts/validate-offline-test.js",
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
+    "arima": "^0.2.8",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "express": "^5.1.0",
