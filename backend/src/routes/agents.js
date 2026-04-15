@@ -9,6 +9,7 @@ import { runRiskPredictor } from "../agents/risk-predictor.js";
 import { runCorrector } from "../agents/corrector.js";
 import { runCalibrator } from "../agents/calibrator.js";
 import { runMaterialAgent } from "../agents/material-agent.js";
+import { runLLMAgent } from "../agents/llm-agent.js";
 
 const router = Router();
 
@@ -122,6 +123,22 @@ router.post("/material-check", asyncHandler(async (_req, res) => {
   });
 
   res.json({ agent: "material-agent", ...result, timestamp: new Date().toISOString() });
+}));
+
+// POST /api/agents/ask — LLM-powered production assistant
+router.post("/ask", asyncHandler(async (req, res) => {
+  const { question } = req.body;
+  if (!question || typeof question !== "string") {
+    return res.status(400).json({ error: "question is required" });
+  }
+
+  const result = await runLLMAgent(question);
+  res.json({
+    agent: "llm-agent",
+    question,
+    ...result,
+    timestamp: new Date().toISOString(),
+  });
 }));
 
 export default router;

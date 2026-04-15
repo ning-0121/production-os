@@ -694,6 +694,16 @@ export function fetchProfitDashboard(): Promise<ProfitDashboard> {
 
 // ── V4: Material Agent ─────────────────────────────────
 
+// ── V4: LLM Agent ──────────────────────────────────────
+
+export function askProductionAgent(question: string): Promise<{
+  answer: string;
+  tools_used: string[];
+  tokens: number;
+}> {
+  return request("/agents/ask", { method: "POST", body: JSON.stringify({ question }) });
+}
+
 export function runMaterialCheck(): Promise<{ actions: AIAction[]; reasoning: string }> {
   return request("/agents/material-check", { method: "POST" });
 }

@@ -263,6 +263,154 @@
 
 /* ── Mobile ──────────────────────────────────────────── */
 
+/* ── AI Assistant ─────────────────────────────────────── */
+
+.aiFloatBtn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(110,231,255,.9), rgba(167,139,250,.9));
+  color: #0b1220;
+  font-size: 14px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(110,231,255,.3);
+  z-index: 1000;
+  transition: transform .15s;
+}
+
+.aiFloatBtn:hover { transform: scale(1.1); }
+
+.aiAssistant {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: min(420px, calc(100vw - 48px));
+  max-height: 600px;
+  background: rgba(10,16,28,.96);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dialogSlide .2s ease-out;
+}
+
+.aiAssistantHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(110,231,255,.04), transparent);
+}
+
+.aiAssistantTitle { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+
+.aiQuickList {
+  padding: 8px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.aiQuickBtn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.aiQuickBtn:hover { background: rgba(110,231,255,.08); color: var(--text); border-color: rgba(110,231,255,.25); }
+
+.aiInputRow {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.aiInput {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.aiInput:focus { border-color: rgba(110,231,255,.35); }
+.aiInput::placeholder { color: var(--muted); }
+
+.aiInputRow .btn { padding: 8px 14px; font-size: 12px; }
+
+.aiHistory {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 350px;
+}
+
+.aiConversation { display: flex; flex-direction: column; gap: 6px; }
+
+.aiMsg {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 95%;
+}
+
+.aiMsg--user {
+  background: rgba(110,231,255,.10);
+  border: 1px solid rgba(110,231,255,.20);
+  align-self: flex-end;
+  color: var(--text);
+}
+
+.aiMsg--agent {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  align-self: flex-start;
+}
+
+.aiMsg--loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,.03);
+  border-radius: 10px;
+}
+
+.aiMsgText { white-space: pre-wrap; }
+
+.aiToolsUsed {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+
 @media (max-width: 768px) {
   .todayKpiRow {
     grid-template-columns: repeat(3, 1fr);

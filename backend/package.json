@@ -13,6 +13,7 @@
     "validate": "node src/scripts/validate-data.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.89.0",
     "@supabase/supabase-js": "^2.100.1",
     "arima": "^0.2.8",
     "cors": "^2.8.6",

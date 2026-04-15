@@ -14,6 +14,7 @@ import { BOMPage } from "./materials/BOMPage";
 import { QualityPage } from "./quality/QualityPage";
 import { ReworkPage } from "./quality/ReworkPage";
 import { ProfitPage } from "./profit/ProfitPage";
+import { AIAssistant } from "./today/AIAssistant";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
 import { ToastProvider } from "./Toast";
@@ -113,6 +114,9 @@ function MainApp({ user }: { user: AuthUser }) {
         {module === "quality" && <PageBoundary name="品质中心"><QualityModule /></PageBoundary>}
         {module === "factories" && <PageBoundary name="工厂资源"><FactoriesPage /></PageBoundary>}
       </main>
+
+      {/* Global AI Assistant — floating button on all pages */}
+      <AIAssistant />
     </div>
   );
 }
