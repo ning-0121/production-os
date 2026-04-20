@@ -9,7 +9,7 @@ import { runRiskPredictor } from "../agents/risk-predictor.js";
 import { runCorrector } from "../agents/corrector.js";
 import { runCalibrator } from "../agents/calibrator.js";
 import { runMaterialAgent } from "../agents/material-agent.js";
-import { runLLMAgent } from "../agents/llm-agent.js";
+import { runLLMAgent, createAnalysisBatch, getBatchStatus, getBatchResults } from "../agents/llm-agent.js";
 
 const router = Router();
 
@@ -139,6 +139,31 @@ router.post("/ask", asyncHandler(async (req, res) => {
     ...result,
     timestamp: new Date().toISOString(),
   });
+}));
+
+// POST /api/agents/batch/analyze — submit bulk analysis (50% cheaper)
+router.post("/batch/analyze", asyncHandler(async (req, res) => {
+  const { items } = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "items array required" });
+  }
+  if (items.length > 100) {
+    return res.status(400).json({ error: "Max 100 items per batch" });
+  }
+  const result = await createAnalysisBatch(items);
+  res.status(201).json(result);
+}));
+
+// GET /api/agents/batch/:id — check batch status
+router.get("/batch/:id", asyncHandler(async (req, res) => {
+  const result = await getBatchStatus(req.params.id);
+  res.json(result);
+}));
+
+// GET /api/agents/batch/:id/results — retrieve batch results
+router.get("/batch/:id/results", asyncHandler(async (req, res) => {
+  const results = await getBatchResults(req.params.id);
+  res.json({ batch_id: req.params.id, count: results.length, results });
 }));
 
 export default router;

@@ -700,8 +700,35 @@ export function askProductionAgent(question: string): Promise<{
   answer: string;
   tools_used: string[];
   tokens: number;
+  cache_stats: { cache_creation: number; cache_read: number; cache_hit: boolean } | null;
 }> {
   return request("/agents/ask", { method: "POST", body: JSON.stringify({ question }) });
+}
+
+// ── V4: Batch Analysis ─────────────────────────────────
+
+export function createAgentBatch(items: Array<{ id: string; question: string; context?: string }>): Promise<{
+  batch_id: string;
+  status: string;
+  request_count: number;
+}> {
+  return request("/agents/batch/analyze", { method: "POST", body: JSON.stringify({ items }) });
+}
+
+export function fetchBatchStatus(batchId: string): Promise<{
+  batch_id: string;
+  status: string;
+  counts: { processing: number; succeeded: number; errored: number; canceled: number; expired: number };
+}> {
+  return request(`/agents/batch/${batchId}`);
+}
+
+export function fetchBatchResults(batchId: string): Promise<{
+  batch_id: string;
+  count: number;
+  results: Array<{ id: string; status: string; answer?: string; error?: string; tokens?: number; cache_read?: number }>;
+}> {
+  return request(`/agents/batch/${batchId}/results`);
 }
 
 export function runMaterialCheck(): Promise<{ actions: AIAction[]; reasoning: string }> {

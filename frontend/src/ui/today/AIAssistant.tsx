@@ -14,7 +14,7 @@ export function AIAssistant() {
   const [open, setOpen] = React.useState(false);
   const [question, setQuestion] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [history, setHistory] = React.useState<Array<{ q: string; a: string; tools: string[] }>>([]);
+  const [history, setHistory] = React.useState<Array<{ q: string; a: string; tools: string[]; cache?: { cache_creation: number; cache_read: number; cache_hit: boolean } | null }>>([]);
 
   async function handleAsk(q?: string) {
     const text = q ?? question;
@@ -24,7 +24,7 @@ export function AIAssistant() {
     setQuestion("");
     try {
       const res = await askProductionAgent(text);
-      setHistory((prev) => [{ q: text, a: res.answer, tools: res.tools_used }, ...prev]);
+      setHistory((prev) => [{ q: text, a: res.answer, tools: res.tools_used, cache: res.cache_stats }, ...prev]);
     } catch {
       setHistory((prev) => [{ q: text, a: "请求失败，请稍后重试", tools: [] }, ...prev]);
     } finally {
@@ -90,6 +90,11 @@ export function AIAssistant() {
               {item.tools.length > 0 && (
                 <div className="aiToolsUsed">
                   调用了: {item.tools.join(", ")}
+                </div>
+              )}
+              {item.cache?.cache_hit && (
+                <div className="aiToolsUsed" style={{ color: "#22c55e" }}>
+                  ✓ 缓存命中 · 节省 {item.cache.cache_read} tokens
                 </div>
               )}
             </div>
