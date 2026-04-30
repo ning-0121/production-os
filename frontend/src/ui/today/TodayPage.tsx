@@ -8,7 +8,8 @@ import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import { ForecastSection } from "./ForecastSection";
 import { WatchlistSection } from "./WatchlistSection";
-import type { TodayBriefing, AIAction, RiskyOrder } from "../../types";
+import { AnomalySection } from "./AnomalySection";
+import type { TodayBriefing, AIAction, RiskyOrder, AnomalyAlert } from "../../types";
 import "./today.css";
 
 export function TodayPage() {
@@ -20,6 +21,9 @@ export function TodayPage() {
   if (!data) return null;
 
   const { kpi, risky_orders, risky_factories, missing_reports, unscheduled_orders, ai_suggestions, trend } = data;
+  const anomalyAlerts: AnomalyAlert[] = data.anomaly_alerts ?? [];
+  const [dismissedAnomalies, setDismissedAnomalies] = React.useState<Set<string>>(new Set());
+  const visibleAnomalies = anomalyAlerts.filter((a) => !dismissedAnomalies.has(a.id));
 
   return (
     <div className="todayPage">
@@ -36,6 +40,16 @@ export function TodayPage() {
         <KpiCard label="待排产" value={kpi.unscheduled_count} color={kpi.unscheduled_count === 0 ? "#22c55e" : "#facc15"} />
         <KpiCard label="未报工" value={missing_reports.length} color={missing_reports.length === 0 ? "#22c55e" : "#facc15"} />
       </div>
+
+      {/* Statistical anomaly alerts (always rendered — handles its own empty state) */}
+      <AnomalySection
+        alerts={visibleAnomalies}
+        onReviewed={(anomalyId) => setDismissedAnomalies((prev) => {
+          const next = new Set(prev);
+          next.add(anomalyId);
+          return next;
+        })}
+      />
 
       {/* AI Suggestions — action first */}
       {ai_suggestions.length > 0 && (

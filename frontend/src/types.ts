@@ -316,4 +316,58 @@ export type TodayBriefing = {
   unscheduled_orders: Array<{ allocation_id: string; order_id: string | null; product_type: string; qty: number; due_date: string; factory_name: string }>;
   trend: Array<{ date: string; output: number }>;
   ai_suggestions: AIAction[];
+  anomaly_alerts: AnomalyAlert[];
+  anomaly_stats: {
+    groups_scanned: number;
+    groups_with_stats: number;
+    reports_scanned: number;
+    anomalies_found: number;
+    threshold_z: number;
+    min_samples: number;
+    after_review_filter: number;
+    suppressed_by_review: number;
+  };
+};
+
+// ── V4: Anomaly alerts (statistical detector) ─────────────
+
+export type AnomalyType = "output_low" | "output_high" | "persistent_dip";
+
+export type AnomalyReviewReason =
+  | "confirmed_real_issue"
+  | "data_entry_error"
+  | "material_issue"
+  | "factory_execution_issue"
+  | "customer_change"
+  | "ignored";
+
+export type AnomalySuggestedAction =
+  | "watchlist_and_recalc"
+  | "mark_suspicious_review"
+  | "create_incident_or_escalate";
+
+export type AnomalyAlert = {
+  id: string;
+  type: AnomalyType;
+  severity: "critical" | "high" | "medium" | "low";
+  key: string;
+  factory_id: string | null;
+  allocation_id: string | null;
+  order_id: string | null;
+  date: string;
+  actual_output: number;
+  rolling_mean: number;
+  rolling_std: number;
+  z_score: number | null;
+  sample_size: number;
+  routing: { action_type: string; suggested_action: AnomalySuggestedAction; target_type: string };
+  // Enriched on the server
+  factory_name: string | null;
+  product_type: string | null;
+  suggested_action: AnomalySuggestedAction | null;
+  action_summary: string | null;
+  action_impact: string | null;
+  // Only present for persistent_dip
+  window_days?: number;
+  recent_outputs?: number[];
 };

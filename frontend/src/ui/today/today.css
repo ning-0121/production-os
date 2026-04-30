@@ -424,3 +424,118 @@
     font-size: 18px;
   }
 }
+
+/* ── Anomaly Alerts ─────────────────────────────────────── */
+.todayAnomalySection {
+  border-top: 2px solid rgba(250, 204, 21, .15);
+}
+
+.todayAnomalyList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.todayAnomalyCard {
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-left: 3px solid var(--muted);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.todayAnomalyCard--critical { border-left-color: #ef4444; }
+.todayAnomalyCard--high     { border-left-color: #fb7185; }
+.todayAnomalyCard--medium   { border-left-color: #facc15; }
+.todayAnomalyCard--low      { border-left-color: #60a5fa; }
+
+.todayAnomalyCardTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.todayAnomalyTypeBadge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .06);
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+
+.todayAnomalyTypeBadge--output_low     { color: #fb7185; border-color: rgba(251, 113, 133, .35); }
+.todayAnomalyTypeBadge--output_high    { color: #c084fc; border-color: rgba(192, 132, 252, .35); }
+.todayAnomalyTypeBadge--persistent_dip { color: #facc15; border-color: rgba(250, 204, 21, .35); }
+
+.todayAnomalyZ {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.todayAnomalySummary {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.todayAnomalyMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.todayAnomalySuggested {
+  font-size: 12px;
+  color: var(--accent);
+  background: rgba(96, 165, 250, .08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border-left: 2px solid var(--accent);
+}
+
+.todayAnomalyActions {
+  margin-top: 4px;
+}
+
+.todayAnomalyReviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.todayAnomalyReviewBtn {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.todayAnomalyReviewBtn--warn {
+  background: rgba(251, 113, 133, .1);
+  color: #fb7185;
+  border: 1px solid rgba(251, 113, 133, .3);
+}
+
+.todayAnomalyReviewBtn--ok {
+  background: rgba(34, 197, 94, .1);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, .3);
+}
+
+.todayAnomalyReviewBtn--muted {
+  background: rgba(255, 255, 255, .04);
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+
+@media (max-width: 768px) {
+  .todayAnomalyReviewGrid { grid-template-columns: 1fr; }
+}

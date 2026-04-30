@@ -313,4 +313,32 @@ export const schemas = {
   llmQuestion: z.object({
     question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
   }),
+
+  // ── V4: Anomaly review feedback ──────────────────────
+  reviewAnomaly: z.object({
+    review_reason: z.enum([
+      "confirmed_real_issue",
+      "data_entry_error",
+      "material_issue",
+      "factory_execution_issue",
+      "customer_change",
+      "ignored",
+    ]),
+    notes: z.string().max(2000).optional(),
+    // Snapshot fields — caller passes what the detector returned, so we can
+    // persist the verdict even if the underlying data later changes.
+    snapshot: z.object({
+      anomaly_type: z.enum(["output_low", "output_high", "persistent_dip"]),
+      severity: z.enum(["critical", "high", "medium", "low"]).default("medium"),
+      factory_id: z.string().uuid().nullish(),
+      allocation_id: z.string().uuid().nullish(),
+      order_id: z.string().nullish(),
+      report_date: z.string().nullish(),
+      z_score: z.number().nullish(),
+      rolling_mean: z.number().nullish(),
+      actual_output: z.number().nullish(),
+    }),
+    // Optional: if user chose "create incident", caller passes this back
+    escalated_incident_id: z.string().uuid().nullish(),
+  }),
 };

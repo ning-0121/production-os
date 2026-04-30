@@ -9,14 +9,17 @@ import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { runRiskPredictor } from "../agents/risk-predictor.js";
+import { runAnomalyDetector } from "../agents/anomaly-detector.js";
+import { auditLog } from "../governance/audit.js";
 
 const router = Router();
 
-router.get("/briefing", asyncHandler(async (_req, res) => {
+router.get("/briefing", asyncHandler(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
 
-  const [allocRes, corrRes, factRes, linesRes, reportsRes, trendRes, schedRes] = await Promise.all([
+  const [allocRes, corrRes, factRes, linesRes, reportsRes, trendRes, schedRes, anomalyReportsRes, reviewsRes] = await Promise.all([
     supabase
       .from("production_allocations")
       .select("id, order_id, factory_id, product_type, allocated_qty, planned_end_date, status, factories(id, name)")
@@ -51,6 +54,17 @@ router.get("/briefing", asyncHandler(async (_req, res) => {
     supabase
       .from("line_schedules")
       .select("line_id, allocation_id"),
+
+    // Wider window for anomaly detection — needs ≥5 daily samples per allocation
+    supabase
+      .from("daily_production_reports")
+      .select("factory_id, allocation_id, order_id, actual_output, is_abnormal, abnormal_reason, date")
+      .gte("date", thirtyDaysAgo),
+
+    // Already-reviewed anomalies — suppress from the briefing
+    supabase
+      .from("anomaly_reviews")
+      .select("anomaly_id"),
   ]);
 
   const allocations = allocRes.data ?? [];
@@ -152,6 +166,47 @@ router.get("/briefing", asyncHandler(async (_req, res) => {
     trend.push({ date: d, output: dailyTotals[d] ?? 0 });
   }
 
+  // ── Anomaly detection ─────────────────────────────────
+  const reviewedIds = new Set((reviewsRes.data ?? []).map((r) => r.anomaly_id));
+  const anomalyReports = anomalyReportsRes.data ?? [];
+  const anomalyResult = runAnomalyDetector({ reports: anomalyReports });
+  const anomalies = anomalyResult.anomalies.filter((a) => !reviewedIds.has(a.id));
+  const anomalyActions = anomalyResult.actions.filter((a) => !reviewedIds.has(a.params?.anomaly_id));
+
+  // Enrich anomalies with order/factory display names for the UI
+  const factoryNameById = new Map(factories.map((f) => [f.id, f.name]));
+  const allocById = new Map(allocations.map((a) => [a.id, a]));
+  const anomaly_alerts = anomalies.map((a) => {
+    const alloc = a.allocation_id ? allocById.get(a.allocation_id) : null;
+    const matchedAction = anomalyActions.find((act) => act.params?.anomaly_id === a.id);
+    return {
+      ...a,
+      order_id: a.order_id ?? alloc?.order_id ?? null,
+      factory_name: factoryNameById.get(a.factory_id) ?? alloc?.factories?.name ?? null,
+      product_type: alloc?.product_type ?? null,
+      // Resolved suggested action for the UI ("watchlist_and_recalc" etc.)
+      suggested_action: a.routing?.suggested_action ?? null,
+      action_summary: matchedAction?.summary ?? null,
+      action_impact: matchedAction?.impact ?? null,
+    };
+  });
+
+  // Audit the detector run so we can track frequency + result over time
+  auditLog({
+    action: "anomaly.detect",
+    category: "system",
+    result_status: "success",
+    req,
+    detail: {
+      reports_scanned: anomalyResult.stats.reports_scanned,
+      groups_with_stats: anomalyResult.stats.groups_with_stats,
+      anomalies_found: anomalyResult.anomalies.length,
+      after_review_filter: anomaly_alerts.length,
+      suppressed_by_review: anomalyResult.anomalies.length - anomaly_alerts.length,
+      by_type: anomaly_alerts.reduce((acc, a) => { acc[a.type] = (acc[a.type] ?? 0) + 1; return acc; }, {}),
+    },
+  });
+
   // ── AI suggestions ────────────────────────────────────
   const agentResult = runRiskPredictor({ allocations, corrections, lines, factories });
 
@@ -174,6 +229,12 @@ router.get("/briefing", asyncHandler(async (_req, res) => {
     unscheduled_orders,
     trend,
     ai_suggestions: agentResult.actions.slice(0, 10),
+    anomaly_alerts,
+    anomaly_stats: {
+      ...anomalyResult.stats,
+      after_review_filter: anomaly_alerts.length,
+      suppressed_by_review: anomalyResult.anomalies.length - anomaly_alerts.length,
+    },
     _agent_reasoning: agentResult.reasoning,
   });
 }));

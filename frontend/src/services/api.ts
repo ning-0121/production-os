@@ -743,3 +743,51 @@ export function runProgressCorrection(): Promise<{
 }> {
   return request("/agents/correct", { method: "POST" });
 }
+
+// ── V4: Anomaly Detector ───────────────────────────────
+
+export type AnomalyReviewPayload = {
+  review_reason:
+    | "confirmed_real_issue"
+    | "data_entry_error"
+    | "material_issue"
+    | "factory_execution_issue"
+    | "customer_change"
+    | "ignored";
+  notes?: string;
+  snapshot: {
+    anomaly_type: "output_low" | "output_high" | "persistent_dip";
+    severity?: "critical" | "high" | "medium" | "low";
+    factory_id?: string | null;
+    allocation_id?: string | null;
+    order_id?: string | null;
+    report_date?: string | null;
+    z_score?: number | null;
+    rolling_mean?: number | null;
+    actual_output?: number | null;
+  };
+  escalated_incident_id?: string | null;
+};
+
+export function reviewAnomaly(
+  anomalyId: string,
+  payload: AnomalyReviewPayload,
+): Promise<{ ok: boolean; review: Record<string, unknown> }> {
+  return request(`/agents/anomalies/${encodeURIComponent(anomalyId)}/review`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchAnomalyStats(): Promise<{
+  window_days: number;
+  total_reviewed: number;
+  confirmed_count: number;
+  false_positive_count: number;
+  confirmed_rate: number | null;
+  false_positive_rate: number | null;
+  by_reason: Record<string, number>;
+  by_type: Record<string, { total: number; confirmed: number; false_positive: number }>;
+}> {
+  return request("/agents/anomalies/stats");
+}
