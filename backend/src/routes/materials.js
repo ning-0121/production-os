@@ -4,6 +4,7 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
@@ -16,9 +17,8 @@ router.get("/", asyncHandler(async (req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/", asyncHandler(async (req, res) => {
+router.post("/", validate(schemas.createMaterial), asyncHandler(async (req, res) => {
   const { code, name, category, sub_category, unit, spec, safety_stock_qty, lead_time_days } = req.body;
-  if (!code || !name || !category) return res.status(400).json({ error: "code, name, category required" });
   const { data, error } = await supabase.from("materials").insert({ code, name, category, sub_category, unit, spec, safety_stock_qty, lead_time_days }).select().single();
   if (error) return res.status(400).json({ error: error.message });
   res.status(201).json(data);
@@ -33,7 +33,7 @@ router.get("/:id/inventory", asyncHandler(async (req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/:id/reserve", asyncHandler(async (req, res) => {
+router.post("/:id/reserve", validate(schemas.reserveMaterial), asyncHandler(async (req, res) => {
   const { color_id, qty, warehouse } = req.body;
   const wh = warehouse ?? "main";
   // Atomic reserve: increment qty_reserved
@@ -61,9 +61,8 @@ router.get("/bom/:styleNumber", asyncHandler(async (req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/bom", asyncHandler(async (req, res) => {
+router.post("/bom", validate(schemas.createBOM), asyncHandler(async (req, res) => {
   const { style_number, product_type, size_category, lines } = req.body;
-  if (!style_number || !product_type) return res.status(400).json({ error: "style_number, product_type required" });
 
   const { data: bom, error: bomErr } = await supabase.from("bom_templates")
     .insert({ style_number, product_type, size_category }).select().single();
@@ -112,14 +111,19 @@ router.post("/readiness/check", asyncHandler(async (req, res) => {
     });
   }
 
-  // Upsert material_requirements
-  for (const r of requirements) {
-    await supabase.from("material_requirements").upsert({
-      order_id, material_id: r.material_id,
-      required_qty: r.required_qty, available_qty: r.available_qty,
-      shortage_qty: r.shortage_qty, status: r.status,
-      computed_at: new Date().toISOString(),
-    }, { onConflict: "order_id,material_id" }).catch(() => {});
+  // Upsert material_requirements as a batch (atomic)
+  const upsertRows = requirements.map((r) => ({
+    order_id, material_id: r.material_id,
+    required_qty: r.required_qty, available_qty: r.available_qty,
+    shortage_qty: r.shortage_qty, status: r.status,
+    computed_at: new Date().toISOString(),
+  }));
+  if (upsertRows.length > 0) {
+    const { error: upsertErr } = await supabase.from("material_requirements")
+      .upsert(upsertRows, { onConflict: "order_id,material_id" });
+    if (upsertErr) {
+      console.error(JSON.stringify({ level: "WARN", op: "material_requirements_upsert", order_id, error: upsertErr.message }));
+    }
   }
 
   const ready = requirements.every((r) => r.status === "sufficient");

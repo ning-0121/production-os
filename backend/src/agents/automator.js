@@ -265,7 +265,10 @@ export async function runAutomationScan(supabase) {
       outcome: "triggered",
       executed_at: new Date().toISOString(),
     }));
-    await supabase.from("automation_logs").insert(logs).catch(() => {});
+    const { error: logErr } = await supabase.from("automation_logs").insert(logs);
+    if (logErr) {
+      console.error(JSON.stringify({ level: "WARN", op: "automation_logs_insert", error: logErr.message }));
+    }
   }
 
   // Generate AI actions

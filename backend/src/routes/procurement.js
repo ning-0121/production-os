@@ -4,6 +4,7 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
@@ -14,9 +15,8 @@ router.get("/suppliers", asyncHandler(async (_req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/suppliers", asyncHandler(async (req, res) => {
+router.post("/suppliers", validate(schemas.createSupplier), asyncHandler(async (req, res) => {
   const { code, name, category, contact_name, contact_phone, contact_email, payment_terms, lead_time_days } = req.body;
-  if (!code || !name) return res.status(400).json({ error: "code, name required" });
   const { data, error } = await supabase.from("suppliers")
     .insert({ code, name, category, contact_name, contact_phone, contact_email, payment_terms, lead_time_days }).select().single();
   if (error) return res.status(400).json({ error: error.message });
@@ -34,9 +34,8 @@ router.get("/purchase-orders", asyncHandler(async (req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/purchase-orders", asyncHandler(async (req, res) => {
+router.post("/purchase-orders", validate(schemas.createPO), asyncHandler(async (req, res) => {
   const { po_number, supplier_id, order_id, expected_date, notes, lines } = req.body;
-  if (!po_number || !supplier_id) return res.status(400).json({ error: "po_number, supplier_id required" });
 
   const totalAmount = (lines ?? []).reduce((s, l) => s + (Number(l.qty_ordered ?? 0) * Number(l.unit_price ?? 0)), 0);
 
@@ -52,13 +51,16 @@ router.post("/purchase-orders", asyncHandler(async (req, res) => {
   res.status(201).json(po);
 }));
 
-router.patch("/purchase-orders/:id/receive", asyncHandler(async (req, res) => {
+router.patch("/purchase-orders/:id/receive", validate(schemas.receivePO), asyncHandler(async (req, res) => {
   const { lines } = req.body; // [{ line_id, qty_received, qty_rejected }]
 
-  for (const l of lines ?? []) {
-    await supabase.from("purchase_order_lines")
+  for (const l of lines) {
+    const { error: lineErr } = await supabase.from("purchase_order_lines")
       .update({ qty_received: l.qty_received, qty_rejected: l.qty_rejected ?? 0 })
       .eq("id", l.line_id);
+    if (lineErr) {
+      console.error(JSON.stringify({ level: "ERROR", op: "po_receive_line", line_id: l.line_id, error: lineErr.message }));
+    }
   }
 
   const { data: po } = await supabase.from("purchase_orders")

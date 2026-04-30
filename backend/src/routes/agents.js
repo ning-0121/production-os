@@ -10,6 +10,7 @@ import { runCorrector } from "../agents/corrector.js";
 import { runCalibrator } from "../agents/calibrator.js";
 import { runMaterialAgent } from "../agents/material-agent.js";
 import { runLLMAgent, createAnalysisBatch, getBatchStatus, getBatchResults } from "../agents/llm-agent.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
@@ -33,6 +34,11 @@ router.post("/risk-predict", asyncHandler(async (_req, res) => {
       .select("id, name, status, quality_score, delay_score, cooperation_score")
       .eq("status", "active"),
   ]);
+
+  // Log any partial failures so partial-data warnings surface
+  for (const [name, r] of [["allocations", allocRes], ["corrections", corrRes], ["lines", linesRes], ["factories", factRes]]) {
+    if (r.error) console.error(JSON.stringify({ level: "WARN", agent: "risk-predict", source: name, error: r.error.message }));
+  }
 
   const result = runRiskPredictor({
     allocations: allocRes.data ?? [],
@@ -126,12 +132,8 @@ router.post("/material-check", asyncHandler(async (_req, res) => {
 }));
 
 // POST /api/agents/ask — LLM-powered production assistant
-router.post("/ask", asyncHandler(async (req, res) => {
+router.post("/ask", validate(schemas.llmQuestion), asyncHandler(async (req, res) => {
   const { question } = req.body;
-  if (!question || typeof question !== "string") {
-    return res.status(400).json({ error: "question is required" });
-  }
-
   const result = await runLLMAgent(question);
   res.json({
     agent: "llm-agent",

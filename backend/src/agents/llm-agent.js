@@ -340,11 +340,26 @@ export async function runLLMAgent(question, maxTurns = 5) {
     const toolResults = [];
     for (const block of toolUseBlocks) {
       toolsUsed.push(block.name);
-      const result = await executeTool(block.name, block.input);
+      let resultContent;
+      let isError = false;
+      try {
+        const result = await executeTool(block.name, block.input);
+        const json = JSON.stringify(result);
+        if (json.length > 4000) {
+          resultContent = json.slice(0, 3950) + "...[truncated]";
+        } else {
+          resultContent = json;
+        }
+      } catch (err) {
+        isError = true;
+        resultContent = `Tool execution failed: ${err instanceof Error ? err.message : String(err)}`;
+        console.error(JSON.stringify({ level: "ERROR", tool: block.name, error: resultContent }));
+      }
       toolResults.push({
         type: "tool_result",
         tool_use_id: block.id,
-        content: JSON.stringify(result).slice(0, 4000),
+        content: resultContent,
+        is_error: isError,
       });
     }
     messages.push({ role: "user", content: toolResults });

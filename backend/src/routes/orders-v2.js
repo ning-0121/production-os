@@ -4,6 +4,7 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
@@ -27,11 +28,8 @@ router.get("/:id", asyncHandler(async (req, res) => {
   res.json(data);
 }));
 
-router.post("/", asyncHandler(async (req, res) => {
+router.post("/", validate(schemas.createOrderV2), asyncHandler(async (req, res) => {
   const { order_number, customer_id, style_number, product_type, total_qty, unit_price, currency, due_date, ship_date, season, priority } = req.body;
-  if (!order_number || !product_type || !total_qty) {
-    return res.status(400).json({ error: "order_number, product_type, total_qty required" });
-  }
   const { data, error } = await supabase.from("orders")
     .insert({ order_number, customer_id, style_number, product_type, total_qty, unit_price, currency, due_date, ship_date, season, priority })
     .select("*, customers(id, name)").single();

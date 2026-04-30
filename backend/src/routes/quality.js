@@ -4,6 +4,7 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
 
@@ -20,9 +21,8 @@ router.get("/inspections", asyncHandler(async (req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/inspections", asyncHandler(async (req, res) => {
+router.post("/inspections", validate(schemas.createInspection), asyncHandler(async (req, res) => {
   const { order_id, factory_id, inspection_type, inspector, inspection_date, total_qty_inspected, total_defects, aql_level, result, notes, defects } = req.body;
-  if (!inspection_type) return res.status(400).json({ error: "inspection_type required" });
 
   const defectRate = total_qty_inspected > 0 ? Math.round((total_defects / total_qty_inspected) * 10000) / 100 : 0;
 
@@ -33,7 +33,11 @@ router.post("/inspections", asyncHandler(async (req, res) => {
 
   if (Array.isArray(defects) && defects.length > 0) {
     const rows = defects.map((d) => ({ ...d, inspection_id: insp.id }));
-    await supabase.from("qc_defects").insert(rows);
+    const { error: defErr } = await supabase.from("qc_defects").insert(rows);
+    if (defErr) {
+      console.error(JSON.stringify({ level: "ERROR", op: "qc_defects_insert", inspection_id: insp.id, error: defErr.message }));
+      return res.status(207).json({ inspection: insp, defects_error: defErr.message });
+    }
   }
   res.status(201).json(insp);
 }));
@@ -56,17 +60,14 @@ router.get("/reworks", asyncHandler(async (req, res) => {
   res.json(data ?? []);
 }));
 
-router.post("/reworks", asyncHandler(async (req, res) => {
+router.post("/reworks", validate(schemas.createRework), asyncHandler(async (req, res) => {
   const { data, error } = await supabase.from("rework_orders").insert(req.body).select().single();
   if (error) return res.status(400).json({ error: error.message });
   res.status(201).json(data);
 }));
 
-router.patch("/reworks/:id", asyncHandler(async (req, res) => {
-  const allowed = ["status", "actual_days", "cost", "delay_days"];
-  const updates = {};
-  for (const k of allowed) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
-  const { data, error } = await supabase.from("rework_orders").update(updates).eq("id", req.params.id).select().single();
+router.patch("/reworks/:id", validate(schemas.updateRework), asyncHandler(async (req, res) => {
+  const { data, error } = await supabase.from("rework_orders").update(req.body).eq("id", req.params.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 }));
@@ -78,7 +79,7 @@ router.get("/financials/:orderId", asyncHandler(async (req, res) => {
   res.json(data ?? { order_id: req.params.orderId, status: "none" });
 }));
 
-router.post("/financials", asyncHandler(async (req, res) => {
+router.post("/financials", validate(schemas.upsertFinancials), asyncHandler(async (req, res) => {
   const { data, error } = await supabase.from("order_financials").upsert(req.body, { onConflict: "order_id" }).select().single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);

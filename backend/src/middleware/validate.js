@@ -166,4 +166,151 @@ export const schemas = {
     action: z.enum(["confirm", "delete", "cancel", "start"]),
     ids: z.array(z.string().uuid()).min(1, "至少选择一条记录").max(100, "单次最多100条"),
   }),
+
+  // ── V4: Materials ────────────────────────────────────
+  createMaterial: z.object({
+    code: z.string().min(1, "物料编码不能为空").max(64),
+    name: z.string().min(1, "物料名称不能为空").max(256),
+    category: z.enum(["fabric", "trim", "packaging", "sample", "remnant"]),
+    sub_category: z.string().optional(),
+    unit: z.string().default("yard"),
+    spec: z.record(z.unknown()).optional(),
+    safety_stock_qty: z.number().min(0).optional(),
+    lead_time_days: z.number().int().min(0).max(365).optional(),
+  }),
+
+  reserveMaterial: z.object({
+    color_id: z.string().uuid().nullable().optional(),
+    qty: z.number().positive("数量必须大于0"),
+    warehouse: z.string().optional(),
+  }),
+
+  // ── V4: BOM ──────────────────────────────────────────
+  createBOM: z.object({
+    style_number: z.string().min(1, "款号不能为空"),
+    product_type: z.string().min(1, "产品类型不能为空"),
+    size_category: z.enum(["missy", "junior", "plus"]).default("missy"),
+    lines: z.array(z.object({
+      material_id: z.string().uuid(),
+      color_id: z.string().uuid().nullable().optional(),
+      size_group: z.string().default("all"),
+      usage_qty: z.number().positive(),
+      usage_unit: z.string().default("yard"),
+      waste_pct: z.number().min(0).max(50).default(3),
+      is_critical: z.boolean().default(true),
+      notes: z.string().optional(),
+    })).optional(),
+  }),
+
+  // ── V4: Procurement ──────────────────────────────────
+  createSupplier: z.object({
+    code: z.string().min(1).max(64),
+    name: z.string().min(1).max(256),
+    category: z.enum(["fabric", "trim", "packaging", "logistics", "other"]).default("fabric"),
+    contact_name: z.string().optional(),
+    contact_phone: z.string().optional(),
+    contact_email: z.string().email().optional().or(z.literal("")),
+    payment_terms: z.string().optional(),
+    lead_time_days: z.number().int().min(0).optional(),
+  }),
+
+  createPO: z.object({
+    po_number: z.string().min(1).max(64),
+    supplier_id: z.string().uuid(),
+    order_id: z.string().uuid().nullable().optional(),
+    expected_date: z.string().min(1, "预计到货日期不能为空"),
+    notes: z.string().optional(),
+    lines: z.array(z.object({
+      material_id: z.string().uuid(),
+      color_id: z.string().uuid().nullable().optional(),
+      qty_ordered: z.number().positive(),
+      unit_price: z.number().min(0),
+    })).min(1, "至少需要一条采购明细"),
+  }),
+
+  receivePO: z.object({
+    lines: z.array(z.object({
+      line_id: z.string().uuid(),
+      qty_received: z.number().min(0),
+      qty_rejected: z.number().min(0).default(0),
+    })).min(1),
+  }),
+
+  // ── V4: Quality ──────────────────────────────────────
+  createInspection: z.object({
+    order_id: z.string().uuid().nullable().optional(),
+    factory_id: z.string().uuid().nullable().optional(),
+    inspection_type: z.enum(["pp_sample", "shipping_sample", "inline", "final", "third_party"]),
+    inspector: z.string().optional(),
+    inspection_date: z.string().optional(),
+    total_qty_inspected: z.number().int().min(0).default(0),
+    total_defects: z.number().int().min(0).default(0),
+    aql_level: z.string().default("2.5"),
+    result: z.enum(["pending", "pass", "fail", "conditional"]).default("pending"),
+    notes: z.string().optional(),
+    defects: z.array(z.object({
+      defect_code: z.string(),
+      severity: z.enum(["critical", "major", "minor"]).default("minor"),
+      qty: z.number().int().positive().default(1),
+      location: z.string().optional(),
+      photo_url: z.string().optional(),
+      notes: z.string().optional(),
+    })).optional(),
+  }),
+
+  createRework: z.object({
+    order_id: z.string().uuid().nullable().optional(),
+    inspection_id: z.string().uuid().nullable().optional(),
+    factory_id: z.string().uuid().nullable().optional(),
+    rework_qty: z.number().int().positive(),
+    rework_reason: z.string().optional(),
+    defect_codes: z.array(z.string()).optional(),
+    estimated_days: z.number().int().min(0).optional(),
+    cost: z.number().min(0).optional(),
+    responsible_party: z.enum(["factory", "material", "design", "customer"]).default("factory"),
+    impact_on_delivery: z.boolean().default(false),
+    delay_days: z.number().int().min(0).default(0),
+  }),
+
+  updateRework: z.object({
+    status: z.enum(["pending", "in_progress", "completed", "waived"]).optional(),
+    actual_days: z.number().int().min(0).optional(),
+    cost: z.number().min(0).optional(),
+    delay_days: z.number().int().min(0).optional(),
+  }).refine((d) => Object.keys(d).length > 0, { message: "至少需要一个字段" }),
+
+  upsertFinancials: z.object({
+    order_id: z.string().uuid(),
+    revenue: z.number().min(0).optional(),
+    fabric_cost: z.number().min(0).optional(),
+    trim_cost: z.number().min(0).optional(),
+    cmt_cost: z.number().min(0).optional(),
+    rework_cost: z.number().min(0).optional(),
+    freight_cost: z.number().min(0).optional(),
+    duty_cost: z.number().min(0).optional(),
+    compensation_cost: z.number().min(0).optional(),
+    other_cost: z.number().min(0).optional(),
+    gross_margin_pct: z.number().optional(),
+    status: z.enum(["estimated", "actual", "closed"]).optional(),
+  }),
+
+  // ── V4: Orders V2 ────────────────────────────────────
+  createOrderV2: z.object({
+    order_number: z.string().min(1).max(64),
+    customer_id: z.string().uuid().nullable().optional(),
+    style_number: z.string().optional(),
+    product_type: z.string().min(1, "产品类型不能为空"),
+    total_qty: z.number().int().positive("数量必须大于0"),
+    unit_price: z.number().min(0).optional(),
+    currency: z.string().default("USD"),
+    due_date: z.string().optional(),
+    ship_date: z.string().optional(),
+    season: z.string().optional(),
+    priority: z.number().int().min(0).max(100).default(0),
+  }),
+
+  // ── V4: LLM Question ─────────────────────────────────
+  llmQuestion: z.object({
+    question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
+  }),
 };

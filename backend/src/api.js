@@ -224,4 +224,9 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Backend on http://0.0.0.0:${PORT}`);
   console.log(`Environment: PORT=${PORT}, PILOT_MODE=${PILOT_MODE}`);
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.warn("[WARN] ANTHROPIC_API_KEY not set — LLM Agent (/api/agents/ask, /api/agents/batch/*) will return fallback messages");
+  } else {
+    console.log("[OK] ANTHROPIC_API_KEY configured — LLM Agent enabled");
+  }
 });

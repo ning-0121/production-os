@@ -84,6 +84,8 @@ router.get("/dashboard", asyncHandler(async (_req, res) => {
   const customerMap = new Map();
   for (const row of orderProfitTable) {
     const name = row.customer_name;
+    // Skip orders with no customer linked — they shouldn't aggregate
+    if (!name || name === "—" || name === "undefined") continue;
     if (!customerMap.has(name)) customerMap.set(name, { name, revenue: 0, cost: 0, orders: 0, rework_cost: 0 });
     const c = customerMap.get(name);
     c.revenue += row.revenue;
