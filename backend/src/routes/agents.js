@@ -9,6 +9,7 @@ import { runRiskPredictor } from "../agents/risk-predictor.js";
 import { runCorrector } from "../agents/corrector.js";
 import { runCalibrator } from "../agents/calibrator.js";
 import { runMaterialAgent } from "../agents/material-agent.js";
+import { runAnomalyDetector } from "../agents/anomaly-detector.js";
 import { runLLMAgent, createAnalysisBatch, getBatchStatus, getBatchResults } from "../agents/llm-agent.js";
 import { validate, schemas } from "../middleware/validate.js";
 
@@ -129,6 +130,20 @@ router.post("/material-check", asyncHandler(async (_req, res) => {
   });
 
   res.json({ agent: "material-agent", ...result, timestamp: new Date().toISOString() });
+}));
+
+// POST /api/agents/detect-anomalies — statistical outlier detection on daily reports
+router.post("/detect-anomalies", asyncHandler(async (_req, res) => {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("daily_production_reports")
+    .select("factory_id, allocation_id, order_id, actual_output, is_abnormal, abnormal_reason, date")
+    .gte("date", since);
+
+  if (error) console.error(JSON.stringify({ level: "WARN", agent: "anomaly-detector", error: error.message }));
+
+  const result = runAnomalyDetector({ reports: data ?? [] });
+  res.json({ agent: "anomaly-detector", ...result, timestamp: new Date().toISOString() });
 }));
 
 // POST /api/agents/ask — LLM-powered production assistant
