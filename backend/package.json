@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/api.js",
     "dev": "node src/api.js",
-    "test": "node --test tests/scheduler.test.js tests/agents.test.js tests/forecast.test.js tests/validation.test.js tests/anomaly.test.js",
+    "test": "node --test tests/scheduler.test.js tests/agents.test.js tests/forecast.test.js tests/validation.test.js tests/anomaly.test.js tests/runtime.test.js",
     "test:scheduler": "node src/scheduler/demo.js",
     "test:optimizer": "node src/scheduler/optimizer-test.js",
     "test:validate": "node src/scripts/validate-offline-test.js",

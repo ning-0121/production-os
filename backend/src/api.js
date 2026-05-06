@@ -39,6 +39,7 @@ import materialsRouter from "./routes/materials.js";
 import procurementRouter from "./routes/procurement.js";
 import qualityRouter from "./routes/quality.js";
 import profitRouter from "./routes/profit.js";
+import runtimeRouter from "./routes/runtime.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -184,6 +185,7 @@ app.use("/api/materials", materialsRouter);
 app.use("/api/procurement", procurementRouter);
 app.use("/api/quality", qualityRouter);
 app.use("/api/profit", profitRouter);
+app.use("/api/runtime", runtimeRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

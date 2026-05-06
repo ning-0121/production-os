@@ -314,6 +314,95 @@ export const schemas = {
     question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
   }),
 
+  // ── V5-A: Runtime Core ────────────────────────────────
+  runtimeLineUpdate: z.object({
+    factory_id: z.string().uuid().optional(),
+    current_order_id: z.string().nullish(),
+    current_allocation_id: z.string().uuid().nullish(),
+    current_operation: z.string().max(64).nullish(),
+    runtime_status: z.enum(["idle", "running", "blocked", "rework", "changeover", "down"]).optional(),
+    current_efficiency: z.number().nonnegative().max(5).optional(),
+    actual_output_today: z.number().int().nonnegative().optional(),
+    expected_output_today: z.number().int().nonnegative().optional(),
+    overload_pct: z.number().nonnegative().max(500).optional(),
+    runtime_risk: z.enum(["green", "amber", "red"]).optional(),
+    planned_end_at: z.string().datetime().nullish(),
+    expected_version: z.number().int().nonnegative().optional(),
+  }),
+
+  runtimeEventCreate: z.object({
+    event_type: z.enum([
+      "material_delayed", "line_slowdown", "rework_started", "qc_failure",
+      "factory_shutdown", "labor_shortage", "shipment_risk",
+      "vip_inserted", "overtime_started", "allocation_completed", "line_status_changed",
+      "reschedule_applied", "rollback_applied", "simulation_run",
+    ]),
+    severity: z.enum(["critical", "high", "medium", "low", "info"]).default("medium"),
+    source: z.enum(["human", "sensor", "agent", "scheduler", "system", "external_api"]).default("human"),
+    source_ref: z.string().max(128).optional(),
+    factory_id: z.string().uuid().nullish(),
+    line_id: z.string().uuid().nullish(),
+    allocation_id: z.string().uuid().nullish(),
+    order_id: z.string().nullish(),
+    payload: z.record(z.string(), z.unknown()).default({}),
+    reasoning: z.string().max(2000).optional(),
+    confidence: z.number().min(0).max(1).optional(),
+    correlation_id: z.string().uuid().optional(),
+    caused_by_event_id: z.string().uuid().optional(),
+    occurred_at: z.string().datetime().optional(),
+  }),
+
+  runtimePropagate: z.object({
+    origin_node: z.object({
+      node_type: z.enum(["material", "order", "allocation", "line", "factory", "rework", "shipment", "qc_block"]),
+      ref_id: z.string().min(1),
+    }),
+    severity: z.enum(["critical", "high", "medium", "low", "info"]).default("medium"),
+    estimated_delay_days: z.number().nonnegative().optional(),
+    max_depth: z.number().int().min(1).max(20).optional(),
+    decay: z.number().min(0).max(1).optional(),
+    min_impact: z.number().min(0).max(1).optional(),
+  }),
+
+  runtimeReschedule: z.object({
+    line_id: z.string().uuid(),
+    conflict_type: z.enum(["overload", "blocked", "slowdown"]),
+    delay_days: z.number().int().min(0).max(30).optional(),
+    reason: z.string().max(500).optional(),
+  }),
+
+  runtimeInsert: z.object({
+    allocation_id: z.string().uuid(),
+    order_id: z.string().min(1),
+    factory_id: z.string().uuid().optional(),
+    qty: z.number().int().positive(),
+    due_date: z.string(),
+    priority: z.number().int().min(0).max(1000).optional(),
+    urgency: z.enum(["critical", "high", "medium", "low"]).optional(),
+    product_type: z.string().optional(),
+  }),
+
+  runtimeSimulate: z.object({
+    events: z.array(z.object({
+      event_type: z.string(),
+      severity: z.enum(["critical", "high", "medium", "low", "info"]).optional(),
+      line_id: z.string().uuid().nullish(),
+      allocation_id: z.string().uuid().nullish(),
+      payload: z.record(z.string(), z.unknown()).optional(),
+    })).min(1).max(100),
+  }),
+
+  runtimeRollback: z.object({
+    snapshot_id: z.string().uuid(),
+    apply: z.boolean().default(false),   // false = preview, true = apply
+  }),
+
+  runtimeReplay: z.object({
+    since_seq: z.number().int().nonnegative().optional(),
+    until_seq: z.number().int().nonnegative().optional(),
+    factory_id: z.string().uuid().optional(),
+  }),
+
   // ── V4: Anomaly review feedback ──────────────────────
   reviewAnomaly: z.object({
     review_reason: z.enum([
