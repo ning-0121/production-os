@@ -34,6 +34,18 @@ type AppState = {
   qualitySubTab: "inspections" | "reworks";
   setQualitySubTab: (tab: "inspections" | "reworks") => void;
 
+  // Runtime War Room state (V5-B)
+  runtimeSubTab: "timeline" | "graph" | "replay";
+  setRuntimeSubTab: (tab: "timeline" | "graph" | "replay") => void;
+  runtimeSelectedEventId: string | null;
+  setRuntimeSelectedEventId: (id: string | null) => void;
+  runtimeSelectedNodeId: string | null;
+  setRuntimeSelectedNodeId: (id: string | null) => void;
+  runtimeSelectedAllocationId: string | null;
+  setRuntimeSelectedAllocationId: (id: string | null) => void;
+  runtimeFactoryFilter: string;
+  setRuntimeFactoryFilter: (id: string) => void;
+
   // Data refresh triggers (increment to force refetch)
   refreshKey: number;
   triggerRefresh: () => void;
@@ -57,6 +69,17 @@ export const useAppStore = create<AppState>((set) => ({
 
   qualitySubTab: "inspections",
   setQualitySubTab: (tab) => set({ qualitySubTab: tab }),
+
+  runtimeSubTab: "timeline",
+  setRuntimeSubTab: (tab) => set({ runtimeSubTab: tab }),
+  runtimeSelectedEventId: null,
+  setRuntimeSelectedEventId: (id) => set({ runtimeSelectedEventId: id }),
+  runtimeSelectedNodeId: null,
+  setRuntimeSelectedNodeId: (id) => set({ runtimeSelectedNodeId: id }),
+  runtimeSelectedAllocationId: null,
+  setRuntimeSelectedAllocationId: (id) => set({ runtimeSelectedAllocationId: id }),
+  runtimeFactoryFilter: "",
+  setRuntimeFactoryFilter: (id) => set({ runtimeFactoryFilter: id }),
 
   refreshKey: 0,
   triggerRefresh: () => set((s) => ({ refreshKey: s.refreshKey + 1 })),

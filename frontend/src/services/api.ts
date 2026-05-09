@@ -791,3 +791,125 @@ export function fetchAnomalyStats(): Promise<{
 }> {
   return request("/agents/anomalies/stats");
 }
+
+// ════════════════════════════════════════════════════════════
+// V5-A/B: Runtime War Room
+// ════════════════════════════════════════════════════════════
+
+import type {
+  RuntimeLine, RuntimeEvent, RuntimeKpi, RuntimeCommand,
+  TimelineResponse, RuntimeGraphResponse, ConstraintNode,
+} from "../types";
+
+export function fetchRuntimeKpi(): Promise<RuntimeKpi> {
+  return request("/runtime/kpi");
+}
+
+export function fetchRuntimeLines(filters: { factory_id?: string; status?: string; risk?: string } = {}):
+  Promise<{ count: number; lines: RuntimeLine[] }> {
+  const qs = new URLSearchParams(
+    Object.entries(filters).filter(([, v]) => v != null && v !== "") as [string, string][],
+  ).toString();
+  return request(`/runtime/lines${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchRuntimeEvents(opts: {
+  event_type?: string; severity?: string; factory_id?: string; line_id?: string;
+  allocation_id?: string; since?: string; limit?: number;
+} = {}): Promise<{ count: number; events: RuntimeEvent[] }> {
+  const qs = new URLSearchParams(
+    Object.entries(opts).filter(([, v]) => v != null && v !== "")
+      .map(([k, v]) => [k, String(v)]) as [string, string][],
+  ).toString();
+  return request(`/runtime/events${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchRuntimeTimeline(opts: { factory_id?: string; from?: string; to?: string } = {}):
+  Promise<TimelineResponse> {
+  const qs = new URLSearchParams(
+    Object.entries(opts).filter(([, v]) => v != null && v !== "") as [string, string][],
+  ).toString();
+  return request(`/runtime/timeline${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchRuntimeCommands(limit = 20): Promise<{ count: number; commands: RuntimeCommand[] }> {
+  return request(`/runtime/commands?limit=${limit}`);
+}
+
+export function fetchRuntimeGraph(): Promise<RuntimeGraphResponse> {
+  return request("/runtime/graph");
+}
+
+export function postRuntimeEvent(body: {
+  event_type: string;
+  severity?: string;
+  source?: string;
+  source_ref?: string;
+  factory_id?: string | null;
+  line_id?: string | null;
+  allocation_id?: string | null;
+  order_id?: string | null;
+  payload?: Record<string, unknown>;
+  reasoning?: string;
+  confidence?: number;
+}): Promise<{ event: RuntimeEvent; propagation: unknown; lines_updated: unknown[] }> {
+  return request("/runtime/events", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function simulateRuntimeEvents(events: Array<{
+  event_type: string;
+  severity?: string;
+  line_id?: string | null;
+  allocation_id?: string | null;
+  payload?: Record<string, unknown>;
+}>): Promise<{
+  final_state: { lines: RuntimeLine[] };
+  effects: Array<{ event_type: string; applied: boolean; changes: string[] }>;
+  summary: { events_applied: number; events_skipped: number; lines_affected: string[] };
+}> {
+  return request("/runtime/simulate", { method: "POST", body: JSON.stringify({ events }) });
+}
+
+export function rescheduleRuntime(body: {
+  line_id: string;
+  conflict_type: "overload" | "blocked" | "slowdown";
+  delay_days?: number;
+  reason?: string;
+}): Promise<{ plan: unknown; snapshot_id: string | null }> {
+  return request("/runtime/reschedule", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function insertVipRuntime(body: {
+  allocation_id: string;
+  order_id: string;
+  factory_id?: string;
+  qty: number;
+  due_date: string;
+  priority?: number;
+  urgency?: "critical" | "high" | "medium" | "low";
+}): Promise<{ plan: unknown; snapshot_id: string | null }> {
+  return request("/runtime/insert", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function rollbackRuntime(snapshot_id: string, apply = false):
+  Promise<{ plan: unknown; applied_count: number; snapshot_id: string }> {
+  return request("/runtime/rollback", { method: "POST", body: JSON.stringify({ snapshot_id, apply }) });
+}
+
+export function propagateRuntimeFrom(origin_node: { node_type: string; ref_id: string }, severity = "high"):
+  Promise<{
+    origin_node_id: string; severity: string;
+    impacted: Array<{ node_id: string; node_type: string; ref_id: string; impact: number; depth: number; estimated_delay_days: number; path: string[]; edge_path: string[]; reasoning: string }>;
+    stats: unknown; reasoning: string;
+  }> {
+  return request("/runtime/propagate", { method: "POST", body: JSON.stringify({ origin_node, severity }) });
+}
+
+export function executeCommandAction(action: { endpoint: string | null; method: "POST" | "GET" | null; payload?: Record<string, unknown> }):
+  Promise<unknown> {
+  if (!action.endpoint || !action.method) return Promise.resolve({ ok: true });
+  return request(action.endpoint, {
+    method: action.method,
+    body: action.method === "POST" ? JSON.stringify(action.payload ?? {}) : undefined,
+  });
+}

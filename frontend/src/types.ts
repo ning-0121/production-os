@@ -371,3 +371,156 @@ export type AnomalyAlert = {
   window_days?: number;
   recent_outputs?: number[];
 };
+
+// ── V5-A/B: Runtime War Room ──────────────────────────────
+
+export type RuntimeStatus = "idle" | "running" | "blocked" | "rework" | "changeover" | "down";
+export type RuntimeRisk = "green" | "amber" | "red";
+export type RuntimeSeverity = "critical" | "high" | "medium" | "low" | "info";
+
+export type RuntimeLine = {
+  id: string;
+  line_id: string;
+  factory_id: string;
+  current_order_id: string | null;
+  current_allocation_id: string | null;
+  current_operation: string | null;
+  runtime_status: RuntimeStatus;
+  current_efficiency: number;
+  actual_output_today: number;
+  expected_output_today: number;
+  overload_pct: number;
+  runtime_risk: RuntimeRisk;
+  planned_end_at: string | null;
+  version: number;
+  updated_at: string;
+};
+
+export type RuntimeEvent = {
+  id: string;
+  replay_seq: number;
+  event_type: string;
+  severity: RuntimeSeverity;
+  source: string;
+  source_ref: string | null;
+  factory_id: string | null;
+  line_id: string | null;
+  allocation_id: string | null;
+  order_id: string | null;
+  affected_entities: Array<{
+    node_id: string;
+    node_type: string;
+    ref_id: string;
+    ref_label?: string | null;
+    impact: number;
+    depth: number;
+    estimated_delay_days: number;
+    path?: string[];
+    edge_path?: string[];
+    reasoning?: string;
+  }>;
+  propagation_status: "pending" | "in_progress" | "completed" | "skipped" | "failed";
+  payload: Record<string, unknown>;
+  reasoning: string | null;
+  confidence: number | null;
+  correlation_id: string | null;
+  caused_by_event_id: string | null;
+  occurred_at: string;
+  ingested_at: string;
+};
+
+export type ConstraintNode = {
+  id: string;
+  node_type: string;
+  ref_id: string;
+  ref_label: string | null;
+  attrs: Record<string, unknown>;
+};
+
+export type ConstraintEdge = {
+  id: string;
+  from_node: string;
+  to_node: string;
+  edge_type: string;
+  weight: number;
+  attrs: Record<string, unknown>;
+};
+
+export type RuntimeKpi = {
+  active_lines: number;
+  overloaded_lines: number;
+  blocked_lines: number;
+  high_risk_lines: number;
+  runtime_events_24h: number;
+  critical_events_24h: number;
+  pending_propagations: number;
+  timestamp: string;
+};
+
+export type TimelineGroup = {
+  id: string;
+  content: string;
+  factory_id: string;
+  factory_name: string;
+  runtime_status: RuntimeStatus;
+  runtime_risk: RuntimeRisk;
+  overload_pct: number;
+  current_efficiency: number;
+};
+
+export type TimelineItem = {
+  id: string;
+  group: string;
+  start: string;
+  end: string;
+  order_id: string | null;
+  product_type: string | null;
+  qty: number;
+  progress: number;
+  status: string;
+  is_locked: boolean;
+  risk: "ok" | "running" | "high" | "critical";
+  deviation_pct: number;
+  content: string;
+};
+
+export type TimelineResponse = {
+  window: { from: string; to: string };
+  counts: { groups: number; items: number };
+  groups: TimelineGroup[];
+  items: TimelineItem[];
+};
+
+export type RuntimeCommandAction = {
+  type: "simulate" | "incident" | "reschedule" | "execute" | "dismiss" | string;
+  label: string;
+  endpoint: string | null;
+  method: "POST" | "GET" | null;
+  payload?: Record<string, unknown>;
+};
+
+export type RuntimeCommand = {
+  id: string;
+  kind: "event" | "action";
+  severity: RuntimeSeverity;
+  title: string;
+  summary: string;
+  affected: Array<Record<string, unknown>>;
+  source: string;
+  source_event_id: string | null;
+  factory_id: string | null;
+  line_id: string | null;
+  allocation_id: string | null;
+  order_id: string | null;
+  payload: Record<string, unknown>;
+  confidence: number | null;
+  occurred_at: string;
+  propagation_status: string;
+  actions: RuntimeCommandAction[];
+};
+
+export type RuntimeGraphResponse = {
+  size: { nodes: number; edges: number };
+  nodes: ConstraintNode[];
+  edges: ConstraintEdge[];
+};

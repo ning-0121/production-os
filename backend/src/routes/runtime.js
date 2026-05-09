@@ -26,6 +26,255 @@ import { replay } from "../runtime/events.js";
 const router = Router();
 
 // ════════════════════════════════════════════════════════════
+// War Room aggregate views (V5-B): timeline, commands, KPI
+// ════════════════════════════════════════════════════════════
+// These read-only endpoints aggregate runtime + planning data into shapes the
+// War Room UI can render directly (no client-side joining required).
+
+// GET /api/runtime/timeline — vis-timeline groups+items shape
+// Query: factory_id?, from?, to?  (defaults: now-7d ... now+30d)
+router.get("/timeline", asyncHandler(async (req, res) => {
+  const now = Date.now();
+  const from = req.query.from ?? new Date(now - 7 * 86400000).toISOString();
+  const to   = req.query.to   ?? new Date(now + 30 * 86400000).toISOString();
+
+  let linesQ = supabase
+    .from("production_lines")
+    .select("id, name, factory_id, status, factories(id, name)")
+    .eq("status", "active");
+  if (req.query.factory_id) linesQ = linesQ.eq("factory_id", req.query.factory_id);
+
+  let allocQ = supabase
+    .from("production_allocations")
+    .select("id, order_id, factory_id, product_type, allocated_qty, planned_start_date, planned_end_date, status, is_locked")
+    .gte("planned_end_date", from)
+    .lte("planned_start_date", to)
+    .not("status", "eq", "cancelled");
+  if (req.query.factory_id) allocQ = allocQ.eq("factory_id", req.query.factory_id);
+
+  const [linesRes, allocRes, schedRes, corrRes, runtimeRes] = await Promise.all([
+    linesQ,
+    allocQ,
+    supabase.from("line_schedules").select("line_id, allocation_id, planned_start, planned_end, status"),
+    supabase.from("order_corrections").select("allocation_id, risk_status, deviation_pct, actual_cumulative, planned_cumulative"),
+    listRuntimeLines(supabase, req.query.factory_id ? { factory_id: req.query.factory_id } : {}),
+  ]);
+
+  const lines = linesRes.data ?? [];
+  const allocations = allocRes.data ?? [];
+  const schedules = schedRes.data ?? [];
+  const corrections = corrRes.data ?? [];
+  const runtime = runtimeRes ?? [];
+
+  const corrByAlloc = new Map(corrections.map((c) => [c.allocation_id, c]));
+  const runtimeByLine = new Map(runtime.map((r) => [r.line_id, r]));
+  const schedByAlloc = new Map(schedules.map((s) => [s.allocation_id, s]));
+
+  // Groups: one row per line, ordered by factory→line name
+  const groups = lines
+    .map((l) => {
+      const rt = runtimeByLine.get(l.id);
+      return {
+        id: l.id,
+        content: l.name,
+        factory_id: l.factory_id,
+        factory_name: l.factories?.name ?? "—",
+        runtime_status: rt?.runtime_status ?? "idle",
+        runtime_risk: rt?.runtime_risk ?? "green",
+        overload_pct: Number(rt?.overload_pct ?? 0),
+        current_efficiency: Number(rt?.current_efficiency ?? 1),
+      };
+    })
+    .sort((a, b) => (a.factory_name + a.content).localeCompare(b.factory_name + b.content));
+
+  // Items: one block per allocation
+  const items = allocations
+    .map((a) => {
+      const sched = schedByAlloc.get(a.id);
+      const corr = corrByAlloc.get(a.id);
+      const start = sched?.planned_start ?? a.planned_start_date ?? from;
+      const end   = sched?.planned_end   ?? a.planned_end_date   ?? to;
+      const lineId = sched?.line_id ?? null;
+      if (!lineId) return null;
+
+      // Progress %
+      const planned = Number(corr?.planned_cumulative ?? 0);
+      const actual  = Number(corr?.actual_cumulative ?? 0);
+      const progress = planned > 0 ? Math.min(100, Math.round((actual / Math.max(1, Number(a.allocated_qty))) * 100)) : 0;
+
+      const risk = corr?.risk_status === "critical" ? "critical"
+        : corr?.risk_status === "falling_behind" ? "high"
+        : (a.status === "in_progress" ? "running" : "ok");
+
+      return {
+        id: a.id,
+        group: lineId,
+        start,
+        end,
+        order_id: a.order_id ?? null,
+        product_type: a.product_type ?? null,
+        qty: Number(a.allocated_qty ?? 0),
+        progress,
+        status: a.status,
+        is_locked: !!a.is_locked,
+        risk,
+        deviation_pct: Number(corr?.deviation_pct ?? 0),
+        // vis-timeline content rendered HTML-side in TimelineOrderBlock
+        content: a.order_id ?? a.id.slice(0, 8),
+      };
+    })
+    .filter(Boolean);
+
+  res.json({
+    window: { from, to },
+    counts: { groups: groups.length, items: items.length },
+    groups,
+    items,
+  });
+}));
+
+// GET /api/runtime/commands — aggregated AI command feed
+// Pulls high-severity unhandled events + recent agent actions into one stream
+router.get("/commands", asyncHandler(async (req, res) => {
+  const limit = Math.min(50, Number(req.query.limit ?? 20));
+  const since = new Date(Date.now() - 7 * 86400000).toISOString();
+
+  const [eventsRes, actionsRes] = await Promise.all([
+    supabase
+      .from("runtime_events")
+      .select("*")
+      .in("severity", ["critical", "high", "medium"])
+      .gte("occurred_at", since)
+      .order("occurred_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("ai_action_logs")
+      .select("*")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  const events = eventsRes.data ?? [];
+  const actions = actionsRes.data ?? [];
+
+  // Normalize into a single command shape
+  const commands = [
+    ...events.map((e) => ({
+      id: `evt:${e.id}`,
+      kind: "event",
+      severity: e.severity,
+      title: shortLabel(e.event_type),
+      summary: e.reasoning ?? `${e.event_type} on ${e.line_id ?? e.factory_id ?? "—"}`,
+      affected: e.affected_entities ?? [],
+      source: e.source,
+      source_event_id: e.id,
+      factory_id: e.factory_id,
+      line_id: e.line_id,
+      allocation_id: e.allocation_id,
+      order_id: e.order_id,
+      payload: e.payload ?? {},
+      confidence: e.confidence,
+      occurred_at: e.occurred_at,
+      propagation_status: e.propagation_status,
+      // Recommended actions per event type
+      actions: routeActionsFor(e),
+    })),
+    ...actions.map((a) => ({
+      id: `act:${a.id}`,
+      kind: "action",
+      severity: a.urgency ?? "medium",
+      title: a.action_type,
+      summary: a.summary,
+      affected: [],
+      source: a.agent ?? "agent",
+      source_event_id: null,
+      factory_id: null,
+      line_id: null,
+      allocation_id: null,
+      order_id: a.target_id,
+      payload: a.params ?? {},
+      confidence: Number(a.confidence ?? 0.5),
+      occurred_at: a.created_at,
+      propagation_status: "n/a",
+      actions: [
+        { type: "execute", label: "执行", endpoint: `/ai-actions/${a.id}/execute`, method: "POST" },
+        { type: "dismiss", label: "忽略", endpoint: `/ai-actions/${a.id}/reject`, method: "POST" },
+      ],
+    })),
+  ].sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at))).slice(0, limit);
+
+  res.json({ count: commands.length, commands });
+}));
+
+// GET /api/runtime/kpi — aggregated KPI strip data
+router.get("/kpi", asyncHandler(async (_req, res) => {
+  const [linesRes, eventsRes] = await Promise.all([
+    listRuntimeLines(supabase),
+    supabase
+      .from("runtime_events")
+      .select("severity, propagation_status, occurred_at")
+      .gte("occurred_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
+  ]);
+
+  const lines = linesRes ?? [];
+  const events = eventsRes.data ?? [];
+
+  const overloaded = lines.filter((l) => Number(l.overload_pct ?? 0) > 100).length;
+  const high_risk_lines = lines.filter((l) => l.runtime_risk === "red").length;
+  const active_lines = lines.filter((l) => l.runtime_status === "running").length;
+  const blocked_lines = lines.filter((l) => l.runtime_status === "blocked" || l.runtime_status === "down").length;
+
+  res.json({
+    active_lines,
+    overloaded_lines: overloaded,
+    blocked_lines,
+    high_risk_lines,
+    runtime_events_24h: events.length,
+    critical_events_24h: events.filter((e) => e.severity === "critical").length,
+    pending_propagations: events.filter((e) => e.propagation_status === "pending").length,
+    timestamp: new Date().toISOString(),
+  });
+}));
+
+function shortLabel(eventType) {
+  const map = {
+    material_delayed: "物料延迟",
+    line_slowdown: "产线减速",
+    rework_started: "返工开始",
+    qc_failure: "质量异常",
+    factory_shutdown: "工厂停产",
+    labor_shortage: "人员短缺",
+    shipment_risk: "出货风险",
+    vip_inserted: "紧急插单",
+    overtime_started: "加班开启",
+    allocation_completed: "订单完成",
+    line_status_changed: "产线状态变更",
+    reschedule_applied: "重排已应用",
+    rollback_applied: "已回滚",
+    simulation_run: "模拟运行",
+  };
+  return map[eventType] ?? eventType;
+}
+
+function routeActionsFor(event) {
+  const acts = [
+    { type: "simulate", label: "模拟影响", endpoint: "/runtime/simulate", method: "POST",
+      payload: { events: [{ event_type: event.event_type, line_id: event.line_id, payload: event.payload }] } },
+  ];
+  if (event.event_type === "material_delayed" || event.event_type === "line_slowdown" || event.event_type === "qc_failure") {
+    acts.push({ type: "incident", label: "升级为事件", endpoint: "/incidents", method: "POST",
+      payload: { incident_type: event.event_type, severity: event.severity, factory_id: event.factory_id, order_id: event.order_id, description: event.reasoning ?? event.event_type } });
+  }
+  if (event.line_id) {
+    acts.push({ type: "reschedule", label: "本地重排", endpoint: "/runtime/reschedule", method: "POST",
+      payload: { line_id: event.line_id, conflict_type: event.event_type === "line_slowdown" ? "slowdown" : "blocked", reason: event.reasoning ?? "" } });
+  }
+  acts.push({ type: "dismiss", label: "忽略", endpoint: null, method: null });
+  return acts;
+}
+
+// ════════════════════════════════════════════════════════════
 // Lines (live state)
 // ════════════════════════════════════════════════════════════
 
