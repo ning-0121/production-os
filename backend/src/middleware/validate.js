@@ -354,7 +354,10 @@ export const schemas = {
 
   runtimePropagate: z.object({
     origin_node: z.object({
-      node_type: z.enum(["material", "order", "allocation", "line", "factory", "rework", "shipment", "qc_block"]),
+      // Generic manufacturing — free-form lowercase identifier so industries
+      // (apparel/furniture/electronics) can introduce new node types without
+      // a schema migration. Must be snake_case alnum, 1-32 chars.
+      node_type: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/, "node_type must be snake_case (a-z, 0-9, _), 1-32 chars"),
       ref_id: z.string().min(1),
     }),
     severity: z.enum(["critical", "high", "medium", "low", "info"]).default("medium"),

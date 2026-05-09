@@ -595,15 +595,28 @@ describe("Runtime Zod schemas", () => {
     assert.ok(ok.success);
   });
 
-  it("validates propagate origin_node", () => {
-    const ok = schemas.runtimePropagate.safeParse({
+  it("validates propagate origin_node (free-form generic manufacturing types)", () => {
+    // Apparel
+    assert.ok(schemas.runtimePropagate.safeParse({
       origin_node: { node_type: "material", ref_id: "M1" },
-      severity: "high",
-    });
-    assert.ok(ok.success);
-    const bad = schemas.runtimePropagate.safeParse({
-      origin_node: { node_type: "weird", ref_id: "M1" },
-    });
-    assert.ok(!bad.success);
+    }).success);
+    // Furniture-specific
+    assert.ok(schemas.runtimePropagate.safeParse({
+      origin_node: { node_type: "wood_panel", ref_id: "WP-001" },
+    }).success);
+    // Electronics-specific
+    assert.ok(schemas.runtimePropagate.safeParse({
+      origin_node: { node_type: "smt_line", ref_id: "SMT-1" },
+    }).success);
+    // Reject malformed (uppercase, leading digit, special chars)
+    assert.ok(!schemas.runtimePropagate.safeParse({
+      origin_node: { node_type: "Material", ref_id: "M1" },
+    }).success);
+    assert.ok(!schemas.runtimePropagate.safeParse({
+      origin_node: { node_type: "1material", ref_id: "M1" },
+    }).success);
+    assert.ok(!schemas.runtimePropagate.safeParse({
+      origin_node: { node_type: "node-type", ref_id: "M1" },
+    }).success);
   });
 });
