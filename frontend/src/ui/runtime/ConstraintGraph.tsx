@@ -66,8 +66,10 @@ export function ConstraintGraph({ refreshKey = 0 }: { refreshKey?: number }) {
   const [propagationInfo, setPropagationInfo] = React.useState<string | null>(null);
   const [propLoading, setPropLoading] = React.useState(false);
 
-  const rfNodes = React.useMemo(() => buildNodes(data?.nodes ?? [], highlightedNodes), [data?.nodes, highlightedNodes]);
-  const rfEdges = React.useMemo(() => buildEdges(data?.edges ?? [], highlightedNodes), [data?.edges, highlightedNodes]);
+  const safeNodes = React.useMemo(() => Array.isArray(data?.nodes) ? data!.nodes : [], [data?.nodes]);
+  const safeEdges = React.useMemo(() => Array.isArray(data?.edges) ? data!.edges : [], [data?.edges]);
+  const rfNodes = React.useMemo(() => buildNodes(safeNodes, highlightedNodes), [safeNodes, highlightedNodes]);
+  const rfEdges = React.useMemo(() => buildEdges(safeEdges, highlightedNodes), [safeEdges, highlightedNodes]);
 
   async function handleNodeClick(_evt: React.MouseEvent, node: Node) {
     setRuntimeSelectedNodeId(node.id);
@@ -103,8 +105,7 @@ export function ConstraintGraph({ refreshKey = 0 }: { refreshKey?: number }) {
   if (loading) return <div className="loadingCenter" style={{ padding: 32 }}>加载约束图...</div>;
   if (error) return <div style={{ padding: 16, color: "var(--danger)" }}>加载失败：{error}</div>;
 
-  const nodes = data?.nodes ?? [];
-  if (nodes.length === 0) {
+  if (safeNodes.length === 0) {
     return (
       <div className="emptyState" style={{ padding: 32 }}>
         约束图为空。
@@ -119,7 +120,7 @@ export function ConstraintGraph({ refreshKey = 0 }: { refreshKey?: number }) {
     <div className="rtGraphWrap">
       <div className="rtGraphToolbar">
         <span className="hint">
-          {nodes.length} 节点 · {data?.edges?.length ?? 0} 边
+          {safeNodes.length} 节点 · {safeEdges.length} 边
         </span>
         {(highlightedNodes.size > 0 || propagationInfo) && (
           <>

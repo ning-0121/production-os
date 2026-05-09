@@ -9,6 +9,10 @@
 
 BEGIN;
 
+-- gen_random_uuid() lives in pgcrypto. Supabase enables this by default but
+-- self-hosted PG may not — be explicit so the migration is portable.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- ════════════════════════════════════════════════════════════
 -- 1) production_runtime_lines — LIVE state per production line
 -- ════════════════════════════════════════════════════════════
