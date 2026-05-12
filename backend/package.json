@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "start": "node src/api.js",
-    "dev": "node src/api.js",
+    "dev": "node --env-file=.env --watch src/api.js",
     "test": "node --test tests/scheduler.test.js tests/agents.test.js tests/forecast.test.js tests/validation.test.js tests/anomaly.test.js tests/runtime.test.js",
     "test:scheduler": "node src/scheduler/demo.js",
     "test:optimizer": "node src/scheduler/optimizer-test.js",
     "test:validate": "node src/scripts/validate-offline-test.js",
     "validate": "node src/scripts/validate-data.js",
-    "verify:v5": "node scripts/v5-e2e-verify.mjs",
-    "demo:seed": "node scripts/demo-seed.mjs"
+    "verify:v5": "node --env-file=.env scripts/v5-e2e-verify.mjs",
+    "demo:seed": "node --env-file=.env scripts/demo-seed.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
