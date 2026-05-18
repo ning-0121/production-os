@@ -913,3 +913,57 @@ export function executeCommandAction(action: { endpoint: string | null; method: 
     body: action.method === "POST" ? JSON.stringify(action.payload ?? {}) : undefined,
   });
 }
+
+// ════════════════════════════════════════════════════════════
+// V4: Customer CRUD
+// ════════════════════════════════════════════════════════════
+
+export type Customer = {
+  id: string;
+  code: string;
+  name: string;
+  country: string | null;
+  payment_terms: string | null;
+  vip_level: "platinum" | "gold" | "silver" | "standard";
+  credit_limit: number | null;
+  payment_cycle_days: number | null;
+  total_orders_ytd: number;
+  total_revenue_ytd: number;
+  risk_level: "low" | "medium" | "high";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export function fetchCustomers(params: { q?: string; vip_level?: string } = {}): Promise<Customer[]> {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v != null && v !== "") as [string, string][],
+  ).toString();
+  return request(`/customers${qs ? `?${qs}` : ""}`);
+}
+
+export function createCustomer(data: Partial<Customer>): Promise<Customer> {
+  return request("/customers", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateCustomer(id: string, data: Partial<Customer>): Promise<Customer> {
+  return request(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+}
+
+export function deleteCustomer(id: string): Promise<void> {
+  return request(`/customers/${id}`, { method: "DELETE" });
+}
+
+// ════════════════════════════════════════════════════════════
+// V4: Factory create
+// ════════════════════════════════════════════════════════════
+
+export function createFactory(data: {
+  name: string;
+  location?: string;
+  lat?: number;
+  lng?: number;
+  status?: "active" | "inactive" | "maintenance";
+}): Promise<import("../types").Factory> {
+  return request("/factories", { method: "POST", body: JSON.stringify(data) });
+}

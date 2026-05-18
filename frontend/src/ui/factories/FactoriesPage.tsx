@@ -6,6 +6,7 @@ import {
   fetchProductionLines,
   createProductionLine,
   updateProductionLine,
+  createFactory,
 } from "../../services/api";
 import { useToast } from "../Toast";
 import type { Factory, ProductionLine } from "../../types";
@@ -18,6 +19,18 @@ export function FactoriesPage() {
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [filterStatus, setFilterStatus] = React.useState("");
   const [searchText, setSearchText] = React.useState("");
+  const [createOpen, setCreateOpen] = React.useState(false);
+
+  async function handleCreateFactory(payload: { name: string; location?: string; status: "active" | "inactive" | "maintenance" }) {
+    try {
+      await createFactory(payload);
+      toast("工厂已创建", "success");
+      setCreateOpen(false);
+      refetch();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "创建失败", "error");
+    }
+  }
 
   const factories = React.useMemo(() => {
     let list = rawFactories ?? [];
@@ -65,7 +78,10 @@ export function FactoriesPage() {
             <h2>工厂 & 资源管理</h2>
             <div className="hint">管理工厂、产线、产能配置</div>
           </div>
-          <span className="pill">{factories.length} / {rawFactories.length} 工厂</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="pill">{factories.length} / {rawFactories.length} 工厂</span>
+            <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 新建工厂</button>
+          </div>
         </div>
 
         <div className="filterBar">
@@ -170,6 +186,63 @@ export function FactoriesPage() {
           </div>
         );
       })}
+
+      {createOpen && (
+        <CreateFactoryModal
+          onCancel={() => setCreateOpen(false)}
+          onSubmit={handleCreateFactory}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateFactoryModal({ onCancel, onSubmit }: {
+  onCancel: () => void;
+  onSubmit: (p: { name: string; location?: string; status: "active" | "inactive" | "maintenance" }) => void | Promise<void>;
+}) {
+  const [name, setName] = React.useState("");
+  const [location, setLocation] = React.useState("");
+  const [status, setStatus] = React.useState<"active" | "inactive" | "maintenance">("active");
+  const [saving, setSaving] = React.useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    await onSubmit({ name: name.trim(), location: location.trim() || undefined, status });
+    setSaving(false);
+  }
+  return (
+    <div onClick={onCancel}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={submit}
+        style={{ background: "#0b1220", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: 24, width: 420, display: "flex", flexDirection: "column", gap: 14 }}>
+        <h3 style={{ margin: 0 }}>新建工厂</h3>
+        <label style={{ fontSize: 12, color: "var(--muted)" }}>
+          工厂名称 *
+          <input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)}
+            style={{ display: "block", width: "100%", padding: "8px 10px", marginTop: 4, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 6, color: "var(--text)", fontSize: 13 }} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--muted)" }}>
+          位置 / 地址
+          <input value={location} onChange={(e) => setLocation(e.target.value)}
+            style={{ display: "block", width: "100%", padding: "8px 10px", marginTop: 4, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 6, color: "var(--text)", fontSize: 13 }} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--muted)" }}>
+          初始状态
+          <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
+            style={{ display: "block", width: "100%", padding: "8px 10px", marginTop: 4, background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 6, color: "var(--text)", fontSize: 13 }}>
+            <option value="active">活跃</option>
+            <option value="inactive">停用</option>
+            <option value="maintenance">维护中</option>
+          </select>
+        </label>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn" onClick={onCancel}>取消</button>
+          <button type="submit" className="btn primary" disabled={saving}>{saving ? "创建中..." : "创建"}</button>
+        </div>
+      </form>
     </div>
   );
 }

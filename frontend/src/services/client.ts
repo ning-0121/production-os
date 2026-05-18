@@ -85,10 +85,39 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const message = (body as { error?: string }).error ?? `HTTP ${res.status}`;
+    // 401 → token expired or invalid. Trigger auto-logout so user gets
+    // sent back to login instead of staring at error toasts.
+    if (res.status === 401) {
+      handleAuthExpired(message);
+    }
     throw new ApiError(message, res.status, body);
   }
 
   return body as T;
+}
+
+// ── 401 auto-logout (single-flight) ─────────────────────
+// Dynamically imports auth.logout to avoid circular import (auth → client).
+// Debounced so a burst of 401s only triggers one logout + one alert.
+
+let authExpiredFired = false;
+function handleAuthExpired(message: string) {
+  if (authExpiredFired) return;
+  authExpiredFired = true;
+
+  // Fire-and-forget logout; we don't want to await inside the request pipeline.
+  import("./auth").then((mod) => mod.logout().catch(() => {})).catch(() => {});
+
+  // Notify the user once. Use a toast if available via window event, otherwise alert.
+  if (typeof window !== "undefined") {
+    const evt = new CustomEvent("prodos:auth-expired", { detail: { message } });
+    window.dispatchEvent(evt);
+    // Soft redirect after a short delay so the toast has time to render.
+    setTimeout(() => {
+      // Reload reroutes to LoginPage because session is now gone.
+      if (typeof window !== "undefined") window.location.reload();
+    }, 1200);
+  }
 }
 
 // ── Health check ────────────────────────────────────────

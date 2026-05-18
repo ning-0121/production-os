@@ -314,6 +314,41 @@ export const schemas = {
     question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
   }),
 
+  // ── V4: Customer CRUD ────────────────────────────────
+  createCustomer: z.object({
+    code: z.string().min(1).max(64),
+    name: z.string().min(1).max(200),
+    country: z.string().max(64).optional(),
+    payment_terms: z.string().max(64).optional(),
+    vip_level: z.enum(["platinum", "gold", "silver", "standard"]).default("standard"),
+    credit_limit: z.number().nonnegative().optional(),
+    payment_cycle_days: z.number().int().min(0).max(365).optional(),
+    risk_level: z.enum(["low", "medium", "high"]).default("low"),
+    notes: z.string().max(2000).optional(),
+  }),
+  updateCustomer: z.object({
+    name: z.string().min(1).max(200).optional(),
+    country: z.string().max(64).optional(),
+    payment_terms: z.string().max(64).optional(),
+    vip_level: z.enum(["platinum", "gold", "silver", "standard"]).optional(),
+    credit_limit: z.number().nonnegative().optional(),
+    payment_cycle_days: z.number().int().min(0).max(365).optional(),
+    risk_level: z.enum(["low", "medium", "high"]).optional(),
+    notes: z.string().max(2000).optional(),
+  }).refine((d) => Object.keys(d).length > 0, "至少填写一个字段"),
+
+  // ── Factory create ───────────────────────────────────
+  createFactory: z.object({
+    name: z.string().min(1).max(200),
+    location: z.string().max(200).optional(),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+    status: z.enum(["active", "inactive", "maintenance"]).default("active"),
+    cooperation_score: z.number().min(0).max(100).optional(),
+    quality_score: z.number().min(0).max(100).optional(),
+    delay_score: z.number().min(0).max(100).optional(),
+  }),
+
   // ── V5-A: Runtime Core ────────────────────────────────
   runtimeLineUpdate: z.object({
     factory_id: z.string().uuid().optional(),

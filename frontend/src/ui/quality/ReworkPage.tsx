@@ -1,6 +1,6 @@
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
-import { fetchReworks, updateRework } from "../../services/api";
+import { fetchReworks, updateRework, createRework } from "../../services/api";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import "./quality.css";
@@ -12,6 +12,7 @@ const PARTY_LABELS: Record<string, string> = { factory: "工厂", material: "物
 export function ReworkPage() {
   const { toast } = useToast();
   const { data: reworks, loading, refetch } = useAsync(() => fetchReworks(), []);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   async function handleStatusChange(id: string, status: string) {
     try {
@@ -37,9 +38,20 @@ export function ReworkPage() {
       </div>
 
       <div className="card">
-        <div className="cardHeader"><h2>返工单列表</h2><span className="hint">{list.length} 单</span></div>
+        <div className="cardHeader">
+          <h2>返工单列表</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="hint">{list.length} 单</span>
+            <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 新建返工</button>
+          </div>
+        </div>
         <div className="qcList">
-          {list.length === 0 && <div className="emptyState">暂无返工单</div>}
+          {list.length === 0 && (
+            <div className="emptyState" style={{ padding: 32, textAlign: "center" }}>
+              <div style={{ marginBottom: 12 }}>暂无返工单</div>
+              <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 创建第一个返工单</button>
+            </div>
+          )}
           {list.map((rw) => {
             const order = rw.orders as Record<string, unknown> | null;
             const factory = rw.factories as Record<string, unknown> | null;
@@ -73,6 +85,88 @@ export function ReworkPage() {
           })}
         </div>
       </div>
+
+      {createOpen && (
+        <CreateReworkModal
+          onCancel={() => setCreateOpen(false)}
+          onSubmit={async (payload) => {
+            try {
+              await createRework(payload);
+              toast("返工单已创建", "success");
+              setCreateOpen(false);
+              refetch();
+            } catch (err) {
+              toast(err instanceof Error ? err.message : "创建失败", "error");
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateReworkModal({ onCancel, onSubmit }: {
+  onCancel: () => void;
+  onSubmit: (p: Record<string, unknown>) => void | Promise<void>;
+}) {
+  const [orderId, setOrderId] = React.useState("");
+  const [qty, setQty] = React.useState("");
+  const [reason, setReason] = React.useState("");
+  const [responsibleParty, setResponsibleParty] = React.useState("factory");
+  const [estDays, setEstDays] = React.useState("");
+  const [cost, setCost] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!qty || Number(qty) <= 0) return;
+    setSaving(true);
+    await onSubmit({
+      order_id: orderId.trim() || undefined,
+      rework_qty: Number(qty),
+      reason: reason.trim() || undefined,
+      responsible_party: responsibleParty,
+      estimated_days: estDays === "" ? undefined : Number(estDays),
+      cost: cost === "" ? undefined : Number(cost),
+    });
+    setSaving(false);
+  }
+
+  const inp: React.CSSProperties = {
+    width: "100%", padding: "8px 10px", marginTop: 4,
+    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.12)",
+    borderRadius: 6, color: "var(--text)", fontSize: 13, fontFamily: "inherit",
+  };
+  const lab: React.CSSProperties = { fontSize: 12, color: "var(--muted)", display: "block" };
+
+  return (
+    <div onClick={onCancel}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={submit}
+        style={{ background: "#0b1220", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: 24, width: 460, display: "flex", flexDirection: "column", gap: 14 }}>
+        <h3 style={{ margin: 0 }}>新建返工单</h3>
+        <label style={lab}>订单号<input value={orderId} onChange={(e) => setOrderId(e.target.value)} placeholder="ORD-..." style={inp} /></label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <label style={lab}>返工数量 *<input required type="number" min={1} value={qty} onChange={(e) => setQty(e.target.value)} style={inp} /></label>
+          <label style={lab}>责任方
+            <select value={responsibleParty} onChange={(e) => setResponsibleParty(e.target.value)} style={inp}>
+              <option value="factory">工厂</option>
+              <option value="material">物料</option>
+              <option value="design">设计</option>
+              <option value="customer">客户</option>
+            </select>
+          </label>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <label style={lab}>预计天数<input type="number" min={0} value={estDays} onChange={(e) => setEstDays(e.target.value)} style={inp} /></label>
+          <label style={lab}>预计成本（元）<input type="number" min={0} value={cost} onChange={(e) => setCost(e.target.value)} style={inp} /></label>
+        </div>
+        <label style={lab}>返工原因<textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} style={inp} /></label>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn" onClick={onCancel}>取消</button>
+          <button type="submit" className="btn primary" disabled={saving}>{saving ? "保存中..." : "创建"}</button>
+        </div>
+      </form>
     </div>
   );
 }

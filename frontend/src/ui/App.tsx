@@ -15,6 +15,7 @@ import { QualityPage } from "./quality/QualityPage";
 import { ReworkPage } from "./quality/ReworkPage";
 import { ProfitPage } from "./profit/ProfitPage";
 import { RuntimeWarRoomPage } from "./runtime/RuntimeWarRoomPage";
+import { CustomersPage } from "./customers/CustomersPage";
 import { AIAssistant } from "./today/AIAssistant";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
@@ -81,6 +82,17 @@ function MainApp({ user }: { user: AuthUser }) {
     checkHealth().then(setApiHealth).catch(() => {});
   }, []);
 
+  // Listen for 401 auto-logout broadcast from client.ts
+  React.useEffect(() => {
+    function onAuthExpired() {
+      // Lightweight notification — full toast via the existing alert path.
+      // We don't import useToast here because the alert flow is fire-and-forget.
+      try { alert("登录已过期，正在重新登录..."); } catch { /* ignore */ }
+    }
+    window.addEventListener("prodos:auth-expired", onAuthExpired);
+    return () => window.removeEventListener("prodos:auth-expired", onAuthExpired);
+  }, []);
+
   async function handleLogout() {
     setLoggingOut(true);
     try { await logout(); } catch { /* ignore */ }
@@ -144,6 +156,12 @@ function SchedulingWorkbench() {
           排产看板
         </button>
         <button
+          className={`subTab ${subTab === "customers" ? "subTab--active" : ""}`}
+          onClick={() => setSubTab("customers")}
+        >
+          客户管理
+        </button>
+        <button
           className={`subTab ${subTab === "profit" ? "subTab--active" : ""}`}
           onClick={() => setSubTab("profit")}
         >
@@ -152,6 +170,7 @@ function SchedulingWorkbench() {
       </div>
       {subTab === "orders" && <OrderCenterPage />}
       {subTab === "board" && <SchedulePage />}
+      {subTab === "customers" && <CustomersPage />}
       {subTab === "profit" && <ProfitPage />}
     </div>
   );

@@ -1,8 +1,20 @@
 import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { validate, schemas } from "../middleware/validate.js";
 
 const router = Router();
+
+// POST /api/factories — create new factory
+router.post("/", validate(schemas.createFactory), asyncHandler(async (req, res) => {
+  const { data, error } = await supabase
+    .from("factories")
+    .insert(req.body)
+    .select("*, factory_capabilities(*)")
+    .single();
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(201).json(data);
+}));
 
 // GET /api/factories — list all factories with capabilities
 router.get("/", asyncHandler(async (_req, res) => {
