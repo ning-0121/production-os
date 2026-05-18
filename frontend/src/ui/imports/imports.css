@@ -1,0 +1,200 @@
+/* ── V5-C Import Center ─────────────────────────────────── */
+
+.impPage { display: flex; flex-direction: column; gap: 14px; }
+.impHeader { padding: 0 4px; }
+.impHeader .hint { margin-top: 4px; font-size: 13px; }
+
+.impTabs { display: flex; gap: 4px; }
+.impTab {
+  background: rgba(255,255,255,.04);
+  color: var(--muted);
+  border: 1px solid rgba(255,255,255,.08);
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.impTab:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.impTab--active {
+  background: rgba(110,231,255,.12);
+  color: var(--accent);
+  border-color: rgba(110,231,255,.35);
+}
+
+/* ── Upload panel ────────────────────────────────────────── */
+.impUploadPanel {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 24px;
+  padding: 36px;
+}
+@media (max-width: 980px) { .impUploadPanel { grid-template-columns: 1fr; } }
+
+.impUploadInner {
+  border: 2px dashed rgba(255,255,255,.15);
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  background: rgba(255,255,255,.02);
+}
+
+.impUploadHints {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px;
+  background: rgba(110,231,255,.04);
+  border: 1px solid rgba(110,231,255,.15);
+  border-radius: 10px;
+}
+.impHintItem { font-size: 12px; line-height: 1.5; color: var(--muted); }
+.impHintItem strong { color: var(--text); font-weight: 600; }
+
+/* ── Confirmation panel ──────────────────────────────────── */
+.impConfirmWrap { display: flex; flex-direction: column; gap: 12px; }
+
+.impMappingGrid {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 6px 0;
+}
+.impMappingRow {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.03);
+  border-left: 3px solid var(--muted);
+  border-radius: 6px;
+}
+.impMappingRow--auto { border-left-color: #22c55e; }
+.impMappingRow--manual { border-left-color: #facc15; }
+.impMappingRow--unmapped { border-left-color: rgba(148,163,184,.4); opacity: .85; }
+
+.impMappingLabel {
+  font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+.impMappingValue { font-size: 14px; font-weight: 500; }
+.impMappingArrow {
+  text-align: center;
+  font-size: 18px;
+  color: var(--muted);
+}
+.impMappingInternal select {
+  width: 100%;
+  padding: 6px 8px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+}
+.impConfidence {
+  margin-left: 6px; font-size: 10px;
+  background: rgba(110,231,255,.15);
+  color: var(--accent);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+/* ── Preview table ───────────────────────────────────────── */
+.impPreviewTable {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+.impPreviewTable th {
+  text-align: left; padding: 8px 10px;
+  color: var(--muted); font-weight: 500;
+  font-size: 11px; text-transform: uppercase;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.02);
+  position: sticky; top: 0;
+}
+.impPreviewTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.impPreviewRow--rejected { background: rgba(251,113,133,.05); }
+.impPreviewRow--warning { background: rgba(250,204,21,.04); }
+.impPreviewRow--skipped_duplicate { opacity: .55; }
+
+.impStatusPill {
+  font-size: 10px; padding: 2px 6px; border-radius: 3px;
+}
+.impStatusPill--pending, .impStatusPill--committed { background: rgba(34,197,94,.16); color: #22c55e; }
+.impStatusPill--warning { background: rgba(250,204,21,.16); color: #facc15; }
+.impStatusPill--rejected { background: rgba(251,113,133,.16); color: #fb7185; }
+.impStatusPill--skipped_duplicate { background: rgba(148,163,184,.16); color: #cbd5e1; }
+
+/* ── Error list ──────────────────────────────────────────── */
+.impErrorList { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; max-height: 240px; overflow-y: auto; }
+.impErrorRow {
+  display: flex; gap: 10px; align-items: center;
+  padding: 6px 10px; background: rgba(255,255,255,.03); border-radius: 4px;
+  font-size: 12px; border-left: 2px solid var(--muted);
+}
+.impErrorRow--error { border-left-color: #fb7185; }
+.impErrorRow--warning { border-left-color: #facc15; }
+.impErrorRow--info { border-left-color: #60a5fa; }
+.impErrorCode {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(255,255,255,.06);
+  padding: 2px 6px; border-radius: 3px;
+}
+.impErrorMsg { flex: 1; }
+.impErrorRowNum { font-size: 10px; color: var(--muted); }
+
+/* ── Commit bar ──────────────────────────────────────────── */
+.impCommitBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  border-top: 2px solid rgba(110,231,255,.25);
+  background: rgba(11,18,32,.95);
+}
+
+/* ── History ─────────────────────────────────────────────── */
+.impHistoryWrap { display: flex; flex-direction: column; gap: 8px; }
+.impRunCard {
+  padding: 12px 16px;
+  cursor: pointer;
+  border-left: 3px solid var(--muted);
+}
+.impRunCard--completed { border-left-color: #22c55e; }
+.impRunCard--partial { border-left-color: #facc15; }
+.impRunCard--failed { border-left-color: #fb7185; }
+.impRunCard--awaiting_confirmation { border-left-color: var(--accent); }
+.impRunHeader {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.impRunHeaderLeft, .impRunHeaderRight {
+  display: flex; gap: 10px; align-items: center;
+}
+.impRunHeaderRight { font-size: 11px; color: var(--muted); }
+.impRunStatus {
+  font-size: 10px; padding: 2px 6px; border-radius: 3px;
+  background: rgba(255,255,255,.06);
+}
+.impRunStatus--completed { background: rgba(34,197,94,.16); color: #22c55e; }
+.impRunStatus--partial { background: rgba(250,204,21,.16); color: #facc15; }
+.impRunStatus--failed { background: rgba(251,113,133,.16); color: #fb7185; }
+.impRunStatus--awaiting_confirmation { background: rgba(110,231,255,.16); color: var(--accent); }
+.impRunFilename { font-weight: 600; }
+.impRunDetail { padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+
+/* ── Unresolved ──────────────────────────────────────────── */
+.impUnresolvedTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.impUnresolvedTable th, .impUnresolvedTable td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.impUnresolvedTable th {
+  font-weight: 500; font-size: 11px;
+  color: var(--muted); text-transform: uppercase;
+}

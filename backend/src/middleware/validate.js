@@ -314,6 +314,32 @@ export const schemas = {
     question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
   }),
 
+  // ── V5-C: Import Gateway ─────────────────────────────
+  importUpload: z.object({
+    filename: z.string().min(1).max(255),
+    file_size_bytes: z.number().int().nonnegative().optional(),
+    file_hash: z.string().max(128).optional(),
+    sheet_name: z.string().max(128).optional(),
+    headers: z.array(z.string()).min(1).max(200),
+    // Each row keyed by external header. Max 5000 rows per upload.
+    rows: z.array(z.record(z.string(), z.unknown())).min(1).max(5000),
+    // Optional hints
+    suggested_import_type: z.enum(["daily_report", "hanging_line", "qc", "rework", "generic"]).optional(),
+    factory_id: z.string().uuid().optional(),
+  }),
+  importConfirm: z.object({
+    column_mappings: z.array(z.object({
+      external_header: z.string(),
+      internal_field: z.string().nullable(),
+    })).min(1),
+    save_as_template: z.boolean().optional(),
+    template_name: z.string().max(128).optional(),
+  }),
+  importResolveMapping: z.object({
+    resolved_internal_type: z.string().min(1).max(32),
+    resolved_internal_id: z.string().min(1).max(128),
+  }),
+
   // ── V4: Customer CRUD ────────────────────────────────
   createCustomer: z.object({
     code: z.string().min(1).max(64),

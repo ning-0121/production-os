@@ -16,6 +16,7 @@ import { ReworkPage } from "./quality/ReworkPage";
 import { ProfitPage } from "./profit/ProfitPage";
 import { RuntimeWarRoomPage } from "./runtime/RuntimeWarRoomPage";
 import { CustomersPage } from "./customers/CustomersPage";
+import { ImportCenterPage } from "./imports/ImportCenterPage";
 import { AIAssistant } from "./today/AIAssistant";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
@@ -127,6 +128,7 @@ function MainApp({ user }: { user: AuthUser }) {
         {module === "quality" && <PageBoundary name="品质中心"><QualityModule /></PageBoundary>}
         {module === "factories" && <PageBoundary name="工厂资源"><FactoriesPage /></PageBoundary>}
         {module === "runtime" && <PageBoundary name="运行时战室"><RuntimeWarRoomPage /></PageBoundary>}
+        {module === "imports" && <PageBoundary name="数据网关"><ImportCenterPage /></PageBoundary>}
       </main>
 
       {/* Global AI Assistant — floating button on all pages */}

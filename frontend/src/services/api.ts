@@ -967,3 +967,116 @@ export function createFactory(data: {
 }): Promise<import("../types").Factory> {
   return request("/factories", { method: "POST", body: JSON.stringify(data) });
 }
+
+// ════════════════════════════════════════════════════════════
+// V5-C: Import Gateway
+// ════════════════════════════════════════════════════════════
+
+export type ImportRun = {
+  id: string;
+  filename: string | null;
+  file_size_bytes: number | null;
+  uploaded_by: string | null;
+  import_type: "daily_report" | "hanging_line" | "qc" | "rework" | "generic";
+  detected_factory_id: string | null;
+  sheet_name: string | null;
+  total_rows: number;
+  status: "parsing" | "awaiting_confirmation" | "committing" | "completed" | "partial" | "failed" | "rolled_back";
+  column_mappings: Array<{ external_header: string; internal_field: string | null; confidence?: number; auto_accepted?: boolean }>;
+  summary: Record<string, unknown>;
+  reasoning: string | null;
+  started_at: string;
+  completed_at: string | null;
+};
+
+export type ImportColumnMapping = {
+  external_header: string;
+  internal_field: string | null;
+  confidence: number;
+  source: "learned" | "dictionary" | "llm" | null;
+  candidates: Array<{ internal_field: string; confidence: number; source: string }>;
+  auto_accepted: boolean;
+};
+
+export type ImportUploadResponse = {
+  run_id: string;
+  import_type: ImportRun["import_type"];
+  detection: { import_type: string; confidence: number; scores: Record<string, number> };
+  recognition: {
+    mappings: ImportColumnMapping[];
+    unmapped_headers: string[];
+    missing_required: string[];
+    needs_user_confirmation: boolean;
+  };
+  preview: Array<{
+    row_number: number;
+    raw: Record<string, unknown>;
+    normalized: Record<string, unknown>;
+    status: "pending" | "warning" | "rejected" | "skipped_duplicate" | "committed";
+  }>;
+  counts: { rows: number; errors: number; warnings: number };
+};
+
+export type ImportRunDetail = {
+  run: ImportRun;
+  rows: Array<{
+    id: string; row_number: number; raw_data: Record<string, unknown>;
+    normalized: Record<string, unknown>; status: string; error_message: string | null;
+    committed_entity_type: string | null; committed_entity_id: string | null;
+  }>;
+  errors: Array<{
+    id: string; severity: "error" | "warning" | "info";
+    code: string; message: string; details: Record<string, unknown>; created_at: string;
+  }>;
+  unresolved: Array<{
+    id: string; external_field: string; external_value: string;
+    occurrences: number; suggested_matches: unknown[];
+    status: string;
+  }>;
+};
+
+export function uploadImport(body: {
+  filename: string;
+  file_size_bytes?: number;
+  sheet_name?: string;
+  headers: string[];
+  rows: Array<Record<string, unknown>>;
+  suggested_import_type?: ImportRun["import_type"];
+  factory_id?: string;
+}): Promise<ImportUploadResponse> {
+  return request("/imports/upload", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function confirmImport(runId: string, body: {
+  column_mappings: Array<{ external_header: string; internal_field: string | null }>;
+  save_as_template?: boolean;
+  template_name?: string;
+}): Promise<{
+  run_id: string; status: ImportRun["status"];
+  committed: number; skipped_duplicates: number; errors: number;
+  events_emitted: number; unresolved_mappings: number;
+}> {
+  return request(`/imports/${runId}/confirm`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function fetchImportRuns(limit = 30): Promise<{ count: number; runs: ImportRun[] }> {
+  return request(`/imports/runs?limit=${limit}`);
+}
+
+export function fetchImportRun(id: string): Promise<ImportRunDetail> {
+  return request(`/imports/runs/${id}`);
+}
+
+export function fetchUnresolvedMappings(): Promise<{ count: number; items: Array<{
+  id: string; run_id: string; external_field: string; external_value: string;
+  occurrences: number; suggested_matches: unknown[]; status: string; created_at: string;
+}> }> {
+  return request("/imports/unresolved");
+}
+
+export function resolveUnresolvedMapping(id: string, body: {
+  resolved_internal_type: string;
+  resolved_internal_id: string;
+}): Promise<unknown> {
+  return request(`/imports/unresolved/${id}/resolve`, { method: "POST", body: JSON.stringify(body) });
+}
