@@ -42,6 +42,7 @@ import profitRouter from "./routes/profit.js";
 import runtimeRouter from "./routes/runtime.js";
 import customersRouter from "./routes/customers.js";
 import importsRouter from "./routes/imports.js";
+import riskRouter from "./routes/risk.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -190,6 +191,7 @@ app.use("/api/profit", profitRouter);
 app.use("/api/runtime", runtimeRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/imports", importsRouter);
+app.use("/api/risk", riskRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

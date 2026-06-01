@@ -314,6 +314,12 @@ export const schemas = {
     question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
   }),
 
+  // ── Risk Engine ──────────────────────────────────────
+  riskBatch: z.object({
+    subject_type: z.enum(["order", "allocation", "line", "factory", "customer"]),
+    ids: z.array(z.string().min(1)).min(1).max(200),
+  }),
+
   // ── V5-C: Import Gateway ─────────────────────────────
   importUpload: z.object({
     filename: z.string().min(1).max(255),

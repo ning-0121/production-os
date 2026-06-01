@@ -1080,3 +1080,26 @@ export function resolveUnresolvedMapping(id: string, body: {
 }): Promise<unknown> {
   return request(`/imports/unresolved/${id}/resolve`, { method: "POST", body: JSON.stringify(body) });
 }
+
+// ════════════════════════════════════════════════════════════
+// Risk Engine — canonical assessment (single source of truth)
+// ════════════════════════════════════════════════════════════
+
+import type { RiskAssessment } from "../types";
+
+export function fetchRiskAssessment(
+  subjectType: RiskAssessment["subject"]["type"],
+  id: string,
+): Promise<RiskAssessment> {
+  return request(`/risk/${subjectType}/${encodeURIComponent(id)}`);
+}
+
+export function fetchRiskBatch(
+  subjectType: RiskAssessment["subject"]["type"],
+  ids: string[],
+): Promise<{ count: number; assessments: RiskAssessment[] }> {
+  return request("/risk/batch", {
+    method: "POST",
+    body: JSON.stringify({ subject_type: subjectType, ids }),
+  });
+}

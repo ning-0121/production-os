@@ -539,3 +539,9 @@
 @media (max-width: 768px) {
   .todayAnomalyReviewGrid { grid-template-columns: 1fr; }
 }
+
+/* ── Risk-engine canonical display (replaces ad-hoc riskClass) ───── */
+.todayOrderRiskCol { margin-left: auto; margin-right: 12px; }
+.todayOrderDays--ok       { color: #22c55e; }
+.todayOrderDays--warn     { color: #facc15; }
+.todayOrderDays--critical { color: #fb7185; font-weight: 600; }

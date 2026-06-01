@@ -524,3 +524,25 @@ export type RuntimeGraphResponse = {
   nodes: ConstraintNode[];
   edges: ConstraintEdge[];
 };
+
+// ── Risk Engine — canonical assessment (single source of truth) ───
+export type RiskLevelCanonical = "ok" | "warn" | "critical";
+export type RiskColor = "green" | "amber" | "red";
+
+export type RiskSignal = {
+  kind: string;
+  value: unknown;
+  weight: number;
+  direction: "raises" | "lowers" | "neutral";
+  reason: string;
+};
+
+export type RiskAssessment = {
+  subject: { type: "order" | "allocation" | "line" | "factory" | "customer"; id: string };
+  level: RiskLevelCanonical;
+  score: number;
+  color: RiskColor;
+  signals: RiskSignal[];
+  top_reasons: string[];
+  computed_at: string;
+};

@@ -9,6 +9,7 @@ import { PageSkeleton } from "../Skeleton";
 import { ForecastSection } from "./ForecastSection";
 import { WatchlistSection } from "./WatchlistSection";
 import { AnomalySection } from "./AnomalySection";
+import { RiskPill, legacyAssessment } from "../shared/RiskPill";
 import type { TodayBriefing, AIAction, RiskyOrder, AnomalyAlert } from "../../types";
 import "./today.css";
 
@@ -207,18 +208,27 @@ function AIActionCard({ action, onExecute }: { action: AIAction; onExecute: (a: 
 }
 
 function RiskyOrderRow({ order }: { order: RiskyOrder }) {
-  const riskClass = order.risk === "overdue" ? "todayRisk--overdue"
-    : order.risk === "critical" ? "todayRisk--critical"
-    : "todayRisk--warning";
+  // Use canonical risk-engine assessment instead of the legacy ad-hoc
+  // riskClass derivation. Falls back to the legacy 'risk' field via
+  // legacyAssessment() while we migrate the briefing endpoint to call the
+  // engine itself.
+  const assessment = legacyAssessment(
+    order.risk === "overdue" ? "critical" : order.risk === "critical" ? "critical" : "warn",
+    "allocation",
+    order.allocation_id,
+  );
 
   return (
-    <div className={`todayOrderRow ${riskClass}`}>
+    <div className="todayOrderRow">
       <div className="todayOrderLeft">
         <span className="todayOrderId">{order.order_id ?? order.allocation_id.slice(0, 8)}</span>
         <span className="todayOrderMeta">{order.factory_name} | {order.qty}件</span>
       </div>
+      <div className="todayOrderRiskCol">
+        <RiskPill assessment={assessment} compact />
+      </div>
       <div className="todayOrderRight">
-        <span className={`todayOrderDays ${riskClass}`}>
+        <span className={`todayOrderDays todayOrderDays--${assessment?.level ?? "ok"}`}>
           {order.days_left < 0 ? `逾期${Math.abs(order.days_left)}天` : `剩${order.days_left}天`}
         </span>
       </div>
