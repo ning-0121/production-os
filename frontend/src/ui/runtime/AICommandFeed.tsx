@@ -10,15 +10,17 @@ import { useAsync } from "../../hooks/useAsync";
 import { fetchRuntimeCommands, executeCommandAction, simulateRuntimeEvents } from "../../services/api";
 import { useToast } from "../Toast";
 import { useAppStore } from "../../stores/appStore";
-import type { RuntimeCommand, RuntimeCommandAction, RuntimeSeverity } from "../../types";
+import { RiskPill, legacyAssessment } from "../shared/RiskPill";
+import type { RuntimeCommand, RuntimeCommandAction, RiskAssessment } from "../../types";
 
-const SEVERITY_LABEL: Record<RuntimeSeverity, string> = {
-  critical: "紧急",
-  high: "重要",
-  medium: "建议",
-  low: "提示",
-  info: "信息",
-};
+/** Pick the most-specific subject a command points at, for the RiskPill anchor. */
+function commandSubject(cmd: RuntimeCommand): { type: RiskAssessment["subject"]["type"]; id: string } | null {
+  if (cmd.allocation_id) return { type: "allocation", id: cmd.allocation_id };
+  if (cmd.line_id) return { type: "line", id: cmd.line_id };
+  if (cmd.order_id) return { type: "order", id: cmd.order_id };
+  if (cmd.factory_id) return { type: "factory", id: cmd.factory_id };
+  return null;
+}
 
 export function AICommandFeed({ refreshKey = 0 }: { refreshKey?: number }) {
   const { data, loading, error } = useAsync(() => fetchRuntimeCommands(20), [refreshKey]);
@@ -105,7 +107,15 @@ function CommandCard({ cmd, onSelectEvent }: { cmd: RuntimeCommand; onSelectEven
   return (
     <div className={`rtCommandCard ${sevClass}`}>
       <div className="rtCommandCardTop">
-        <span className={`todayAiUrgency todayAiUrgency--${cmd.severity}`}>{SEVERITY_LABEL[cmd.severity] ?? cmd.severity}</span>
+        <RiskPill
+          assessment={legacyAssessment(
+            cmd.severity,
+            commandSubject(cmd)?.type ?? "order",
+            commandSubject(cmd)?.id ?? "_",
+          )}
+          detailed
+          compact
+        />
         <span className="rtCommandKindBadge">{cmd.kind === "event" ? "运行时事件" : "Agent 建议"}</span>
         <span className="rtCommandTitle">{cmd.title}</span>
         {cmd.confidence != null && <span className="rtCommandConfidence">{Math.round(cmd.confidence * 100)}%</span>}

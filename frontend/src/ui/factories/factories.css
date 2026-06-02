@@ -362,3 +362,7 @@
     min-width: auto;
   }
 }
+
+/* ── Risk-engine canonical display ─────────────────────── */
+.factoryRiskCol { display: flex; align-items: center; margin: 0 12px; }
+.lineCardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }

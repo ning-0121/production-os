@@ -1,10 +1,12 @@
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { fetchAllocations, deleteAllocation } from "../../services/api";
+import { useRiskBatch } from "../../hooks/useRiskBatch";
+import { RiskPill } from "../shared/RiskPill";
 import { useToast } from "../Toast";
 import { CreateOrderDrawer } from "./CreateOrderDrawer";
 import { ImportDrawer } from "./ImportDrawer";
-import type { Allocation } from "../../types";
+import type { Allocation, RiskAssessment } from "../../types";
 import "./orders.css";
 
 type FilterStatus = "" | "planned" | "confirmed" | "in_progress" | "completed" | "cancelled";
@@ -56,6 +58,16 @@ export function OrderCenterPage() {
     return c;
   }, [allAllocations]);
 
+  // Batch-fetch canonical risk for every visible allocation in ONE request.
+  // No per-row API calls. Skip completed/cancelled (no live risk).
+  const riskIds = React.useMemo(
+    () => allocations
+      .filter((a) => a.status !== "completed" && a.status !== "cancelled")
+      .map((a) => a.id),
+    [allocations],
+  );
+  const { map: riskMap } = useRiskBatch("allocation", riskIds);
+
   async function handleDelete(id: string) {
     try {
       await deleteAllocation(id);
@@ -105,34 +117,42 @@ export function OrderCenterPage() {
                 <th>工厂</th>
                 <th>计划开始</th>
                 <th>交货日期</th>
+                <th>风险</th>
                 <th>状态</th>
                 <th>操作</th>
               </tr>
             </thead>
             <tbody>
               {allocations.length === 0 && (
-                <tr><td colSpan={7} className="emptyState">暂无订单数据</td></tr>
+                <tr><td colSpan={8} className="emptyState">暂无订单数据</td></tr>
               )}
               {allocations.map((a) => {
                 const dueDate = (a.planned_end_date ?? "").slice(0, 10);
                 const daysLeft = dueDate
                   ? Math.ceil((new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                   : null;
-                const isOverdue = daysLeft !== null && daysLeft < 0 && a.status !== "completed" && a.status !== "cancelled";
+                const active = a.status !== "completed" && a.status !== "cancelled";
+                const risk: RiskAssessment | null = riskMap.get(a.id) ?? null;
+                // Days-tag color now derives from the canonical risk level —
+                // no more local overdue/urgent thresholds.
+                const daysLevel = risk?.level ?? "ok";
 
                 return (
-                  <tr key={a.id} className={isOverdue ? "orderRow--overdue" : ""}>
+                  <tr key={a.id}>
                     <td className="orderCellId">{a.order_id ?? a.id.slice(0, 8)}</td>
                     <td>{a.allocated_qty?.toLocaleString()}</td>
                     <td>{a.factories?.name ?? "未分配"}</td>
                     <td>{(a.planned_start_date ?? "").slice(0, 10)}</td>
                     <td>
                       {dueDate}
-                      {daysLeft !== null && a.status !== "completed" && a.status !== "cancelled" && (
-                        <span className={`orderDaysTag ${daysLeft < 0 ? "orderDaysTag--overdue" : daysLeft <= 3 ? "orderDaysTag--urgent" : ""}`}>
+                      {daysLeft !== null && active && (
+                        <span className={`orderDaysTag orderDaysTag--${daysLevel}`}>
                           {daysLeft < 0 ? `逾期${Math.abs(daysLeft)}天` : `${daysLeft}天`}
                         </span>
                       )}
+                    </td>
+                    <td>
+                      {active ? <RiskPill assessment={risk} detailed compact /> : <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>}
                     </td>
                     <td>
                       <span className={`orderStatus ${STATUS_CLASS[a.status] ?? ""}`}>

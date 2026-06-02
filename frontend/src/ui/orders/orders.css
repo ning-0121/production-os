@@ -109,14 +109,23 @@
   color: var(--muted);
 }
 
+/* Canonical risk-level driven (mirrors risk-engine). Legacy --overdue/--urgent
+   retained as aliases for any unmigrated callers. */
+.orderDaysTag--critical,
 .orderDaysTag--overdue {
   background: rgba(251,113,133,.15);
   color: var(--danger);
 }
 
+.orderDaysTag--warn,
 .orderDaysTag--urgent {
   background: rgba(250,204,21,.12);
   color: #facc15;
+}
+
+.orderDaysTag--ok {
+  background: rgba(34,197,94,.12);
+  color: #22c55e;
 }
 
 .orderStatus {

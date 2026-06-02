@@ -8,8 +8,10 @@ import {
   updateProductionLine,
   createFactory,
 } from "../../services/api";
+import { useRiskBatch } from "../../hooks/useRiskBatch";
+import { RiskPill } from "../shared/RiskPill";
 import { useToast } from "../Toast";
-import type { Factory, ProductionLine } from "../../types";
+import type { Factory, ProductionLine, RiskAssessment } from "../../types";
 import "./factories.css";
 
 export function FactoriesPage() {
@@ -54,6 +56,12 @@ export function FactoriesPage() {
     }
     return map;
   }, [allLines]);
+
+  // Batch-fetch canonical risk for every factory + every line, one request each.
+  const factoryIds = React.useMemo(() => factories.map((f) => f.id), [factories]);
+  const lineIds = React.useMemo(() => (allLines ?? []).map((l) => l.id), [allLines]);
+  const { map: factoryRisk } = useRiskBatch("factory", factoryIds);
+  const { map: lineRisk } = useRiskBatch("line", lineIds);
 
   async function handleCapabilityUpdate(capId: string, field: string, value: number) {
     try {
@@ -118,6 +126,9 @@ export function FactoriesPage() {
                 <span className="factoryName">{f.name}</span>
                 <span className="factoryLocation">{f.location ?? "—"}</span>
               </div>
+              <div className="factoryRiskCol">
+                <RiskPill assessment={factoryRisk.get(f.id) ?? null} detailed compact />
+              </div>
               <div className="factoryScores">
                 <ScoreChip label="质量" value={f.quality_score} />
                 <ScoreChip label="延期" value={f.delay_score} />
@@ -177,7 +188,7 @@ export function FactoriesPage() {
                   {lines.length === 0 && <div className="emptyState" style={{ padding: 12 }}>暂无生产线</div>}
                   <div className="lineGrid">
                     {lines.map((line) => (
-                      <LineCard key={line.id} line={line} onUpdated={refetchLines} />
+                      <LineCard key={line.id} line={line} risk={lineRisk.get(line.id) ?? null} onUpdated={refetchLines} />
                     ))}
                   </div>
                 </div>
@@ -290,7 +301,7 @@ function CapField({ label, value, step, format, onSave }: {
   );
 }
 
-function LineCard({ line, onUpdated }: { line: ProductionLine; onUpdated: () => void }) {
+function LineCard({ line, risk, onUpdated }: { line: ProductionLine; risk: RiskAssessment | null; onUpdated: () => void }) {
   const { toast } = useToast();
   const [editingField, setEditingField] = React.useState<string | null>(null);
 
@@ -307,7 +318,10 @@ function LineCard({ line, onUpdated }: { line: ProductionLine; onUpdated: () => 
 
   return (
     <div className="lineCard">
-      <span className="lineName">{line.name}</span>
+      <div className="lineCardHead">
+        <span className="lineName">{line.name}</span>
+        <RiskPill assessment={risk} detailed compact />
+      </div>
       <div className="lineCapacities">
         <div className="lineCap">
           <span className="lineCapLabel">前道</span>

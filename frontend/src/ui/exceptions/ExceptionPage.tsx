@@ -1,6 +1,7 @@
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { fetchExceptionsV2 } from "../../services/api";
+import { RiskPill, legacyAssessment } from "../shared/RiskPill";
 import type { ExceptionV2Response, AIAction } from "../../types";
 import "./exceptions.css";
 
@@ -62,9 +63,7 @@ export function ExceptionPage() {
                 {item.data?.qty != null && <span> | {String(item.data.qty)}件</span>}
               </span>
             </div>
-            <span className={`excSeverity excSeverity--${item.severity}`}>
-              {item.severity === "high" ? "严重" : item.severity === "medium" ? "警告" : "提示"}
-            </span>
+            <RiskPill assessment={legacyAssessment(item.severity, "order", item.allocation_id ?? item.order_id ?? "_")} compact />
           </div>
         )}
       />
@@ -81,9 +80,7 @@ export function ExceptionPage() {
             <div className="excItemBody">
               <span className="excItemMsg">{item.message}</span>
             </div>
-            <span className={`excSeverity excSeverity--${item.severity}`}>
-              {item.severity === "high" ? "严重" : item.severity === "medium" ? "警告" : "提示"}
-            </span>
+            <RiskPill assessment={legacyAssessment(item.severity, "factory", item.factory_id ?? "_")} compact />
           </div>
         )}
       />
@@ -100,9 +97,7 @@ export function ExceptionPage() {
             <div className="excItemBody">
               <span className="excItemMsg">{item.message}</span>
             </div>
-            <span className={`excSeverity excSeverity--${item.severity}`}>
-              {item.severity === "high" ? "严重" : "警告"}
-            </span>
+            <RiskPill assessment={legacyAssessment(item.severity, "line", item.line_id ?? item.factory_id ?? "_")} compact />
           </div>
         )}
       />
@@ -119,7 +114,7 @@ export function ExceptionPage() {
             <div className="excItemBody">
               <span className="excItemMsg">{item.message}</span>
             </div>
-            <span className={`excSeverity excSeverity--${item.severity}`}>严重</span>
+            <RiskPill assessment={legacyAssessment(item.severity ?? "high", "order", item.order_id ?? item.factory_id ?? "_")} compact />
           </div>
         )}
       />
@@ -170,13 +165,6 @@ function ExceptionSection<T>({
 // ── AI Action Row ─────────────────────────────────────────
 
 function AIActionRow({ action }: { action: AIAction }) {
-  const urgencyLabels: Record<string, string> = {
-    critical: "紧急",
-    high: "重要",
-    medium: "建议",
-    low: "提示",
-  };
-
   return (
     <div className={`excItem excItem--ai excItem--ai-${action.urgency}`}>
       <span className="excAiBadge">AI</span>
@@ -185,9 +173,7 @@ function AIActionRow({ action }: { action: AIAction }) {
         {action.impact && <span className="excItemMeta">{action.impact}</span>}
       </div>
       <div className="excAiRight">
-        <span className={`excSeverity excSeverity--${action.urgency === "critical" ? "high" : action.urgency === "high" ? "high" : "medium"}`}>
-          {urgencyLabels[action.urgency] ?? action.urgency}
-        </span>
+        <RiskPill assessment={legacyAssessment(action.urgency, "order", action.target_id ?? "_")} compact />
         <span className="excAiConfidence">{Math.round(action.confidence * 100)}%</span>
       </div>
     </div>

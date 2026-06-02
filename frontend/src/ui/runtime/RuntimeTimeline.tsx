@@ -19,6 +19,7 @@ import { useAsync } from "../../hooks/useAsync";
 import { fetchRuntimeTimeline, simulateRuntimeEvents } from "../../services/api";
 import { useAppStore } from "../../stores/appStore";
 import { useToast } from "../Toast";
+import { legacyToLevel } from "../shared/riskColors";
 import type { TimelineGroup, TimelineItem } from "../../types";
 
 type Zoom = 7 | 14 | 30;
@@ -57,7 +58,9 @@ export function RuntimeTimeline({ refreshKey = 0 }: { refreshKey?: number }) {
     const groupItems: DataGroup[] = groups.map((g: TimelineGroup) => ({
       id: g.id,
       content: renderGroupHtml(g),
-      className: `rtTlGroup rtTlGroup--${g.runtime_risk}`,
+      // Canonical level class (ok/warn/critical) — mirrors risk-engine, not the
+      // raw runtime_risk enum. CSS targets rtTlGroup--{level}.
+      className: `rtTlGroup rtTlGroup--${legacyToLevel(g.runtime_risk) ?? "ok"}`,
       treeLevel: 1,
     }));
 
@@ -210,8 +213,8 @@ export function RuntimeTimeline({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="rtTimelineLegend">
         <span><span className="rtLegendDot rtLegendDot--ok" />正常</span>
         <span><span className="rtLegendDot rtLegendDot--running" />进行中</span>
-        <span><span className="rtLegendDot rtLegendDot--high" />落后</span>
-        <span><span className="rtLegendDot rtLegendDot--critical" />严重偏离</span>
+        <span><span className="rtLegendDot rtLegendDot--warn" />关注</span>
+        <span><span className="rtLegendDot rtLegendDot--critical" />紧急</span>
         <span><span className="rtLegendDot rtLegendDot--locked" />锁定</span>
         <span style={{ marginLeft: 12, color: "var(--muted)" }}>拖拽订单块可调整排期，会先模拟再确认</span>
       </div>
@@ -241,8 +244,14 @@ function renderItemHtml(it: TimelineItem): string {
 }
 
 function itemClass(it: TimelineItem): string {
-  const r = it.risk;
-  return `rtTlItem rtTlItem--${r}${it.is_locked ? " rtTlItem--locked" : ""}${it.status === "in_progress" ? " rtTlItem--running" : ""}`;
+  // Normalize the block's risk to a canonical level so block color matches the
+  // RiskPill shown everywhere else. The legacy timeline `risk` field uses
+  // {ok, running, high, critical}; map high→warn, running→ok (running is a
+  // status, not a risk — the cyan "running" class is added separately).
+  const canonical = it.risk === "critical" ? "critical"
+    : it.risk === "high" ? "warn"
+    : "ok";
+  return `rtTlItem rtTlItem--${canonical}${it.is_locked ? " rtTlItem--locked" : ""}${it.status === "in_progress" ? " rtTlItem--running" : ""}`;
 }
 
 function itemTooltip(it: TimelineItem): string {
