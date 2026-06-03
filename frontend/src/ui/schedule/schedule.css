@@ -488,11 +488,12 @@
 }
 
 /* Risk border indicators */
-.schedBlock--riskHigh {
+/* Canonical risk levels (mirror risk-engine ok/warn/critical) */
+.schedBlock--riskCritical {
   box-shadow: inset 0 0 0 1px rgba(251,113,133,.5);
 }
 
-.schedBlock--riskMedium {
+.schedBlock--riskWarn {
   box-shadow: inset 0 0 0 1px rgba(250,204,21,.4);
 }
 

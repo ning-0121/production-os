@@ -1,5 +1,6 @@
 import React from "react";
 import type { AutoScheduleSummary } from "../../services/api";
+import { RiskPill, legacyAssessment } from "../shared/RiskPill";
 
 type Props = {
   summary: AutoScheduleSummary;
@@ -13,17 +14,13 @@ type Props = {
   confirming: boolean;
 };
 
-const RISK_LABELS: Record<string, { label: string; cls: string }> = {
-  SAFE: { label: "安全", cls: "riskSafe" },
-  MEDIUM: { label: "有风险", cls: "riskMedium" },
-  HIGH: { label: "高风险", cls: "riskHigh" },
-};
-
 export function ScheduleConfirmDialog({
   summary, frontDays, onFrontDaysChange, recalculating,
   onSaveDraft, onConfirm, onCancel, saving, confirming,
 }: Props) {
-  const risk = RISK_LABELS[summary.risk.level] ?? RISK_LABELS.SAFE;
+  // AutoScheduleSummary.risk.level is the legacy SAFE/MEDIUM/HIGH from the
+  // scheduler endpoint — translate to a canonical assessment for display.
+  const riskAssessment = legacyAssessment(summary.risk.level, "allocation", summary.order_id ?? "_");
   const busy = saving || confirming || recalculating;
 
   return (
@@ -93,8 +90,8 @@ export function ScheduleConfirmDialog({
           </div>
           <div className="confirmRow">
             <span className="confirmLabel">风险</span>
-            <span className={`confirmRisk ${risk.cls}`}>
-              {risk.label}
+            <span className="confirmRisk" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <RiskPill assessment={riskAssessment} />
               {summary.risk.buffer_days !== 0 && (
                 <span className="confirmBuffer">
                   {summary.risk.buffer_days > 0

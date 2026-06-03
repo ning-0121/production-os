@@ -2,16 +2,11 @@ import React from "react";
 import { fetchScenarios, applyScenario } from "../../services/api";
 import type { Scenario } from "../../services/api";
 import { useToast } from "../Toast";
+import { RiskPill, legacyAssessment } from "../shared/RiskPill";
 
 type Props = {
   allocationId: string | null;
   onApplied: () => void;
-};
-
-const RISK_COLORS: Record<string, string> = {
-  SAFE: "#22c55e",
-  MEDIUM: "#facc15",
-  HIGH: "#fb7185",
 };
 
 export function ScenarioPanel({ allocationId, onApplied }: Props) {
@@ -100,9 +95,7 @@ export function ScenarioPanel({ allocationId, onApplied }: Props) {
                   <span className="scenarioScore">{s.recommendation_score}分</span>
                 </div>
                 <div className="scenarioCardRight">
-                  <span className="scenarioRisk" style={{ color: RISK_COLORS[s.risk_level] ?? "#fff" }}>
-                    {s.risk_level === "SAFE" ? "安全" : s.risk_level === "MEDIUM" ? "有风险" : s.risk_level === "HIGH" ? "高风险" : s.risk_level}
-                  </span>
+                  <RiskPill assessment={legacyAssessment(s.risk_level, "allocation", s.id)} compact />
                   <span className="scenarioToggle">{isExpanded ? "▼" : "▶"}</span>
                 </div>
               </div>

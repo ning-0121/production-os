@@ -5,10 +5,12 @@ import { useAsync } from "../../hooks/useAsync";
 import { useRealtimeRefetch } from "../../hooks/useRealtime";
 import { fetchAllocations, updateAllocation, deleteAllocation, smartRecommend, smartSchedule, fetchRiskAlerts } from "../../services/api";
 import { request } from "../../services/client";
+import { useRiskBatch } from "../../hooks/useRiskBatch";
+import { RiskPill } from "../shared/RiskPill";
 import { useToast } from "../Toast";
 import { CreateOrderDrawer } from "../orders/CreateOrderDrawer";
 import { ImportDrawer } from "../orders/ImportDrawer";
-import type { Allocation, AllocationStatus, Recommendation, RiskAlert, RiskLevel } from "../../types";
+import type { Allocation, AllocationStatus, Recommendation, RiskAssessment, RiskLevelCanonical } from "../../types";
 import "../orders/orders.css";
 import "./board.css";
 
@@ -45,14 +47,16 @@ export function BoardPage() {
 
   // ── Search & Filter State ─────────────────────────────
   const [search, setSearch] = React.useState("");
-  const [filterRisk, setFilterRisk] = React.useState<RiskLevel | "">("");
+  const [filterRisk, setFilterRisk] = React.useState<RiskLevelCanonical | "">("");
   const [filterFactory, setFilterFactory] = React.useState("");
 
   // Build risk map
-  const riskMap = React.useMemo(() => {
-    const map: Record<string, RiskAlert> = {};
+  // Legacy riskAlerts kept ONLY for the supplementary buffer-days number.
+  // All risk leveling/coloring is now canonical (risk-engine).
+  const bufferMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
     for (const alert of riskAlerts ?? []) {
-      map[alert.allocation_id] = alert;
+      if (alert.buffer_days != null) map[alert.allocation_id] = alert.buffer_days;
     }
     return map;
   }, [riskAlerts]);
@@ -66,15 +70,14 @@ export function BoardPage() {
     return [...names].sort();
   }, [allocations]);
 
-  // Apply local overrides + filters
-  const orders = React.useMemo(() => {
+  // Base list (search + factory filter only). Risk filter applied AFTER we
+  // have canonical assessments, since the visible-id set drives the batch call.
+  const baseOrders = React.useMemo(() => {
     if (!allocations) return [];
     let list = allocations.map((a) => ({
       ...a,
       status: localOverrides[a.id] ?? a.status,
     }));
-
-    // Search
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((o) =>
@@ -83,22 +86,24 @@ export function BoardPage() {
         (o.factories?.name ?? "").toLowerCase().includes(q)
       );
     }
-
-    // Filter by risk
-    if (filterRisk) {
-      list = list.filter((o) => {
-        const rl = riskMap[o.id]?.risk_level;
-        return rl === filterRisk;
-      });
-    }
-
-    // Filter by factory
     if (filterFactory) {
       list = list.filter((o) => o.factories?.name === filterFactory);
     }
-
     return list;
-  }, [allocations, localOverrides, search, filterRisk, filterFactory, riskMap]);
+  }, [allocations, localOverrides, search, filterFactory]);
+
+  // Batch-fetch canonical risk for every visible card in ONE request.
+  const riskIds = React.useMemo(
+    () => baseOrders.filter((a) => a.status !== "completed" && a.status !== "cancelled").map((a) => a.id),
+    [baseOrders],
+  );
+  const { map: riskMap } = useRiskBatch("allocation", riskIds);
+
+  // Apply canonical risk filter using the assessment level.
+  const orders = React.useMemo(() => {
+    if (!filterRisk) return baseOrders;
+    return baseOrders.filter((o) => (riskMap.get(o.id)?.level ?? "ok") === filterRisk);
+  }, [baseOrders, filterRisk, riskMap]);
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -190,12 +195,12 @@ export function BoardPage() {
         <select
           className="filterSelect"
           value={filterRisk}
-          onChange={(e) => setFilterRisk(e.target.value as RiskLevel | "")}
+          onChange={(e) => setFilterRisk(e.target.value as RiskLevelCanonical | "")}
         >
           <option value="">全部风险</option>
-          <option value="HIGH">高风险</option>
-          <option value="MEDIUM">中风险</option>
-          <option value="SAFE">安全</option>
+          <option value="critical">紧急</option>
+          <option value="warn">关注</option>
+          <option value="ok">正常</option>
         </select>
         <select
           className="filterSelect"
@@ -228,6 +233,7 @@ export function BoardPage() {
               label={col.label}
               orders={orders.filter((o) => o.status === col.key)}
               riskMap={riskMap}
+              bufferMap={bufferMap}
               selected={selected}
               onToggleSelect={toggleSelect}
               onSmartSchedule={setScheduleTarget}
@@ -269,6 +275,7 @@ function Column({
   label,
   orders,
   riskMap,
+  bufferMap,
   selected,
   onToggleSelect,
   onSmartSchedule,
@@ -276,7 +283,8 @@ function Column({
   status: AllocationStatus;
   label: string;
   orders: Allocation[];
-  riskMap: Record<string, RiskAlert>;
+  riskMap: Map<string, RiskAssessment>;
+  bufferMap: Record<string, number>;
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   onSmartSchedule: (a: Allocation) => void;
@@ -303,8 +311,8 @@ function Column({
           <OrderCard
             key={o.id}
             order={o}
-            riskLevel={riskMap[o.id]?.risk_level ?? null}
-            bufferDays={riskMap[o.id]?.buffer_days ?? null}
+            risk={riskMap.get(o.id) ?? null}
+            bufferDays={bufferMap[o.id] ?? null}
             isSelected={selected.has(o.id)}
             onToggleSelect={onToggleSelect}
             onSmartSchedule={onSmartSchedule}
@@ -319,14 +327,14 @@ function Column({
 
 function OrderCard({
   order,
-  riskLevel,
+  risk,
   bufferDays,
   isSelected,
   onToggleSelect,
   onSmartSchedule,
 }: {
   order: Allocation;
-  riskLevel: RiskLevel | null;
+  risk: RiskAssessment | null;
   bufferDays: number | null;
   isSelected: boolean;
   onToggleSelect: (id: string) => void;
@@ -340,10 +348,8 @@ function OrderCard({
   };
 
   const isPlanned = order.status === "planned";
-  const riskClass =
-    riskLevel === "HIGH" ? "boardCardRiskHigh" :
-    riskLevel === "MEDIUM" ? "boardCardRiskMedium" :
-    riskLevel === "SAFE" ? "boardCardRiskSafe" : "";
+  // Card border driven by canonical risk level (mirrors risk-engine).
+  const riskClass = risk ? `boardCardRisk--${risk.level}` : "";
 
   return (
     <div ref={setNodeRef} className={`boardCard ${riskClass} ${isSelected ? "boardCardSelected" : ""}`} style={style} {...listeners} {...attributes}>
@@ -358,15 +364,12 @@ function OrderCard({
         <span className="boardCardQty">x{order.allocated_qty}</span>
       </div>
       <div className="boardCardFactory">{order.factories?.name ?? "未分配"}</div>
-      <div className="boardCardDue">
-        交期 {order.planned_end_date?.slice(0, 10)}
-        {riskLevel && bufferDays !== null && (
-          <span className={`boardCardRiskBadge boardCardRiskBadge${riskLevel}`}>
-            {riskLevel === "HIGH"
-              ? bufferDays < 0 ? `超期${Math.abs(bufferDays)}天` : `剩${bufferDays}天`
-              : riskLevel === "MEDIUM"
-              ? `缓冲${bufferDays}天`
-              : `安全${bufferDays}天`}
+      <div className="boardCardDue" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span>交期 {order.planned_end_date?.slice(0, 10)}</span>
+        {risk && <RiskPill assessment={risk} detailed compact />}
+        {bufferDays !== null && (
+          <span className="boardCardBufferTag">
+            {bufferDays < 0 ? `超期${Math.abs(bufferDays)}天` : `剩${bufferDays}天`}
           </span>
         )}
       </div>

@@ -29,6 +29,7 @@ import { OrderDetailDrawer } from "./OrderDetailDrawer";
 import { AIDecisionPanel } from "./AIDecisionPanel";
 import { ScenarioPanel } from "./ScenarioPanel";
 import type { ProductionLine, LineSchedule, Allocation } from "../../types";
+import { useRiskBatch } from "../../hooks/useRiskBatch";
 import "./schedule.css";
 
 // ── Constants ─────────────────────────────────────────────
@@ -66,7 +67,6 @@ type MergedBlock = {
   hasBack: boolean;
   status: string;
   progressPct: number;
-  riskLevel: "SAFE" | "MEDIUM" | "HIGH";
   allocation: Allocation | null;
   frontSchedule: LineSchedule | null;
   backSchedule: LineSchedule | null;
@@ -184,22 +184,14 @@ export function SchedulePage() {
         const status = front?.status ?? back?.status ?? alloc?.status ?? "planned";
         const progressPct = status === "completed" ? 100 : status === "in_progress" ? 50 : 10;
 
-        // Risk level based on due date vs end date
-        let riskLevel: "SAFE" | "MEDIUM" | "HIGH" = "SAFE";
-        if (alloc?.planned_end_date && blockEnd) {
-          const due = new Date(alloc.planned_end_date).getTime();
-          const end = new Date(blockEnd).getTime();
-          const buffer = Math.round((due - end) / (1000 * 60 * 60 * 24));
-          if (buffer < 0) riskLevel = "HIGH";
-          else if (buffer < 3) riskLevel = "MEDIUM";
-        }
-
+        // Risk is no longer computed locally — it comes from the canonical
+        // risk-engine via batch fetch (see blockRisk below).
         blocks.push({
           allocationId: allocId, orderId, productType, qty,
           startDate: blockStart, endDate: blockEnd,
           frontStart, frontEnd, backStart, backEnd,
           hasFront: !!front, hasBack: !!back,
-          status, progressPct, riskLevel,
+          status, progressPct,
           allocation: alloc,
           frontSchedule: front ?? null,
           backSchedule: back ?? null,
@@ -211,6 +203,18 @@ export function SchedulePage() {
     }
     return lineMap;
   }, [filteredLines, schedules, allocMap]);
+
+  // Canonical risk for every visible gantt block — ONE batch request.
+  const blockAllocIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const blocks of mergedByLine.values()) {
+      for (const b of blocks) {
+        if (b.allocationId && b.status !== "completed" && b.status !== "cancelled") ids.add(b.allocationId);
+      }
+    }
+    return [...ids];
+  }, [mergedByLine]);
+  const { map: blockRisk } = useRiskBatch("allocation", blockAllocIds);
 
   // Line utilization
   function getLineUtilization(lineId: string): number {
@@ -233,10 +237,10 @@ export function SchedulePage() {
     return Math.min(100, Math.round((totalDays / zoomDays) * 100));
   }
 
-  // Line delayed order count
+  // Line delayed order count — canonical critical level from risk-engine
   function getDelayedCount(lineId: string): number {
     const blocks = mergedByLine.get(lineId) ?? [];
-    return blocks.filter((b) => b.riskLevel === "HIGH").length;
+    return blocks.filter((b) => blockRisk.get(b.allocationId)?.level === "critical").length;
   }
 
   // Drag handlers
@@ -431,6 +435,7 @@ export function SchedulePage() {
                     key={line.id}
                     line={line}
                     blocks={mergedByLine.get(line.id) ?? []}
+                    blockRisk={blockRisk}
                     utilization={getLineUtilization(line.id)}
                     delayedCount={getDelayedCount(line.id)}
                     zoomDays={zoomDays}
@@ -497,6 +502,7 @@ export function SchedulePage() {
 function DroppableLineRow({
   line,
   blocks,
+  blockRisk,
   utilization,
   delayedCount,
   zoomDays,
@@ -507,6 +513,7 @@ function DroppableLineRow({
 }: {
   line: ProductionLine;
   blocks: MergedBlock[];
+  blockRisk: Map<string, import("../../types").RiskAssessment>;
   utilization: number;
   delayedCount: number;
   zoomDays: number;
@@ -557,10 +564,12 @@ function DroppableLineRow({
 
           const colorClass = PRODUCT_CLASS[block.productType] ?? "schedBlock--default";
           const isSelected = selectedOrderId === block.allocationId;
-          const riskBorder = block.riskLevel === "HIGH"
-            ? "schedBlock--riskHigh"
-            : block.riskLevel === "MEDIUM"
-              ? "schedBlock--riskMedium"
+          // Canonical risk border (mirrors risk-engine ok/warn/critical).
+          const blockLevel = blockRisk.get(block.allocationId)?.level ?? "ok";
+          const riskBorder = blockLevel === "critical"
+            ? "schedBlock--riskCritical"
+            : blockLevel === "warn"
+              ? "schedBlock--riskWarn"
               : "";
 
           return (

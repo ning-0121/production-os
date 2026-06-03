@@ -8,6 +8,7 @@ import { useAsync } from "../../hooks/useAsync";
 import { request } from "../../services/client";
 import { useToast } from "../Toast";
 import { AccuracyView } from "./AccuracyView";
+import { LEVEL_LABEL, LEVEL_COLOR, COLOR_HEX, legacyToLevel } from "../shared/riskColors";
 import "./dashboard.css";
 
 type DashboardStats = {
@@ -33,7 +34,6 @@ type DashboardStats = {
   product_breakdown: Array<{ product_type: string; quantity: number }>;
 };
 
-const RISK_COLORS = { HIGH: "#fb7185", MEDIUM: "#facc15", SAFE: "#22c55e" };
 const STATUS_COLORS: Record<string, string> = {
   planned: "#6ee7ff",
   confirmed: "#a78bfa",
@@ -99,9 +99,15 @@ export function DashboardPage() {
     .filter(([, v]) => v > 0)
     .map(([k, v]) => ({ name: STATUS_LABELS[k] ?? k, value: v, fill: STATUS_COLORS[k] ?? "#888" }));
 
+  // Risk distribution buckets come from the backend keyed by legacy enums
+  // (HIGH/MEDIUM/SAFE). Translate to canonical level for label + color so the
+  // pie matches risk display everywhere else.
   const riskData = Object.entries(data.risk_distribution)
     .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({ name: k === "HIGH" ? "高风险" : k === "MEDIUM" ? "中风险" : "安全", value: v, fill: RISK_COLORS[k as keyof typeof RISK_COLORS] }));
+    .map(([k, v]) => {
+      const level = legacyToLevel(k) ?? "ok";
+      return { name: LEVEL_LABEL[level], value: v, fill: COLOR_HEX[LEVEL_COLOR[level]].fg };
+    });
 
   return (
     <div className="dashContainer">
