@@ -46,6 +46,7 @@ import riskRouter from "./routes/risk.js";
 import tasksRouter from "./routes/tasks.js";
 import cronRouter from "./routes/cron.js";
 import notificationsRouter from "./routes/notifications.js";
+import retrospectiveRouter from "./routes/retrospective.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -202,6 +203,7 @@ app.use("/api/imports", importsRouter);
 app.use("/api/risk", riskRouter);
 app.use("/api/tasks", tasksRouter);
 app.use("/api/notifications", notificationsRouter);
+app.use("/api/retrospective", retrospectiveRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

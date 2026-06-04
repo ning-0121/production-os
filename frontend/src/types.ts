@@ -638,3 +638,41 @@ export type NotificationEvent = {
   read_at: string | null;
   created_at: string;
 };
+
+// ── V6: Retrospective Intelligence ───────────────────────
+export type RetroSummary = {
+  total_tasks: number; open_tasks: number; overdue_tasks: number;
+  resolved_tasks: number; dismissed_tasks: number;
+  resolved_pct: number; overdue_pct: number;
+  avg_resolution_minutes: number; median_resolution_minutes: number;
+  escalation_count: number; escalation_rate: number;
+  repeat_issue_count: number;
+  ai_generated_count: number; ai_completion_rate: number; false_positive_rate: number;
+  by_status: Record<string, number>; by_severity: Record<string, number>; by_category: Record<string, number>;
+  prev_total_tasks: number; total_trend: "up" | "down" | "flat";
+};
+export type RetroRootCause = { root_cause: string; count: number; pct: number; avg_resolution_minutes: number; trend: "up" | "down" | "flat"; prev_count: number };
+export type RetroFactory = { factory_id: string; factory_name: string; quality: number; rework: number; delay: number; critical: number; total: number };
+export type RetroLine = { line_id: string; line_name: string; critical: number; issues: number };
+export type RetroOwner = { owner: string; assigned: number; overdue: number; resolved: number; escalations: number; avg_response_minutes: number; overloaded: boolean };
+export type RetroAi = {
+  auto_generated: number; completed: number; dismissed: number; escalated: number;
+  completion_rate: number; useful_rate: number; false_positive_rate: number;
+  top_false_positive_sources: Array<{ source: string; count: number }>;
+  ai_action_log_count: number;
+};
+export type RetroTrendDay = { date: string; total: number; critical: number; overdue: number; quality: number };
+export type RetroInsight = { severity: "ok" | "warn" | "critical"; icon: string; text: string };
+
+export type RetrospectiveData = {
+  window: { days: number; from: string; to: string };
+  summary: RetroSummary;
+  root_causes: RetroRootCause[];
+  factories: RetroFactory[];
+  lines: RetroLine[];
+  owners: RetroOwner[];
+  ai_effectiveness: RetroAi;
+  trends: { days: RetroTrendDay[] };
+  insights: RetroInsight[];
+  cron_health: { runs: number; failed_runs: number; last_run_at: string | null; last_status: string | null };
+};

@@ -1200,3 +1200,13 @@ export function markAllNotificationsRead(recipients?: string): Promise<{ ok: boo
   const qs = recipients ? `?recipients=${encodeURIComponent(recipients)}` : "";
   return request(`/notifications/read-all${qs}`, { method: "POST" });
 }
+
+// ════════════════════════════════════════════════════════════
+// V6: Retrospective Intelligence
+// ════════════════════════════════════════════════════════════
+
+import type { RetrospectiveData } from "../types";
+
+export function fetchRetrospective(window: "7d" | "30d" = "7d"): Promise<RetrospectiveData> {
+  return request(`/retrospective/summary?window=${window}`);
+}
