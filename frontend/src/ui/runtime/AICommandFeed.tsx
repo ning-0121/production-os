@@ -7,11 +7,21 @@
 
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
-import { fetchRuntimeCommands, executeCommandAction, simulateRuntimeEvents } from "../../services/api";
+import { fetchRuntimeCommands, executeCommandAction, simulateRuntimeEvents, createTask } from "../../services/api";
 import { useToast } from "../Toast";
 import { useAppStore } from "../../stores/appStore";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
+import { legacyToLevel } from "../shared/riskColors";
 import type { RuntimeCommand, RuntimeCommandAction, RiskAssessment } from "../../types";
+
+/** Map a command to the category an execution task should carry. */
+function commandCategory(cmd: RuntimeCommand): "production_delay" | "quality" | "material" | "general" {
+  const t = (cmd.title + cmd.summary).toLowerCase();
+  if (t.includes("质量") || t.includes("qc") || t.includes("不良")) return "quality";
+  if (t.includes("物料") || t.includes("缺料") || t.includes("material")) return "material";
+  if (t.includes("延") || t.includes("减速") || t.includes("slow") || t.includes("停")) return "production_delay";
+  return "general";
+}
 
 /** Pick the most-specific subject a command points at, for the RiskPill anchor. */
 function commandSubject(cmd: RuntimeCommand): { type: RiskAssessment["subject"]["type"]; id: string } | null {
@@ -104,6 +114,32 @@ function CommandCard({ cmd, onSelectEvent }: { cmd: RuntimeCommand; onSelectEven
     }
   }
 
+  // Close the loop: turn this risk/command into an accountable task. Idempotent
+  // via source_ref so clicking twice won't create duplicates.
+  async function handleCreateTask() {
+    setBusy("task");
+    try {
+      const subject = commandSubject(cmd);
+      const res = await createTask({
+        title: cmd.title + (cmd.order_id ? ` · ${cmd.order_id}` : ""),
+        description: cmd.summary,
+        category: commandCategory(cmd),
+        severity: (legacyToLevel(cmd.severity) ?? "warn") as "ok" | "warn" | "critical",
+        subject_type: subject?.type ?? null,
+        subject_id: subject?.id ?? null,
+        source_type: cmd.kind === "event" ? "runtime_event" : "ai_suggestion",
+        source_ref: cmd.source_event_id ?? cmd.id,
+        ai_recommended_action: cmd.summary,
+        ai_confidence: cmd.confidence ?? undefined,
+      });
+      toast(res.created ? "已建任务，待认领" : "该风险已有任务", "success");
+    } catch (err) {
+      toast(`建任务失败：${err instanceof Error ? err.message : String(err)}`, "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className={`rtCommandCard ${sevClass}`}>
       <div className="rtCommandCardTop">
@@ -141,6 +177,14 @@ function CommandCard({ cmd, onSelectEvent }: { cmd: RuntimeCommand; onSelectEven
       {simResult && <div className="rtCommandSimResult">{simResult}</div>}
 
       <div className="rtCommandActions">
+        <button
+          className="btn rtCommandBtn"
+          disabled={busy !== null}
+          onClick={handleCreateTask}
+          title="转为有责任人的任务"
+        >
+          {busy === "task" ? "…" : "建任务"}
+        </button>
         {cmd.actions.map((act) => (
           <button
             key={act.type}

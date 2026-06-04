@@ -1103,3 +1103,62 @@ export function fetchRiskBatch(
     body: JSON.stringify({ subject_type: subjectType, ids }),
   });
 }
+
+// ════════════════════════════════════════════════════════════
+// V6: Execution Engine (decision tasks)
+// ════════════════════════════════════════════════════════════
+
+import type { DecisionTask, TaskEvent, TaskRetrospective, TaskSummary, TaskAction } from "../types";
+
+export function fetchTasks(params: {
+  status?: string; owner?: string; category?: string; severity?: string;
+  open?: boolean; escalated?: boolean; limit?: number;
+} = {}): Promise<{ count: number; tasks: DecisionTask[] }> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v != null && v !== "") qs.set(k, String(v));
+  }
+  const s = qs.toString();
+  return request(`/tasks${s ? `?${s}` : ""}`);
+}
+
+export function fetchTaskSummary(): Promise<TaskSummary> {
+  return request("/tasks/summary");
+}
+
+export function fetchTaskDetail(id: string): Promise<{
+  task: DecisionTask;
+  legal_actions: TaskAction[];
+  events: TaskEvent[];
+  retrospective: TaskRetrospective | null;
+  watchers: Array<{ id: string; watcher: string; reason: string | null }>;
+}> {
+  return request(`/tasks/${id}`);
+}
+
+export function createTask(body: Partial<DecisionTask>): Promise<{ task: DecisionTask; created: boolean }> {
+  return request("/tasks", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function transitionTask(id: string, body: {
+  action: TaskAction;
+  owner?: string; owner_role?: string;
+  resolution_note?: string; blocked_reason?: string; dismissed_reason?: string; note?: string;
+}): Promise<DecisionTask> {
+  return request(`/tasks/${id}/transition`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function setTaskDeadline(id: string, dueAt: string): Promise<DecisionTask> {
+  return request(`/tasks/${id}/deadline`, { method: "POST", body: JSON.stringify({ due_at: dueAt }) });
+}
+
+export function addTaskRetrospective(id: string, body: {
+  root_cause?: string; what_happened?: string; what_we_did?: string;
+  prevention?: string; was_false_positive?: boolean;
+}): Promise<TaskRetrospective> {
+  return request(`/tasks/${id}/retrospective`, { method: "POST", body: JSON.stringify(body) });
+}
+
+export function sweepEscalations(): Promise<{ escalated: number; actions: unknown[] }> {
+  return request("/tasks/sweep-escalations", { method: "POST" });
+}

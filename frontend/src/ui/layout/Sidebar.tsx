@@ -1,6 +1,6 @@
 import React from "react";
 
-export type ModuleKey = "today" | "scheduling" | "execution" | "materials" | "quality" | "factories" | "runtime" | "imports";
+export type ModuleKey = "today" | "scheduling" | "execution" | "materials" | "quality" | "factories" | "runtime" | "imports" | "tasks";
 
 type NavItem = {
   key: ModuleKey;
@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "factories", label: "工厂资源", sublabel: "Resources", icon: "F" },
   { key: "runtime", label: "运行时战室", sublabel: "Runtime War Room", icon: "W" },
   { key: "imports", label: "数据网关", sublabel: "Import Gateway", icon: "↓" },
+  { key: "tasks", label: "任务中心", sublabel: "Task Center", icon: "✓" },
 ];
 
 type Props = {

@@ -314,6 +314,48 @@ export const schemas = {
     question: z.string().min(1, "问题不能为空").max(2000, "问题最长 2000 字符"),
   }),
 
+  // ── V6: Execution Engine (decision tasks) ────────────
+  createTask: z.object({
+    title: z.string().min(1).max(300),
+    description: z.string().max(4000).optional(),
+    category: z.enum(["production_delay", "quality", "material", "shipment", "capacity", "general"]).default("general"),
+    severity: z.enum(["ok", "warn", "critical"]).default("warn"),
+    subject_type: z.enum(["order", "allocation", "line", "factory", "customer", "material", "shipment"]).nullish(),
+    subject_id: z.string().max(128).nullish(),
+    source_type: z.enum(["anomaly", "runtime_event", "risk", "incident", "qc_failure", "manual", "ai_suggestion"]).default("manual"),
+    source_ref: z.string().max(256).nullish(),
+    owner: z.string().max(128).nullish(),
+    owner_role: z.string().max(64).nullish(),
+    due_at: z.string().datetime().nullish(),
+    ai_suggested_owner: z.string().max(128).nullish(),
+    ai_suggested_due_at: z.string().datetime().nullish(),
+    ai_recommended_action: z.string().max(2000).nullish(),
+    ai_confidence: z.number().min(0).max(1).nullish(),
+  }),
+  transitionTask: z.object({
+    action: z.enum(["claim", "start", "block", "unblock", "resolve", "dismiss", "reopen", "reassign"]),
+    owner: z.string().max(128).optional(),
+    owner_role: z.string().max(64).optional(),
+    resolution_note: z.string().max(4000).optional(),
+    blocked_reason: z.string().max(2000).optional(),
+    dismissed_reason: z.string().max(2000).optional(),
+    note: z.string().max(2000).optional(),
+  }),
+  setTaskDeadline: z.object({
+    due_at: z.string().datetime(),
+  }),
+  taskRetrospective: z.object({
+    root_cause: z.enum([
+      "material_delay", "equipment_failure", "labor_shortage", "quality_issue",
+      "planning_error", "supplier_issue", "customer_change", "data_error",
+      "external_factor", "no_action_needed", "other",
+    ]).optional(),
+    what_happened: z.string().max(4000).optional(),
+    what_we_did: z.string().max(4000).optional(),
+    prevention: z.string().max(4000).optional(),
+    was_false_positive: z.boolean().optional(),
+  }),
+
   // ── Risk Engine ──────────────────────────────────────
   riskBatch: z.object({
     subject_type: z.enum(["order", "allocation", "line", "factory", "customer"]),

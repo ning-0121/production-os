@@ -546,3 +546,78 @@ export type RiskAssessment = {
   top_reasons: string[];
   computed_at: string;
 };
+
+// ── V6: Execution Engine (decision tasks) ────────────────
+export type TaskStatus = "open" | "acknowledged" | "in_progress" | "blocked" | "resolved" | "dismissed";
+export type TaskCategory = "production_delay" | "quality" | "material" | "shipment" | "capacity" | "general";
+export type TaskAction = "claim" | "start" | "block" | "unblock" | "resolve" | "dismiss" | "reopen" | "reassign";
+
+export type DecisionTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  category: TaskCategory;
+  severity: "ok" | "warn" | "critical";
+  subject_type: string | null;
+  subject_id: string | null;
+  source_type: string;
+  source_ref: string | null;
+  status: TaskStatus;
+  owner: string | null;
+  owner_role: string | null;
+  due_at: string | null;
+  escalation_level: number;
+  last_escalated_at: string | null;
+  escalated_to: string | null;
+  ai_suggested_owner: string | null;
+  ai_suggested_due_at: string | null;
+  ai_recommended_action: string | null;
+  ai_confidence: number | null;
+  resolution_note: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  blocked_reason: string | null;
+  dismissed_reason: string | null;
+  version: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaskEvent = {
+  id: string;
+  task_id: string;
+  event_type: string;
+  from_status: string | null;
+  to_status: string | null;
+  actor: string | null;
+  actor_role: string | null;
+  detail: Record<string, unknown>;
+  note: string | null;
+  occurred_at: string;
+};
+
+export type TaskRetrospective = {
+  id: string;
+  task_id: string;
+  root_cause: string | null;
+  what_happened: string | null;
+  what_we_did: string | null;
+  prevention: string | null;
+  resolution_time_minutes: number | null;
+  was_escalated: boolean;
+  max_escalation_level: number;
+  was_false_positive: boolean | null;
+  authored_by: string | null;
+  created_at: string;
+};
+
+export type TaskSummary = {
+  total: number;
+  open: number;
+  unowned: number;
+  overdue: number;
+  escalated: number;
+  critical: number;
+  by_status: Record<string, number>;
+};
