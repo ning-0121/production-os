@@ -1,0 +1,90 @@
+/* ── Notification bell (floating top-right) ─────────────── */
+
+.notifBellWrap {
+  position: fixed;
+  top: 14px;
+  right: 18px;
+  z-index: 900;
+}
+
+.notifBellBtn {
+  position: relative;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.notifBellBtn:hover { background: rgba(255,255,255,.1); }
+.notifBellIcon { font-size: 18px; filter: grayscale(.2); }
+
+.notifBadge {
+  position: absolute;
+  top: -4px; right: -4px;
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #fb7185;
+  color: #0b1220;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.notifPanel {
+  position: absolute;
+  top: 48px; right: 0;
+  width: 360px; max-width: calc(100vw - 36px);
+  max-height: 70vh;
+  background: #0b1220;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.notifPanelHead {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.notifReadAll {
+  background: none; border: none; color: var(--accent);
+  cursor: pointer; font-size: 12px;
+}
+.notifReadAll:hover { text-decoration: underline; }
+
+.notifList { overflow-y: auto; display: flex; flex-direction: column; }
+.notifEmpty { padding: 28px; text-align: center; color: var(--muted); font-size: 13px; }
+
+.notifItem {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px 14px;
+  background: none; border: none;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  cursor: pointer; text-align: left; width: 100%;
+  position: relative;
+}
+.notifItem:hover { background: rgba(255,255,255,.04); }
+.notifItem--unread { background: rgba(110,231,255,.04); }
+.notifItem--critical .notifItemIcon { color: #fb7185; }
+.notifItem--warn .notifItemIcon { color: #facc15; }
+
+.notifItemIcon {
+  width: 24px; height: 24px; flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(255,255,255,.06);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--accent);
+}
+.notifItemBody { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.notifItemTitle { font-size: 13px; font-weight: 600; color: var(--text); }
+.notifItemText { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.notifItemTime { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.notifItemDot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 6px; }
+
+@media (max-width: 640px) {
+  .notifBellWrap { top: 10px; right: 12px; }
+  .notifPanel { width: calc(100vw - 24px); }
+}

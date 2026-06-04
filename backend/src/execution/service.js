@@ -13,6 +13,7 @@
 
 import { transition, isTerminal } from "./state-machine.js";
 import { sweepEscalations } from "./escalation.js";
+import { notifyForTask } from "./notify.js";
 
 // ════════════════════════════════════════════════════════════
 // Create (idempotent)
@@ -107,6 +108,9 @@ export async function createTask(supabase, input) {
     });
   }
 
+  // Notify whoever owns this (or the default queue if unowned). Idempotent.
+  await notifyForTask(supabase, "task_created", task);
+
   return { task, created: true };
 }
 
@@ -146,6 +150,14 @@ export async function applyTransition(supabase, taskId, action, payload = {}) {
   }
 
   await appendEvent(supabase, taskId, { ...result.event, request_id: payload.request_id ?? null });
+
+  // Notify on terminal-positive + reassign transitions.
+  if (action === "resolve") {
+    await notifyForTask(supabase, "task_resolved", updated);
+  } else if (action === "reassign" && payload.owner) {
+    await notifyForTask(supabase, "task_reassigned", updated, { new_owner: payload.owner });
+  }
+
   return { ok: true, task: updated };
 }
 
@@ -197,6 +209,7 @@ export async function runEscalationSweep(supabase, opts = {}) {
   const actions = sweepEscalations(tasks ?? [], policies ?? [], now);
 
   let escalated = 0;
+  let notified = 0;
   for (const action of actions) {
     const task = (tasks ?? []).find((t) => t.id === action.task_id);
     if (!task) continue;
@@ -229,9 +242,14 @@ export async function runEscalationSweep(supabase, opts = {}) {
     // Add the escalation target as a watcher
     await supabase.from("task_watchers")
       .upsert({ task_id: task.id, watcher: action.notify_role, reason: "escalation" }, { onConflict: "task_id,watcher" });
+    // Notify the escalation target (idempotent per level via dedup_key esc:L{n})
+    const r = await notifyForTask(supabase, "task_overdue_escalated", updated, {
+      escalation_level: action.to_level, notify_role: action.notify_role,
+    });
+    if (r.inserted) notified++;
   }
 
-  return { escalated, actions };
+  return { escalated, notified, actions };
 }
 
 // ════════════════════════════════════════════════════════════

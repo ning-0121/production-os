@@ -4,8 +4,8 @@
     {
       "name": "frontend",
       "runtimeExecutable": "/usr/local/bin/node",
-      "runtimeArgs": ["node_modules/.bin/vite"],
-      "port": 5173,
+      "runtimeArgs": ["node_modules/.bin/vite", "--port", "5174"],
+      "port": 5174,
       "cwd": "frontend",
       "env": { "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin" }
     }

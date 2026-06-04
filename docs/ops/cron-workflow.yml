@@ -1,0 +1,47 @@
+# ⚠️  COPY THIS FILE TO .github/workflows/cron.yml IN THE GITHUB UI
+# (The CLI OAuth token here lacks `workflow` scope to push it directly.)
+# GitHub → repo → Add file → Create new file → path .github/workflows/cron.yml → paste below.
+#
+name: Execution Loop Cron
+
+# Autonomous heartbeat for the Execution Engine.
+# Hits POST /api/cron/sweep which:
+#   1. auto-generates decision_tasks from persisted risk sources
+#   2. sends due-soon notifications
+#   3. escalates overdue tasks (and notifies escalation targets)
+# Everything is idempotent — overlapping/retried runs are safe.
+#
+# Required repo secrets:
+#   CRON_SWEEP_URL   e.g. https://your-backend.up.railway.app/api/cron/sweep
+#   CRON_SECRET      must match the backend CRON_SECRET env var
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub cron is UTC; runtime is best-effort.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}   # allow manual trigger from the Actions tab
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger execution-loop sweep
+        run: |
+          if [ -z "${{ secrets.CRON_SWEEP_URL }}" ] || [ -z "${{ secrets.CRON_SECRET }}" ]; then
+            echo "::error::CRON_SWEEP_URL or CRON_SECRET secret not set"
+            exit 1
+          fi
+          http_code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+            -X POST "${{ secrets.CRON_SWEEP_URL }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "x-cron-source: github_actions" \
+            --max-time 120)
+          echo "HTTP $http_code"
+          cat /tmp/resp.json
+          echo ""
+          # 200 = ok, 207 = partial (some sub-job failed but logged). Treat 5xx/401 as failure.
+          if [ "$http_code" != "200" ] && [ "$http_code" != "207" ]; then
+            echo "::error::cron sweep failed with HTTP $http_code"
+            exit 1
+          fi

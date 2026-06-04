@@ -621,3 +621,20 @@ export type TaskSummary = {
   critical: number;
   by_status: Record<string, number>;
 };
+
+// ── V6: Notifications ─────────────────────────────────────
+export type NotificationKind = "task_created" | "task_due_soon" | "task_overdue_escalated" | "task_resolved" | "task_reassigned";
+
+export type NotificationEvent = {
+  id: string;
+  recipient: string;
+  kind: NotificationKind;
+  channel: string;
+  title: string;
+  body: string | null;
+  task_id: string | null;
+  severity: "ok" | "warn" | "critical" | null;
+  metadata: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};

@@ -18,6 +18,7 @@ import { RuntimeWarRoomPage } from "./runtime/RuntimeWarRoomPage";
 import { CustomersPage } from "./customers/CustomersPage";
 import { ImportCenterPage } from "./imports/ImportCenterPage";
 import { TaskCenterPage } from "./tasks/TaskCenterPage";
+import { NotificationBell } from "./notifications/NotificationBell";
 import { AIAssistant } from "./today/AIAssistant";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
@@ -110,6 +111,8 @@ function MainApp({ user }: { user: AuthUser }) {
         onLogout={handleLogout}
         loggingOut={loggingOut}
       />
+
+      <NotificationBell />
 
       <main className="appContent">
         {/* Connection banner */}

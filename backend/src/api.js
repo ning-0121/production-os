@@ -44,6 +44,8 @@ import customersRouter from "./routes/customers.js";
 import importsRouter from "./routes/imports.js";
 import riskRouter from "./routes/risk.js";
 import tasksRouter from "./routes/tasks.js";
+import cronRouter from "./routes/cron.js";
+import notificationsRouter from "./routes/notifications.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -81,6 +83,11 @@ app.use("/api", (req, res, next) => {
   }
   next();
 });
+
+// ── Cron runner (machine-to-machine; CRON_SECRET, not JWT) ──
+// Mounted BEFORE authMiddleware so external schedulers can call it without a
+// user token. The router enforces CRON_SECRET internally.
+app.use("/api/cron", cronRouter);
 
 // ── Authentication ──────────────────────────────────────
 app.use("/api", authMiddleware);
@@ -194,6 +201,7 @@ app.use("/api/customers", customersRouter);
 app.use("/api/imports", importsRouter);
 app.use("/api/risk", riskRouter);
 app.use("/api/tasks", tasksRouter);
+app.use("/api/notifications", notificationsRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {

@@ -1170,3 +1170,33 @@ export function autoGenerateTasks(): Promise<{
 }> {
   return request("/tasks/auto-generate", { method: "POST" });
 }
+
+// ════════════════════════════════════════════════════════════
+// V6: Notifications
+// ════════════════════════════════════════════════════════════
+
+import type { NotificationEvent } from "../types";
+
+export function fetchNotifications(opts: { unread?: boolean; recipients?: string; limit?: number } = {}):
+  Promise<{ count: number; unread: number; notifications: NotificationEvent[] }> {
+  const qs = new URLSearchParams();
+  if (opts.unread) qs.set("unread", "true");
+  if (opts.recipients) qs.set("recipients", opts.recipients);
+  if (opts.limit) qs.set("limit", String(opts.limit));
+  const s = qs.toString();
+  return request(`/notifications${s ? `?${s}` : ""}`);
+}
+
+export function fetchUnreadCount(recipients?: string): Promise<{ unread: number }> {
+  const qs = recipients ? `?recipients=${encodeURIComponent(recipients)}` : "";
+  return request(`/notifications/unread-count${qs}`);
+}
+
+export function markNotificationRead(id: string): Promise<{ ok: boolean }> {
+  return request(`/notifications/${id}/read`, { method: "POST" });
+}
+
+export function markAllNotificationsRead(recipients?: string): Promise<{ ok: boolean; marked: number }> {
+  const qs = recipients ? `?recipients=${encodeURIComponent(recipients)}` : "";
+  return request(`/notifications/read-all${qs}`, { method: "POST" });
+}
