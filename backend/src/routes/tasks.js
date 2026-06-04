@@ -16,6 +16,7 @@ import { auditLog } from "../governance/audit.js";
 import {
   createTask, applyTransition, setDeadline, runEscalationSweep, addRetrospective,
 } from "../execution/service.js";
+import { autoGenerateTasks } from "../execution/auto-generate.js";
 import { legalActions } from "../execution/state-machine.js";
 
 const router = Router();
@@ -143,6 +144,19 @@ router.post("/sweep-escalations", asyncHandler(async (req, res) => {
   auditLog({
     action: "task.escalation_sweep", category: "system", result_status: "success", req,
     detail: { escalated: result.escalated },
+  });
+  res.json(result);
+}));
+
+// ── Auto-generate tasks from persisted risk sources (cron-callable) ──
+router.post("/auto-generate", asyncHandler(async (req, res) => {
+  const result = await autoGenerateTasks(supabase, {
+    actor: req.pilotIdentity?.operator ?? "auto-generator",
+    request_id: req.requestId ?? null,
+  });
+  auditLog({
+    action: "task.auto_generate", category: "system", result_status: "success", req,
+    detail: { created: result.created, skipped: result.skipped, scanned: result.scanned },
   });
   res.json(result);
 }));

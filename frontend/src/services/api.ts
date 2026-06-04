@@ -1162,3 +1162,11 @@ export function addTaskRetrospective(id: string, body: {
 export function sweepEscalations(): Promise<{ escalated: number; actions: unknown[] }> {
   return request("/tasks/sweep-escalations", { method: "POST" });
 }
+
+export function autoGenerateTasks(): Promise<{
+  created: number; skipped: number; drafts: number;
+  by_source: Record<string, { created: number; skipped: number }>;
+  scanned: Record<string, number>;
+}> {
+  return request("/tasks/auto-generate", { method: "POST" });
+}

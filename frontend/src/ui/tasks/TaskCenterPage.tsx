@@ -17,6 +17,7 @@ import { useAsync } from "../../hooks/useAsync";
 import {
   fetchTasks, fetchTaskSummary, fetchTaskDetail,
   transitionTask, setTaskDeadline, addTaskRetrospective,
+  autoGenerateTasks, sweepEscalations,
 } from "../../services/api";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
 import { useToast } from "../Toast";
@@ -51,6 +52,29 @@ export function TaskCenterPage() {
 
   const tasks = Array.isArray(data?.tasks) ? data!.tasks : [];
   const refresh = () => setRefreshKey((k) => k + 1);
+  const [working, setWorking] = React.useState(false);
+
+  async function handleAutoGenerate() {
+    setWorking(true);
+    try {
+      const r = await autoGenerateTasks();
+      toast(r.created > 0 ? `自动生成 ${r.created} 个任务（跳过 ${r.skipped} 个已存在）` : "无新风险需要建任务", "success");
+      refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "自动生成失败", "error");
+    } finally { setWorking(false); }
+  }
+
+  async function handleSweep() {
+    setWorking(true);
+    try {
+      const r = await sweepEscalations();
+      toast(r.escalated > 0 ? `${r.escalated} 个任务已升级` : "无任务需要升级", "success");
+      refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "升级扫描失败", "error");
+    } finally { setWorking(false); }
+  }
 
   if (loading && tasks.length === 0) return <PageSkeleton />;
 
@@ -61,7 +85,13 @@ export function TaskCenterPage() {
           <h1 style={{ margin: 0, fontSize: 22 }}>任务中心</h1>
           <div className="hint">风险 → 责任人 → 截止 → 升级 → 复盘。每个风险都有人负责。</div>
         </div>
-        <button className="btn" onClick={refresh}>↻ 刷新</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn primary" onClick={handleAutoGenerate} disabled={working} title="扫描运行时事件/事件/进度偏差/验货不合格，自动开任务">
+            {working ? "处理中..." : "⚡ 自动生成任务"}
+          </button>
+          <button className="btn" onClick={handleSweep} disabled={working} title="检查逾期任务并升级">升级扫描</button>
+          <button className="btn" onClick={refresh}>↻ 刷新</button>
+        </div>
       </div>
 
       {/* KPI strip */}
