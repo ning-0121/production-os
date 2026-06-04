@@ -1210,3 +1210,35 @@ import type { RetrospectiveData } from "../types";
 export function fetchRetrospective(window: "7d" | "30d" = "7d"): Promise<RetrospectiveData> {
   return request(`/retrospective/summary?window=${window}`);
 }
+
+// ════════════════════════════════════════════════════════════
+// V6-A: Decision Engine
+// ════════════════════════════════════════════════════════════
+
+import type { DecisionAssessment, DecisionApplyResult } from "../types";
+
+export function evaluateDecision(subject: { type: string; id: string }, decisionType?: string, context?: Record<string, unknown>): Promise<DecisionAssessment> {
+  return request("/decisions/evaluate", {
+    method: "POST",
+    body: JSON.stringify({ subject, decision_type: decisionType, context, persist: true }),
+  });
+}
+
+export function fetchDecision(subjectType: string, subjectId: string): Promise<DecisionAssessment> {
+  return request(`/decisions/${subjectType}/${encodeURIComponent(subjectId)}`);
+}
+
+export function applyDecisionOption(
+  decisionId: string, optionId: string,
+  mode: "apply" | "task_only" | "request_approval" | "dismiss" = "apply",
+  overrideReason?: string,
+): Promise<DecisionApplyResult> {
+  return request(`/decisions/${decisionId}/options/${encodeURIComponent(optionId)}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ mode, override_reason: overrideReason }),
+  });
+}
+
+export function fetchDecisionHistory(limit = 30): Promise<{ count: number; history: Array<Record<string, unknown>> }> {
+  return request(`/decisions/history?limit=${limit}`);
+}

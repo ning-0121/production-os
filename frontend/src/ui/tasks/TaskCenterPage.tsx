@@ -20,10 +20,13 @@ import {
   autoGenerateTasks, sweepEscalations,
 } from "../../services/api";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
+import { DecisionPanel } from "../shared/DecisionPanel";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import type { DecisionTask, TaskStatus, TaskAction } from "../../types";
 import "./tasks.css";
+
+const DECISIONABLE_CATEGORIES = new Set(["production_delay", "material", "quality", "capacity", "shipment"]);
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   open: "待认领", acknowledged: "已认领", in_progress: "处理中",
@@ -263,6 +266,18 @@ function TaskDrawer({ taskId, onClose, onChanged }: { taskId: string; onClose: (
                 <strong>AI 建议：</strong>{data.task.ai_recommended_action}
                 {data.task.ai_confidence != null && <span className="hint"> （{Math.round(data.task.ai_confidence * 100)}%）</span>}
               </div>
+            )}
+
+            {/* Decision Engine — for actionable, still-open tasks tied to a subject */}
+            {data.task.subject_id && DECISIONABLE_CATEGORIES.has(data.task.category)
+              && !["resolved", "dismissed"].includes(data.task.status) && (
+              <details className="taskDecisionWrap">
+                <summary>生成决策方案 →</summary>
+                <DecisionPanel
+                  subject={{ type: data.task.subject_type ?? "order", id: data.task.subject_id }}
+                  onApplied={reload}
+                />
+              </details>
             )}
 
             {/* Actions */}

@@ -94,3 +94,8 @@
   .taskKpiStrip { grid-template-columns: repeat(3, 1fr); }
   .taskDrawerFacts { grid-template-columns: 1fr; }
 }
+
+/* Decision Engine embed */
+.taskDecisionWrap { margin: 12px 0; }
+.taskDecisionWrap > summary { cursor: pointer; font-size: 13px; color: var(--accent); padding: 8px 0; user-select: none; }
+.taskDecisionWrap[open] > summary { margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.08); }

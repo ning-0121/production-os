@@ -676,3 +676,59 @@ export type RetrospectiveData = {
   insights: RetroInsight[];
   cron_health: { runs: number; failed_runs: number; last_run_at: string | null; last_status: string | null };
 };
+
+// ── V6-A: Decision Engine ────────────────────────────────
+export type DecisionType =
+  | "delay_resolution" | "material_shortage_resolution" | "qc_rework_resolution"
+  | "vip_insertion" | "line_disruption_resolution";
+
+export type DecisionActionType =
+  | "create_task" | "reschedule" | "create_incident" | "notify_owner"
+  | "update_watchlist" | "request_approval" | "mark_customer_delay"
+  | "create_purchase_followup" | "create_qc_followup";
+
+export type DecisionAction = { action_type: DecisionActionType; payload: Record<string, unknown> };
+
+export type DecisionOption = {
+  id: string;
+  option_type: string;
+  title: string;
+  description: string;
+  impact: {
+    delay_days_delta: number; cost_delta: number; margin_delta: number;
+    risk_delta: number; affected_orders: string[]; affected_lines: string[];
+    customer_impact: "low" | "medium" | "high";
+  };
+  feasibility_score: number; risk_score: number; cost_score: number;
+  confidence_score: number; total_score: number;
+  required_actions: DecisionAction[];
+  reasoning: string[];
+};
+
+export type DecisionAssessment = {
+  id: string | null;
+  subject: { type: string | null; id: string | null };
+  decision_type: DecisionType;
+  urgency: "low" | "medium" | "high" | "critical";
+  current_state: {
+    summary: string; risk_score: number; expected_delay_days: number;
+    affected_orders: string[]; affected_lines: string[]; affected_factories: string[];
+    estimated_margin_impact: number;
+  };
+  options: DecisionOption[];
+  recommended_option_id: string | null;
+  recommendation_reason: string;
+  confidence_score: number;
+  if_no_action: {
+    expected_delay_days: number; affected_orders: string[]; margin_loss: number;
+    customer_risk: "low" | "medium" | "high"; escalation_risk: "low" | "medium" | "high";
+  };
+  computed_at: string;
+};
+
+export type DecisionApplyResult = {
+  ok: boolean;
+  status: "applied" | "partial" | "failed" | "dismissed" | "approval_requested";
+  actions_taken: Array<{ action_type: string; status: string; ref_id?: string; error?: string }>;
+  log?: Record<string, unknown>;
+};

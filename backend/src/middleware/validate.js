@@ -356,6 +356,29 @@ export const schemas = {
     was_false_positive: z.boolean().optional(),
   }),
 
+  // ── V6-A: Decision Engine ────────────────────────────
+  evaluateDecision: z.object({
+    subject: z.object({
+      type: z.enum(["order", "allocation", "line", "factory", "material", "incident"]),
+      id: z.string().min(1),
+    }),
+    decision_type: z.enum([
+      "delay_resolution", "material_shortage_resolution", "qc_rework_resolution",
+      "vip_insertion", "line_disruption_resolution",
+    ]).optional(),
+    context: z.record(z.string(), z.unknown()).optional(),
+    persist: z.boolean().optional(),
+  }),
+  applyDecisionOption: z.object({
+    mode: z.enum(["apply", "task_only", "request_approval", "dismiss"]).default("apply"),
+    override_reason: z.string().max(2000).optional(),
+  }),
+  decisionFeedback: z.object({
+    option_id: z.string().min(1),
+    feedback_type: z.enum(["helpful", "not_helpful", "wrong_recommendation", "missing_option", "inaccurate_impact"]),
+    feedback_note: z.string().max(2000).optional(),
+  }),
+
   // ── Risk Engine ──────────────────────────────────────
   riskBatch: z.object({
     subject_type: z.enum(["order", "allocation", "line", "factory", "customer"]),
