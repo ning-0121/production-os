@@ -701,6 +701,8 @@ export type DecisionOption = {
   };
   feasibility_score: number; risk_score: number; cost_score: number;
   confidence_score: number; total_score: number;
+  base_score?: number;
+  learning?: { delta: number; reason: string | null; sample_size: number } | null;
   required_actions: DecisionAction[];
   reasoning: string[];
 };

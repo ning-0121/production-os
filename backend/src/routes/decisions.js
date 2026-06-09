@@ -18,8 +18,26 @@ import { validate, schemas } from "../middleware/validate.js";
 import { auditLog } from "../governance/audit.js";
 import { evaluateDecision, getAssessment } from "../decision-engine/io.js";
 import { applyOption } from "../decision-engine/apply.js";
+import { recomputeLearning, listLearning } from "../decision-engine/learning-io.js";
 
 const router = Router();
+
+// ── Learning loop (declared before /:subject_type/:id) ──
+// GET /api/decisions/learning — inspect current learned weights
+router.get("/learning", asyncHandler(async (_req, res) => {
+  const rows = await listLearning(supabase);
+  res.json({ count: rows.length, learning: rows });
+}));
+
+// POST /api/decisions/learning/recompute — rebuild from history (cron-callable)
+router.post("/learning/recompute", asyncHandler(async (req, res) => {
+  const result = await recomputeLearning(supabase);
+  auditLog({
+    action: "decision.learning_recompute", category: "system", result_status: "success", req,
+    detail: { updated: result.updated },
+  });
+  res.json({ updated: result.updated, rows: result.rows });
+}));
 
 const SUBJECT_TYPES = new Set(["order", "allocation", "line", "factory", "material", "incident"]);
 

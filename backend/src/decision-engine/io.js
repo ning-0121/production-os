@@ -12,6 +12,7 @@
 
 import { assembleDecision, DECISION_TYPES } from "./index.js";
 import { assessById } from "../risk-engine/io.js";
+import { loadAdjustmentMap } from "./learning-io.js";
 
 /**
  * Infer the decision_type for a subject when the caller didn't specify one.
@@ -33,7 +34,10 @@ export function inferDecisionType(signals) {
  */
 export async function evaluateDecision(supabase, subject, opts = {}) {
   const ctx = await buildContext(supabase, subject, opts);
-  const assessment = assembleDecision(ctx, { now: opts.now });
+  // Load the bounded learned-adjustment map (organizational memory). Null when
+  // learning disabled / unavailable → pure deterministic scoring.
+  const adjustmentMap = await loadAdjustmentMap(supabase);
+  const assessment = assembleDecision(ctx, { now: opts.now, adjustmentMap });
 
   if (opts.persist) {
     const { data, error } = await supabase.from("decision_assessments").insert({

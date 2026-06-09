@@ -23,6 +23,7 @@ import { autoGenerateTasks } from "../execution/auto-generate.js";
 import { runEscalationSweep } from "../execution/service.js";
 import { sweepDueSoon } from "../execution/notify.js";
 import { isValidCronSecret } from "../execution/cron-guard.js";
+import { recomputeLearning } from "../decision-engine/learning-io.js";
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.post("/sweep", asyncHandler(async (req, res) => {
     runId = data?.id ?? null;
   } catch { /* logging is non-critical */ }
 
-  const result = { generated: 0, escalated: 0, notified: 0, due_soon: 0, failed: 0 };
+  const result = { generated: 0, escalated: 0, notified: 0, due_soon: 0, learning_updated: 0, failed: 0 };
   let errorMessage = null;
 
   // 1. Auto-generate tasks
@@ -75,6 +76,12 @@ router.post("/sweep", asyncHandler(async (req, res) => {
     result.escalated = esc.escalated;
     result.notified += esc.notified ?? 0;
   } catch (err) { result.failed++; errorMessage = appendErr(errorMessage, "escalation", err); }
+
+  // 4. Decision learning recompute (organizational memory; bounded + idempotent)
+  try {
+    const learn = await recomputeLearning(supabase, { now: startedAt });
+    result.learning_updated = learn.updated;
+  } catch (err) { result.failed++; errorMessage = appendErr(errorMessage, "learning", err); }
 
   const finishedAt = new Date();
   const durationMs = finishedAt.getTime() - startedAt.getTime();

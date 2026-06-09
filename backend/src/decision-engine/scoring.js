@@ -39,8 +39,12 @@ const FEASIBILITY_PRIOR = {
  * Score one option (pure). Returns a NEW option object with scores filled.
  * @param {DecisionOption} opt
  * @param {object} ctx
+ * @param {{adjustment:number, reason:string|null, sample_size:number}} [learned]
+ *        Optional BOUNDED learning nudge (from the learning loop). Applied on
+ *        top of the deterministic base score; recorded on the option for
+ *        transparency. Pass nothing → pure deterministic behavior.
  */
-export function scoreOption(opt, ctx) {
+export function scoreOption(opt, ctx, learned) {
   const imp = opt.impact ?? {};
 
   // Delivery: reward delay reduction. delay_days_delta negative = good.
@@ -71,7 +75,12 @@ export function scoreOption(opt, ctx) {
   // Heavy customer-impact options carry a small penalty (goodwill cost).
   if (imp.customer_impact === "high") total -= 6;
 
-  const total_score = Math.round(clamp100(total));
+  const base_score = Math.round(clamp100(total));
+
+  // Learning nudge — BOUNDED, applied on top of the deterministic base. Never
+  // flips ordering wildly (capped ±MAX_NUDGE upstream). Recorded for audit.
+  const nudge = Number(learned?.adjustment) || 0;
+  const total_score = Math.round(clamp100(base_score + nudge));
 
   // Confidence: how sure we are about this option's estimate. Lower when the
   // option depends on external availability (alt factory/line/material).
@@ -86,13 +95,27 @@ export function scoreOption(opt, ctx) {
     risk_score,
     cost_score,
     confidence_score,
+    base_score,
     total_score,
+    // Transparency: what the learning loop did to this option (if anything).
+    learning: nudge !== 0
+      ? { delta: nudge, reason: learned?.reason ?? null, sample_size: learned?.sample_size ?? 0 }
+      : null,
   };
 }
 
-/** Score all options + return them sorted by total_score desc. */
-export function scoreAll(options, ctx) {
-  return (options ?? []).map((o) => scoreOption(o, ctx)).sort((a, b) => b.total_score - a.total_score);
+/**
+ * Score all options + sort by total_score desc.
+ * @param {Array} options
+ * @param {object} ctx
+ * @param {Map} [adjustmentMap]  optional learned-adjustment map keyed by
+ *        `${decision_type}|${option_type}` (from learning.buildAdjustmentMap)
+ */
+export function scoreAll(options, ctx, adjustmentMap) {
+  const dt = ctx?.decision_type;
+  return (options ?? [])
+    .map((o) => scoreOption(o, ctx, adjustmentMap?.get(`${dt}|${o.option_type}`)))
+    .sort((a, b) => b.total_score - a.total_score);
 }
 
 /**

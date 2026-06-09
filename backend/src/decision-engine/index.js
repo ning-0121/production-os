@@ -19,7 +19,8 @@ export const DECISION_TYPES = [
 /**
  * @param {object} ctx  normalized context from io.js. Must include
  *   { subject:{type,id}, decision_type, urgency, expected_delay_days, ... }
- * @param {object} [opts] { now?: Date, id?: string }
+ * @param {object} [opts] { now?: Date, id?: string, adjustmentMap?: Map }
+ *   adjustmentMap: optional learned bounded nudges (learning loop). Omit → pure deterministic.
  * @returns {DecisionAssessment}
  */
 export function assembleDecision(ctx, opts = {}) {
@@ -27,7 +28,7 @@ export function assembleDecision(ctx, opts = {}) {
   const now = opts.now ?? new Date();
 
   const rawOptions = generateOptions(decisionType, ctx);
-  const scored = scoreAll(rawOptions, ctx);
+  const scored = scoreAll(rawOptions, ctx, opts.adjustmentMap);
   const rec = pickRecommendation(scored);
 
   // if_no_action = the keep_current baseline's outcome.

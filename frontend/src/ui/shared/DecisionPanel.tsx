@@ -119,6 +119,13 @@ export function DecisionPanel({
               {o.reasoning.length > 0 && (
                 <ul className="decisionReasoning">{o.reasoning.map((r, i) => <li key={i}>{r}</li>)}</ul>
               )}
+              {/* Learning trace — bounded, explainable organizational memory */}
+              {o.learning && o.learning.delta !== 0 && (
+                <div className={`decisionLearning ${o.learning.delta > 0 ? "decisionLearning--up" : "decisionLearning--down"}`}>
+                  🧠 历史学习 {o.learning.delta > 0 ? `+${o.learning.delta}` : o.learning.delta}
+                  <span className="decisionLearningReason"> · {o.learning.reason}</span>
+                </div>
+              )}
               {(o.impact.affected_orders.length > 0 || o.required_actions.length > 0) && (
                 <div className="decisionOptionMeta">
                   {o.impact.affected_orders.length > 0 && <span>影响订单 {o.impact.affected_orders.length} 个</span>}
@@ -197,6 +204,10 @@ const decisionCss = `
 .decisionImpactLabel { font-size: 10px; color: var(--muted); }
 .decisionReasoning { margin: 8px 0 0; padding-left: 18px; font-size: 11px; color: var(--muted); }
 .decisionReasoning li { margin: 2px 0; }
+.decisionLearning { margin-top: 8px; font-size: 11px; padding: 4px 8px; border-radius: 4px; }
+.decisionLearning--up { background: rgba(34,197,94,.08); color: #22c55e; }
+.decisionLearning--down { background: rgba(250,204,21,.08); color: #facc15; }
+.decisionLearningReason { color: var(--muted); }
 .decisionOptionMeta { display: flex; gap: 12px; font-size: 11px; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
 .decisionOptionActions { display: flex; gap: 6px; margin-top: 10px; }
 `;
