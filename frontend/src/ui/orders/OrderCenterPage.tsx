@@ -3,6 +3,7 @@ import { useAsync } from "../../hooks/useAsync";
 import { fetchAllocations, deleteAllocation } from "../../services/api";
 import { useRiskBatch } from "../../hooks/useRiskBatch";
 import { RiskPill } from "../shared/RiskPill";
+import { DecisionButton } from "../shared/DecisionDrawer";
 import { useToast } from "../Toast";
 import { CreateOrderDrawer } from "./CreateOrderDrawer";
 import { ImportDrawer } from "./ImportDrawer";
@@ -160,9 +161,20 @@ export function OrderCenterPage() {
                       </span>
                     </td>
                     <td>
-                      {a.status === "planned" && (
-                        <button className="orderActionBtn orderActionBtn--danger" onClick={() => handleDelete(a.id)}>删除</button>
-                      )}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                        {/* Show Decision entry for at-risk active orders */}
+                        {active && (risk?.level === "critical" || risk?.level === "warn") && (
+                          <DecisionButton
+                            subject={{ type: "allocation", id: a.id }}
+                            title={`订单 ${a.order_id ?? a.id.slice(0, 8)}`}
+                            label="决策"
+                            className="orderActionBtn orderActionBtn--decision"
+                          />
+                        )}
+                        {a.status === "planned" && (
+                          <button className="orderActionBtn orderActionBtn--danger" onClick={() => handleDelete(a.id)}>删除</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -288,3 +288,12 @@
     font-size: 12px;
   }
 }
+
+/* Decision entry button on exception rows */
+.excDecisionBtn {
+  font-size: 11px; padding: 2px 8px; margin-left: 6px;
+  background: rgba(110,231,255,.10); color: var(--accent);
+  border: 1px solid rgba(110,231,255,.3); border-radius: 4px; cursor: pointer;
+  white-space: nowrap;
+}
+.excDecisionBtn:hover { background: rgba(110,231,255,.18); }

@@ -11,8 +11,19 @@ import { fetchRuntimeCommands, executeCommandAction, simulateRuntimeEvents, crea
 import { useToast } from "../Toast";
 import { useAppStore } from "../../stores/appStore";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
+import { DecisionButton } from "../shared/DecisionDrawer";
 import { legacyToLevel } from "../shared/riskColors";
 import type { RuntimeCommand, RuntimeCommandAction, RiskAssessment } from "../../types";
+
+/** Map a runtime command to the decision_type its event implies. */
+function commandDecisionType(cmd: RuntimeCommand): string | undefined {
+  const t = (cmd.title + cmd.summary).toLowerCase();
+  if (t.includes("物料") || t.includes("缺料") || t.includes("material")) return "material_shortage_resolution";
+  if (t.includes("质量") || t.includes("qc") || t.includes("不良") || t.includes("返工")) return "qc_rework_resolution";
+  if (t.includes("停") || t.includes("阻塞") || t.includes("shutdown") || t.includes("blocked")) return "line_disruption_resolution";
+  if (t.includes("插单") || t.includes("vip")) return "vip_insertion";
+  return "delay_resolution";
+}
 
 /** Map a command to the category an execution task should carry. */
 function commandCategory(cmd: RuntimeCommand): "production_delay" | "quality" | "material" | "general" {
@@ -177,6 +188,16 @@ function CommandCard({ cmd, onSelectEvent }: { cmd: RuntimeCommand; onSelectEven
       {simResult && <div className="rtCommandSimResult">{simResult}</div>}
 
       <div className="rtCommandActions">
+        {/* Decision entry when the command points at a supported subject */}
+        {commandSubject(cmd) && (
+          <DecisionButton
+            subject={commandSubject(cmd)!}
+            title={cmd.title}
+            decisionType={commandDecisionType(cmd)}
+            label="决策"
+            className="btn rtCommandBtn"
+          />
+        )}
         <button
           className="btn rtCommandBtn"
           disabled={busy !== null}

@@ -22,7 +22,11 @@ import "@xyflow/react/dist/style.css";
 import { useAsync } from "../../hooks/useAsync";
 import { fetchRuntimeGraph, propagateRuntimeFrom } from "../../services/api";
 import { useAppStore } from "../../stores/appStore";
+import { DecisionButton } from "../shared/DecisionDrawer";
 import type { ConstraintNode as CNode, ConstraintEdge as CEdge, RuntimeSeverity } from "../../types";
+
+// Decision Engine subject types (constraint node types that map to a decision).
+const DECISION_NODE_TYPES = new Set(["order", "allocation", "line", "factory", "material"]);
 
 const TYPE_LANE: Record<string, number> = {
   factory: 0,
@@ -65,6 +69,7 @@ export function ConstraintGraph({ refreshKey = 0 }: { refreshKey?: number }) {
   const [highlightedNodes, setHighlightedNodes] = React.useState<Set<string>>(new Set());
   const [propagationInfo, setPropagationInfo] = React.useState<string | null>(null);
   const [propLoading, setPropLoading] = React.useState(false);
+  const [selectedNode, setSelectedNode] = React.useState<CNode | null>(null);
 
   const safeNodes = React.useMemo(() => Array.isArray(data?.nodes) ? data!.nodes : [], [data?.nodes]);
   const safeEdges = React.useMemo(() => Array.isArray(data?.edges) ? data!.edges : [], [data?.edges]);
@@ -75,6 +80,7 @@ export function ConstraintGraph({ refreshKey = 0 }: { refreshKey?: number }) {
     setRuntimeSelectedNodeId(node.id);
     const original = (node.data as { _node?: CNode })._node;
     if (!original) return;
+    setSelectedNode(original);
     setPropLoading(true);
     setPropagationInfo(null);
     try {
@@ -125,6 +131,15 @@ export function ConstraintGraph({ refreshKey = 0 }: { refreshKey?: number }) {
         {(highlightedNodes.size > 0 || propagationInfo) && (
           <>
             <span className="rtGraphInfo">{propLoading ? "传播中..." : propagationInfo}</span>
+            {/* Evaluate a decision for the clicked node, if it's a supported subject */}
+            {selectedNode && DECISION_NODE_TYPES.has(selectedNode.node_type) && (
+              <DecisionButton
+                subject={{ type: selectedNode.node_type, id: selectedNode.ref_id }}
+                title={`${selectedNode.node_type} ${selectedNode.ref_label ?? selectedNode.ref_id}`}
+                label="生成决策"
+                className="btn"
+              />
+            )}
             <button className="btn" onClick={clearHighlight}>清除高亮</button>
           </>
         )}

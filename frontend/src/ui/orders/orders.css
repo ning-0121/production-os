@@ -164,6 +164,14 @@
   background: rgba(251,113,133,.10);
 }
 
+.orderActionBtn--decision {
+  border-color: rgba(110,231,255,.3);
+  color: var(--accent);
+}
+.orderActionBtn--decision:hover {
+  background: rgba(110,231,255,.12);
+}
+
 .drawerClose {
   width: 28px;
   height: 28px;

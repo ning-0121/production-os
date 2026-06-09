@@ -390,3 +390,8 @@
   .rtReplayWrap { grid-template-columns: 1fr; }
   .rtKpiStrip { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* Decision Engine embed in detail drawer */
+.rtDrawerDecision { margin-top: 12px; }
+.rtDrawerDecision > summary { cursor: pointer; font-size: 12px; color: var(--accent); padding: 6px 0; user-select: none; }
+.rtDrawerDecision[open] > summary { margin-bottom: 8px; }

@@ -9,6 +9,7 @@
 import React from "react";
 import { useAppStore } from "../../stores/appStore";
 import { fetchRuntimeEvents } from "../../services/api";
+import { DecisionPanel } from "../shared/DecisionPanel";
 import type { RuntimeEvent } from "../../types";
 
 export function RuntimeDetailDrawer() {
@@ -71,6 +72,12 @@ export function RuntimeDetailDrawer() {
               </div>
             ))}
           </div>
+
+          {/* Decision entry for this allocation — lazy, only when expanded */}
+          <details className="rtDrawerDecision">
+            <summary>生成决策方案 →</summary>
+            <DecisionPanel subject={{ type: "allocation", id: allocId }} />
+          </details>
         </div>
       )}
 

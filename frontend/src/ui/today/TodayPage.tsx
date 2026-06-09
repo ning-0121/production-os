@@ -10,6 +10,7 @@ import { ForecastSection } from "./ForecastSection";
 import { WatchlistSection } from "./WatchlistSection";
 import { AnomalySection } from "./AnomalySection";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
+import { DecisionButton } from "../shared/DecisionDrawer";
 import type { TodayBriefing, AIAction, RiskyOrder, AnomalyAlert } from "../../types";
 import "./today.css";
 
@@ -202,10 +203,20 @@ function AIActionCard({ action, onExecute }: { action: AIAction; onExecute: (a: 
         <button className="btn primary" onClick={handleExecute} disabled={executing}>
           {executing ? "执行中..." : "执行"}
         </button>
+        {/* Decision entry when the AI action targets a supported subject */}
+        {DECISION_SUBJECT_TYPES.has(action.target_type) && action.target_id && (
+          <DecisionButton
+            subject={{ type: action.target_type, id: action.target_id }}
+            label="查看决策"
+          />
+        )}
       </div>
     </div>
   );
 }
+
+// Subject types the Decision Engine supports.
+const DECISION_SUBJECT_TYPES = new Set(["order", "allocation", "line", "factory", "material", "incident"]);
 
 function RiskyOrderRow({ order }: { order: RiskyOrder }) {
   // Use canonical risk-engine assessment instead of the legacy ad-hoc
@@ -231,6 +242,13 @@ function RiskyOrderRow({ order }: { order: RiskyOrder }) {
         <span className={`todayOrderDays todayOrderDays--${assessment?.level ?? "ok"}`}>
           {order.days_left < 0 ? `逾期${Math.abs(order.days_left)}天` : `剩${order.days_left}天`}
         </span>
+        {/* Decision entry at the point of risk — lazy-evaluates on click */}
+        <DecisionButton
+          subject={{ type: "allocation", id: order.allocation_id }}
+          title={`订单 ${order.order_id ?? order.allocation_id.slice(0, 8)}`}
+          label="决策"
+          className="todayDecisionBtn"
+        />
       </div>
     </div>
   );

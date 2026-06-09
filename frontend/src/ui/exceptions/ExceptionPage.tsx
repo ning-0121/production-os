@@ -2,8 +2,18 @@ import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { fetchExceptionsV2 } from "../../services/api";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
+import { DecisionButton } from "../shared/DecisionDrawer";
 import type { ExceptionV2Response, AIAction } from "../../types";
 import "./exceptions.css";
+
+/** Map a resource/material exception to a decision subject (material > line > factory). */
+function resourceSubject(item: { line_id?: string; factory_id?: string; data?: Record<string, unknown> }): { type: string; id: string } | null {
+  const materialId = item.data?.material_id;
+  if (typeof materialId === "string" && materialId) return { type: "material", id: materialId };
+  if (item.line_id) return { type: "line", id: item.line_id };
+  if (item.factory_id) return { type: "factory", id: item.factory_id };
+  return null;
+}
 
 export function ExceptionPage() {
   const { data, loading, error, refetch } = useAsync(() => fetchExceptionsV2(), []);
@@ -64,6 +74,14 @@ export function ExceptionPage() {
               </span>
             </div>
             <RiskPill assessment={legacyAssessment(item.severity, "order", item.allocation_id ?? item.order_id ?? "_")} compact />
+            {(item.allocation_id || item.order_id) && (
+              <DecisionButton
+                subject={item.allocation_id ? { type: "allocation", id: item.allocation_id } : { type: "order", id: item.order_id! }}
+                title={item.message}
+                label="决策"
+                className="excDecisionBtn"
+              />
+            )}
           </div>
         )}
       />
@@ -81,6 +99,9 @@ export function ExceptionPage() {
               <span className="excItemMsg">{item.message}</span>
             </div>
             <RiskPill assessment={legacyAssessment(item.severity, "factory", item.factory_id ?? "_")} compact />
+            {item.factory_id && (
+              <DecisionButton subject={{ type: "factory", id: item.factory_id }} title={item.message} label="决策" className="excDecisionBtn" />
+            )}
           </div>
         )}
       />
@@ -98,6 +119,9 @@ export function ExceptionPage() {
               <span className="excItemMsg">{item.message}</span>
             </div>
             <RiskPill assessment={legacyAssessment(item.severity, "line", item.line_id ?? item.factory_id ?? "_")} compact />
+            {resourceSubject(item) && (
+              <DecisionButton subject={resourceSubject(item)!} title={item.message} label="决策" className="excDecisionBtn" />
+            )}
           </div>
         )}
       />
@@ -115,6 +139,12 @@ export function ExceptionPage() {
               <span className="excItemMsg">{item.message}</span>
             </div>
             <RiskPill assessment={legacyAssessment(item.severity ?? "high", "order", item.order_id ?? item.factory_id ?? "_")} compact />
+            {(item.order_id || item.factory_id) && (
+              <DecisionButton
+                subject={item.order_id ? { type: "order", id: item.order_id } : { type: "factory", id: item.factory_id! }}
+                title={item.message} label="决策" className="excDecisionBtn"
+              />
+            )}
           </div>
         )}
       />
