@@ -1242,3 +1242,9 @@ export function applyDecisionOption(
 export function fetchDecisionHistory(limit = 30): Promise<{ count: number; history: Array<Record<string, unknown>> }> {
   return request(`/decisions/history?limit=${limit}`);
 }
+
+// ── V6: Decision Intelligence ────────────────────────────
+import type { DecisionIntelligence } from "../types";
+export function fetchDecisionIntelligence(window: "7d" | "30d" = "7d"): Promise<DecisionIntelligence> {
+  return request(`/decisions/intelligence/summary?window=${window}`);
+}

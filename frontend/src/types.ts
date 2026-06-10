@@ -734,3 +734,35 @@ export type DecisionApplyResult = {
   actions_taken: Array<{ action_type: string; status: string; ref_id?: string; error?: string }>;
   log?: Record<string, unknown>;
 };
+
+// ── V6: Decision Intelligence ────────────────────────────
+export type DecisionIntelSummary = {
+  decisions_evaluated: number; decisions_applied: number; total_selected: number;
+  recommendation_acceptance_rate: number; override_rate: number;
+  apply_success_rate: number; failed_rate: number; dismissed_count: number;
+  avg_confidence: number; prev_decisions_evaluated: number;
+  acceptance_trend: "up" | "down" | "flat"; prev_acceptance_rate: number;
+};
+export type DecisionIntelOption = {
+  option_type: string; selected: number; applied: number; failed: number; dismissed: number;
+  helpful: number; not_helpful: number; success_rate: number; feedback_score: number;
+};
+export type DecisionIntelOverride = { option_type: string; recommended: number; overridden: number; override_rate: number };
+export type DecisionIntelLearningRow = { decision_type: string; option_type: string; adjustment: number; sample_size: number; effectiveness: number; reason: string | null };
+export type DecisionIntelFeedback = {
+  helpful: number; not_helpful: number; wrong_recommendation: number; missing_option: number;
+  inaccurate_impact: number; total_feedback: number; no_feedback: number; helpful_rate: number;
+};
+export type DecisionIntelTrendDay = { date: string; evaluated: number; applied: number; accepted: number; overridden: number; decided: number; acceptance_rate: number; override_rate: number };
+export type DecisionIntelInsight = { severity: "ok" | "warn" | "critical"; icon: string; text: string };
+
+export type DecisionIntelligence = {
+  window: { days: number; from: string; to: string };
+  summary: DecisionIntelSummary;
+  options: DecisionIntelOption[];
+  overrides: DecisionIntelOverride[];
+  learning: { all: DecisionIntelLearningRow[]; top_positive: DecisionIntelLearningRow[]; top_negative: DecisionIntelLearningRow[]; learned_count: number };
+  feedback: DecisionIntelFeedback;
+  trends: { days: DecisionIntelTrendDay[] };
+  insights: DecisionIntelInsight[];
+};

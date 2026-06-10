@@ -19,8 +19,32 @@ import { auditLog } from "../governance/audit.js";
 import { evaluateDecision, getAssessment } from "../decision-engine/io.js";
 import { applyOption } from "../decision-engine/apply.js";
 import { recomputeLearning, listLearning } from "../decision-engine/learning-io.js";
+import { loadIntelligence } from "../decision-intel/io.js";
 
 const router = Router();
+
+// ── Decision Intelligence (declared before /:subject_type/:id) ──
+// One aggregate drives all 5 slices; every field is zero-safe.
+router.get("/intelligence/summary", asyncHandler(async (req, res) => {
+  const data = await loadIntelligence(supabase, { window: req.query.window });
+  res.json(data);
+}));
+router.get("/intelligence/options", asyncHandler(async (req, res) => {
+  const data = await loadIntelligence(supabase, { window: req.query.window });
+  res.json({ window: data.window, options: data.options });
+}));
+router.get("/intelligence/learning", asyncHandler(async (req, res) => {
+  const data = await loadIntelligence(supabase, { window: req.query.window });
+  res.json({ window: data.window, learning: data.learning });
+}));
+router.get("/intelligence/trends", asyncHandler(async (req, res) => {
+  const data = await loadIntelligence(supabase, { window: req.query.window });
+  res.json({ window: data.window, trends: data.trends });
+}));
+router.get("/intelligence/overrides", asyncHandler(async (req, res) => {
+  const data = await loadIntelligence(supabase, { window: req.query.window });
+  res.json({ window: data.window, overrides: data.overrides });
+}));
 
 // ── Learning loop (declared before /:subject_type/:id) ──
 // GET /api/decisions/learning — inspect current learned weights
