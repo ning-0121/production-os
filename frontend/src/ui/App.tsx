@@ -21,6 +21,7 @@ import { TaskCenterPage } from "./tasks/TaskCenterPage";
 import { NotificationBell } from "./notifications/NotificationBell";
 import { RetrospectivePage } from "./retrospective/RetrospectivePage";
 import { DecisionIntelPage } from "./decision-intel/DecisionIntelPage";
+import { ShopfloorConsolePage } from "./shopfloor/ShopfloorConsolePage";
 import { AIAssistant } from "./today/AIAssistant";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
@@ -138,6 +139,7 @@ function MainApp({ user }: { user: AuthUser }) {
         {module === "tasks" && <PageBoundary name="任务中心"><TaskCenterPage /></PageBoundary>}
         {module === "retrospective" && <PageBoundary name="复盘分析"><RetrospectivePage /></PageBoundary>}
         {module === "decisionIntel" && <PageBoundary name="决策智能"><DecisionIntelPage /></PageBoundary>}
+        {module === "shopfloor" && <PageBoundary name="车间执行台"><ShopfloorConsolePage /></PageBoundary>}
       </main>
 
       {/* Global AI Assistant — floating button on all pages */}

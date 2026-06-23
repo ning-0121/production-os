@@ -766,3 +766,45 @@ export type DecisionIntelligence = {
   trends: { days: DecisionIntelTrendDay[] };
   insights: DecisionIntelInsight[];
 };
+
+// ── V7: Shopfloor ────────────────────────────────────────
+export type WorkOrderStatus = "pending" | "in_progress" | "paused" | "completed" | "blocked";
+export type WorkOrderAction = "start" | "pause" | "resume" | "complete" | "block";
+export type BlockReason = "material_shortage" | "machine_issue" | "labor_shortage" | "quality_issue" | "waiting_instruction" | "other";
+
+export type ShopfloorWorkOrder = {
+  id: string;
+  order_id: string | null;
+  allocation_id: string | null;
+  factory_id: string | null;
+  line_id: string | null;
+  operation: string | null;
+  planned_qty: number;
+  completed_qty: number;
+  defect_qty: number;
+  status: WorkOrderStatus;
+  assigned_to: string | null;
+  planned_start_at: string | null;
+  planned_end_at: string | null;
+  actual_start_at: string | null;
+  actual_end_at: string | null;
+  block_reason: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  // joined by API
+  progress_pct?: number;
+  legal_actions?: WorkOrderAction[];
+};
+
+export type ShopfloorSummary = {
+  work_orders: number;
+  planned_qty: number;
+  completed_qty: number;
+  completion_pct: number;
+  defect_qty: number;
+  downtime_minutes: number;
+  blocked_orders: number;
+  in_progress_orders: number;
+  completed_orders: number;
+};

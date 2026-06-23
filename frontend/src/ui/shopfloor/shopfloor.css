@@ -1,0 +1,77 @@
+/* ── V7 Shopfloor Console (mobile-first) ────────────────── */
+.sfPage { display: flex; flex-direction: column; gap: 14px; max-width: 720px; margin: 0 auto; }
+.sfHeader { display: flex; justify-content: space-between; align-items: center; }
+.sfHeader h1 { margin: 0; font-size: 22px; }
+.sfRefresh { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: var(--text); width: 40px; height: 40px; border-radius: 10px; font-size: 18px; cursor: pointer; }
+
+/* Today summary */
+.sfSummary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.sfStat { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 10px 8px; text-align: center; }
+.sfStat--ok { border-left: 3px solid #22c55e; }
+.sfStat--warn { border-left: 3px solid #facc15; }
+.sfStat--danger { border-left: 3px solid #fb7185; }
+.sfStatVal { font-size: 18px; font-weight: 700; }
+.sfStatLabel { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.sfError { padding: 16px; color: var(--danger); }
+.sfEmpty { padding: 40px 16px; text-align: center; color: var(--muted); }
+
+/* Work order cards */
+.sfList { display: flex; flex-direction: column; gap: 12px; }
+.sfCard { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 16px; border-left: 4px solid var(--muted); }
+.sfCard--in_progress { border-left-color: #a78bfa; }
+.sfCard--blocked { border-left-color: #fb7185; }
+.sfCard--completed { border-left-color: #22c55e; opacity: .7; }
+.sfCard--paused { border-left-color: #facc15; }
+.sfCardTop { display: flex; justify-content: space-between; align-items: center; }
+.sfCardOrder { font-size: 17px; font-weight: 700; }
+.sfStatus { font-size: 12px; padding: 3px 10px; border-radius: 6px; }
+.sfStatus--pending { background: rgba(255,255,255,.08); color: var(--muted); }
+.sfStatus--in_progress { background: rgba(167,139,250,.18); color: #a78bfa; }
+.sfStatus--paused { background: rgba(250,204,21,.18); color: #facc15; }
+.sfStatus--blocked { background: rgba(251,113,133,.18); color: #fb7185; }
+.sfStatus--completed { background: rgba(34,197,94,.18); color: #22c55e; }
+.sfCardMeta { font-size: 13px; color: var(--muted); margin: 6px 0; }
+
+.sfProgress { margin: 10px 0; }
+.sfProgressBar { height: 10px; background: rgba(255,255,255,.06); border-radius: 5px; overflow: hidden; }
+.sfProgressFill { height: 100%; background: var(--accent); transition: width .3s; }
+.sfProgressText { font-size: 13px; color: var(--text); margin-top: 4px; display: inline-block; }
+.sfBlockReason { font-size: 13px; color: #fb7185; background: rgba(251,113,133,.08); padding: 6px 10px; border-radius: 6px; margin: 6px 0; }
+
+/* Big action buttons */
+.sfActions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.sfBtn {
+  flex: 1; min-width: 90px; min-height: 48px;
+  background: rgba(255,255,255,.06); color: var(--text);
+  border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
+  font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.sfBtn:active { transform: scale(.97); }
+.sfBtn--primary { background: rgba(110,231,255,.16); color: var(--accent); border-color: rgba(110,231,255,.4); }
+.sfBtn--ok { background: rgba(34,197,94,.16); color: #22c55e; border-color: rgba(34,197,94,.4); }
+.sfBtn--danger { background: rgba(251,113,133,.14); color: #fb7185; border-color: rgba(251,113,133,.4); }
+.sfBtn--full { width: 100%; margin-top: 14px; }
+
+/* Modal */
+.sfModalBackdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; z-index: 1100; }
+.sfModal { width: 100%; max-width: 520px; background: #0b1220; border: 1px solid rgba(255,255,255,.12); border-radius: 18px 18px 0 0; padding: 20px; }
+.sfModalHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.sfModalHeader h3 { margin: 0; font-size: 18px; }
+.sfModalClose { background: none; border: none; color: var(--muted); font-size: 26px; cursor: pointer; line-height: 1; }
+.sfFieldLabel { display: block; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.sfBigInput { display: block; width: 100%; margin-top: 6px; padding: 14px; font-size: 24px; font-weight: 700; text-align: center; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 12px; color: var(--text); }
+.sfTextarea { display: block; width: 100%; margin-top: 6px; padding: 10px; font-size: 15px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; color: var(--text); font-family: inherit; }
+
+/* Blocked reason grid */
+.sfReasonGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.sfReasonBtn { min-height: 56px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 12px; color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
+.sfReasonBtn--active { background: rgba(251,113,133,.18); color: #fb7185; border-color: rgba(251,113,133,.5); }
+
+@media (min-width: 768px) {
+  .sfModalBackdrop { align-items: center; }
+  .sfModal { border-radius: 18px; }
+}
+@media (max-width: 560px) {
+  .sfSummary { grid-template-columns: repeat(3, 1fr); }
+}

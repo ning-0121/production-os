@@ -1248,3 +1248,33 @@ import type { DecisionIntelligence } from "../types";
 export function fetchDecisionIntelligence(window: "7d" | "30d" = "7d"): Promise<DecisionIntelligence> {
   return request(`/decisions/intelligence/summary?window=${window}`);
 }
+
+// ── V7: Shopfloor ────────────────────────────────────────
+import type { ShopfloorWorkOrder, ShopfloorSummary, WorkOrderAction, BlockReason } from "../types";
+
+export function fetchWorkOrders(params: { assigned_to?: string; status?: string; today?: boolean } = {}):
+  Promise<{ count: number; work_orders: ShopfloorWorkOrder[] }> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v != null && v !== "") qs.set(k, String(v));
+  const s = qs.toString();
+  return request(`/shopfloor/work-orders${s ? `?${s}` : ""}`);
+}
+export function fetchShopfloorSummary(assignedTo?: string): Promise<ShopfloorSummary> {
+  return request(`/shopfloor/summary${assignedTo ? `?assigned_to=${encodeURIComponent(assignedTo)}` : ""}`);
+}
+export function transitionWorkOrder(id: string, action: WorkOrderAction, body: { block_reason?: BlockReason; note?: string } = {}):
+  Promise<{ ok: boolean; work_order: ShopfloorWorkOrder }> {
+  return request(`/shopfloor/work-orders/${id}/status`, { method: "PATCH", body: JSON.stringify({ action, ...body }) });
+}
+export function reportOutput(id: string, body: { output_qty: number; defect_qty?: number; note?: string }):
+  Promise<{ ok: boolean; work_order: ShopfloorWorkOrder; events: string[] }> {
+  return request(`/shopfloor/work-orders/${id}/report-output`, { method: "POST", body: JSON.stringify(body) });
+}
+export function reportBlocked(id: string, body: { reason: BlockReason; downtime_minutes?: number; note?: string }):
+  Promise<{ ok: boolean; work_order: ShopfloorWorkOrder; task?: { id: string } }> {
+  return request(`/shopfloor/work-orders/${id}/report-blocked`, { method: "POST", body: JSON.stringify(body) });
+}
+export function reportDefect(id: string, body: { defect_qty: number; reason?: string; note?: string }):
+  Promise<{ ok: boolean; work_order: ShopfloorWorkOrder }> {
+  return request(`/shopfloor/work-orders/${id}/report-defect`, { method: "POST", body: JSON.stringify(body) });
+}

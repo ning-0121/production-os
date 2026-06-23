@@ -356,6 +356,40 @@ export const schemas = {
     was_false_positive: z.boolean().optional(),
   }),
 
+  // ── V7: Shopfloor ────────────────────────────────────
+  createWorkOrder: z.object({
+    order_id: z.string().max(128).nullish(),
+    allocation_id: z.string().uuid().nullish(),
+    factory_id: z.string().uuid().nullish(),
+    line_id: z.string().uuid().nullish(),
+    operation: z.string().max(64).nullish(),
+    planned_qty: z.number().int().nonnegative().default(0),
+    assigned_to: z.string().max(128).nullish(),
+    planned_start_at: z.string().datetime().nullish(),
+    planned_end_at: z.string().datetime().nullish(),
+  }),
+  workOrderTransition: z.object({
+    action: z.enum(["start", "pause", "resume", "complete", "block"]),
+    block_reason: z.enum(["material_shortage", "machine_issue", "labor_shortage", "quality_issue", "waiting_instruction", "other"]).optional(),
+    note: z.string().max(2000).optional(),
+  }),
+  reportOutput: z.object({
+    output_qty: z.number().int().nonnegative(),
+    defect_qty: z.number().int().nonnegative().default(0),
+    current_operation: z.string().max(64).optional(),
+    note: z.string().max(2000).optional(),
+  }),
+  reportDefect: z.object({
+    defect_qty: z.number().int().positive(),
+    reason: z.string().max(200).optional(),
+    note: z.string().max(2000).optional(),
+  }),
+  reportBlocked: z.object({
+    reason: z.enum(["material_shortage", "machine_issue", "labor_shortage", "quality_issue", "waiting_instruction", "other"]),
+    downtime_minutes: z.number().int().nonnegative().default(0),
+    note: z.string().max(2000).optional(),
+  }),
+
   // ── V6-A: Decision Engine ────────────────────────────
   evaluateDecision: z.object({
     subject: z.object({

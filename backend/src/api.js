@@ -48,6 +48,7 @@ import cronRouter from "./routes/cron.js";
 import notificationsRouter from "./routes/notifications.js";
 import retrospectiveRouter from "./routes/retrospective.js";
 import decisionsRouter from "./routes/decisions.js";
+import shopfloorRouter from "./routes/shopfloor.js";
 import { computeCorrections } from "./scheduler/correction.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
 
@@ -206,6 +207,7 @@ app.use("/api/tasks", tasksRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/retrospective", retrospectiveRouter);
 app.use("/api/decisions", decisionsRouter);
+app.use("/api/shopfloor", shopfloorRouter);
 
 // ── Correction engine ───────────────────────────────────
 app.post("/api/corrections/compute", asyncHandler(async (_req, res) => {
