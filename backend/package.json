@@ -12,7 +12,12 @@
     "test:validate": "node src/scripts/validate-offline-test.js",
     "validate": "node src/scripts/validate-data.js",
     "verify:v5": "node --env-file=.env scripts/v5-e2e-verify.mjs",
-    "demo:seed": "node --env-file=.env scripts/demo-seed.mjs"
+    "demo:seed": "node --env-file=.env scripts/demo-seed.mjs",
+    "verify:migrations": "node --env-file=.env scripts/verify-migrations.mjs",
+    "validate:e2e": "node --env-file=.env scripts/validate-production-os.mjs",
+    "check:integrity": "node --env-file=.env scripts/runtime-integrity-check.mjs",
+    "benchmark": "node --env-file=.env scripts/benchmark-production-os.mjs",
+    "harden": "npm run verify:migrations && npm run validate:e2e && npm run check:integrity"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",

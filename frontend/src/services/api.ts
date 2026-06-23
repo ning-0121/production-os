@@ -1278,3 +1278,51 @@ export function reportDefect(id: string, body: { defect_qty: number; reason?: st
   Promise<{ ok: boolean; work_order: ShopfloorWorkOrder }> {
   return request(`/shopfloor/work-orders/${id}/report-defect`, { method: "POST", body: JSON.stringify(body) });
 }
+
+// ════════════════════════════════════════════════════════════
+// V7.5: Admin — System Health + Recovery
+// ════════════════════════════════════════════════════════════
+
+export type HealthStatus = "green" | "yellow" | "red";
+
+export type HealthSection = {
+  key: string;
+  label: string;
+  status: HealthStatus;
+  metrics: Record<string, unknown>;
+  note?: string;
+};
+
+export type SystemHealth = {
+  generated_at: string;
+  overall: HealthStatus;
+  pending_tasks: number;
+  sections: HealthSection[];
+};
+
+export function fetchSystemHealth(): Promise<SystemHealth> {
+  return request("/admin/health");
+}
+
+export type RecoveryTool =
+  | "rebuild-runtime"
+  | "replay-runtime-events"
+  | "recalculate-risks"
+  | "regenerate-tasks"
+  | "recompute-learning"
+  | "rebuild-decision-intel";
+
+export type RecoveryResult = {
+  tool: RecoveryTool;
+  dry_run: boolean;
+  ok: boolean;
+  error?: string;
+  [k: string]: unknown;
+};
+
+export function runRecovery(tool: RecoveryTool, dryRun: boolean): Promise<RecoveryResult> {
+  return request(`/admin/recovery/${tool}`, {
+    method: "POST",
+    body: JSON.stringify({ dry_run: dryRun }),
+  });
+}
