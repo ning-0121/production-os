@@ -21,10 +21,14 @@ import {
 } from "../../services/api";
 import { RiskPill, legacyAssessment } from "../shared/RiskPill";
 import { DecisionPanel } from "../shared/DecisionPanel";
+import { DataGrid, type DataGridColumn } from "../shared/DataGrid";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import type { DecisionTask, TaskStatus, TaskAction } from "../../types";
 import "./tasks.css";
+import "../shared/DataGrid.css";
+
+const SEVERITY_RANK: Record<string, number> = { critical: 3, high: 3, warn: 2, medium: 2, low: 1, ok: 0, safe: 0 };
 
 const DECISIONABLE_CATEGORIES = new Set(["production_delay", "material", "quality", "capacity", "shipment"]);
 
@@ -117,18 +121,20 @@ export function TaskCenterPage() {
         <FilterChip label="已解决" active={filter.status === "resolved"} onClick={() => setFilter({ status: "resolved" })} />
       </div>
 
-      {error && <div style={{ padding: 16, color: "var(--danger)" }}>加载失败：{error}</div>}
-      {!error && tasks.length === 0 && (
-        <div className="card emptyState" style={{ padding: 48, textAlign: "center" }}>
-          当前没有符合条件的任务 — 系统平稳。
-        </div>
-      )}
-
-      <div className="taskList">
-        {tasks.map((t) => (
-          <TaskRow key={t.id} task={t} onOpen={() => setOpenId(t.id)} />
-        ))}
-      </div>
+      <DataGrid<DecisionTask>
+        rows={tasks}
+        columns={TASK_COLUMNS}
+        rowKey={(t) => t.id}
+        loading={loading}
+        error={error}
+        onRowClick={(t) => setOpenId(t.id)}
+        searchPlaceholder="搜索标题 / 负责人 / 对象…"
+        csvFilename="任务中心"
+        pageSize={25}
+        emptyTitle="当前没有符合条件的任务"
+        emptyDescription="系统平稳。可点击「自动生成任务」从运行时事件、进度偏差、验货不合格中开任务。"
+        emptyAction={<button className="btn primary" onClick={handleAutoGenerate} disabled={working}>⚡ 自动生成任务</button>}
+      />
 
       {openId && (
         <TaskDrawer
@@ -141,40 +147,63 @@ export function TaskCenterPage() {
   );
 }
 
-function TaskRow({ task, onOpen }: { task: DecisionTask; onOpen: () => void }) {
-  const overdue = task.due_at && new Date(task.due_at).getTime() < Date.now()
+function isTaskOverdue(task: DecisionTask): boolean {
+  return !!task.due_at && new Date(task.due_at).getTime() < Date.now()
     && !["resolved", "dismissed"].includes(task.status);
-  return (
-    <div className={`card taskRow taskRow--${task.severity}`} onClick={onOpen}>
-      <div className="taskRowMain">
-        <div className="taskRowTop">
-          <RiskPill assessment={legacyAssessment(task.severity, "order", task.subject_id ?? task.id)} compact />
-          <span className="taskCategory">{CATEGORY_LABEL[task.category] ?? task.category}</span>
-          {task.escalation_level > 0 && (
-            <span className="taskEscBadge" title={`已升级至 L${task.escalation_level}，通知 ${task.escalated_to ?? "—"}`}>
-              ↑ L{task.escalation_level} {task.escalated_to ?? ""}
-            </span>
-          )}
-          <span className={`taskStatusPill taskStatusPill--${task.status}`}>{STATUS_LABEL[task.status]}</span>
-        </div>
-        <div className="taskTitle">{task.title}</div>
-        <div className="taskMeta">
-          <span>负责人：{task.owner ?? <em style={{ color: "var(--danger)" }}>无人认领</em>}</span>
-          {task.due_at && (
-            <span className={overdue ? "taskOverdue" : ""}>
-              截止：{new Date(task.due_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" })}
-              {overdue && " ⚠ 已逾期"}
-            </span>
-          )}
-          {task.subject_id && <span>对象：{task.subject_type} {task.subject_id.slice(0, 10)}</span>}
-        </div>
-      </div>
-      <div className="taskRowRight">
-        <span className="taskOpenHint">查看 →</span>
-      </div>
-    </div>
-  );
 }
+
+const TASK_COLUMNS: DataGridColumn<DecisionTask>[] = [
+  {
+    id: "severity", header: "风险", width: 90,
+    sortValue: (t) => SEVERITY_RANK[t.severity] ?? 0,
+    filterValue: (t) => t.severity,
+    accessor: (t) => <RiskPill assessment={legacyAssessment(t.severity, "order", t.subject_id ?? t.id)} compact />,
+  },
+  {
+    id: "title", header: "任务", sticky: true,
+    sortValue: (t) => t.title,
+    filterValue: (t) => t.title,
+    accessor: (t) => <span className="taskTitle" style={{ fontWeight: 600 }}>{t.title}</span>,
+  },
+  {
+    id: "category", header: "类别", width: 100,
+    sortValue: (t) => t.category, filterValue: (t) => CATEGORY_LABEL[t.category] ?? t.category,
+    accessor: (t) => <span className="taskCategory">{CATEGORY_LABEL[t.category] ?? t.category}</span>,
+  },
+  {
+    id: "owner", header: "负责人", width: 110,
+    sortValue: (t) => t.owner ?? "", filterValue: (t) => t.owner ?? "无人认领",
+    accessor: (t) => t.owner ?? <em style={{ color: "var(--danger)" }}>无人认领</em>,
+  },
+  {
+    id: "due", header: "截止", width: 150,
+    sortValue: (t) => (t.due_at ? new Date(t.due_at) : null),
+    filterValue: (t) => (t.due_at ? new Date(t.due_at).toLocaleString("zh-CN") : ""),
+    accessor: (t) => {
+      if (!t.due_at) return <span style={{ color: "var(--muted)" }}>—</span>;
+      const overdue = isTaskOverdue(t);
+      return (
+        <span className={overdue ? "taskOverdue" : ""}>
+          {new Date(t.due_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "numeric" })}
+          {overdue && " ⚠"}
+        </span>
+      );
+    },
+  },
+  {
+    id: "escalation", header: "升级", width: 90, align: "center",
+    sortValue: (t) => t.escalation_level,
+    filterValue: (t) => (t.escalation_level > 0 ? `L${t.escalation_level} ${t.escalated_to ?? ""}` : ""),
+    accessor: (t) => t.escalation_level > 0
+      ? <span className="taskEscBadge" title={`已升级至 L${t.escalation_level}，通知 ${t.escalated_to ?? "—"}`}>↑ L{t.escalation_level}</span>
+      : <span style={{ color: "var(--muted)" }}>—</span>,
+  },
+  {
+    id: "status", header: "状态", width: 100,
+    sortValue: (t) => t.status, filterValue: (t) => STATUS_LABEL[t.status],
+    accessor: (t) => <span className={`taskStatusPill taskStatusPill--${t.status}`}>{STATUS_LABEL[t.status]}</span>,
+  },
+];
 
 function TaskDrawer({ taskId, onClose, onChanged }: { taskId: string; onClose: () => void; onChanged: () => void }) {
   const { toast } = useToast();

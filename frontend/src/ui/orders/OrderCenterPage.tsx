@@ -4,11 +4,13 @@ import { fetchAllocations, deleteAllocation } from "../../services/api";
 import { useRiskBatch } from "../../hooks/useRiskBatch";
 import { RiskPill } from "../shared/RiskPill";
 import { DecisionButton } from "../shared/DecisionDrawer";
+import { DataGrid, type DataGridColumn } from "../shared/DataGrid";
 import { useToast } from "../Toast";
 import { CreateOrderDrawer } from "./CreateOrderDrawer";
 import { ImportDrawer } from "./ImportDrawer";
-import type { Allocation, RiskAssessment } from "../../types";
+import type { Allocation } from "../../types";
 import "./orders.css";
+import "../shared/DataGrid.css";
 
 type FilterStatus = "" | "planned" | "confirmed" | "in_progress" | "completed" | "cancelled";
 
@@ -31,24 +33,17 @@ const STATUS_CLASS: Record<string, string> = {
 export function OrderCenterPage() {
   const { data: allAllocations, loading, error, refetch } = useAsync(() => fetchAllocations(), []);
   const { toast } = useToast();
-  const [search, setSearch] = React.useState("");
   const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [showImport, setShowImport] = React.useState(false);
 
+  // Status filtering stays a top-level concern (status cards). Quick-search,
+  // sorting, pagination, CSV are all owned by the DataGrid below.
   const allocations = React.useMemo(() => {
     let list = allAllocations ?? [];
     if (filterStatus) list = list.filter((a) => a.status === filterStatus);
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((a) =>
-        (a.order_id ?? "").toLowerCase().includes(q) ||
-        a.id.toLowerCase().includes(q) ||
-        (a.factories?.name ?? "").toLowerCase().includes(q),
-      );
-    }
     return list;
-  }, [allAllocations, filterStatus, search]);
+  }, [allAllocations, filterStatus]);
 
   const counts = React.useMemo(() => {
     const c: Record<string, number> = { total: 0, planned: 0, confirmed: 0, in_progress: 0, completed: 0 };
@@ -69,7 +64,7 @@ export function OrderCenterPage() {
   );
   const { map: riskMap } = useRiskBatch("allocation", riskIds);
 
-  async function handleDelete(id: string) {
+  const handleDelete = React.useCallback(async (id: string) => {
     try {
       await deleteAllocation(id);
       toast("订单已删除", "success");
@@ -77,7 +72,97 @@ export function OrderCenterPage() {
     } catch (err) {
       toast(err instanceof Error ? err.message : "删除失败", "error");
     }
-  }
+  }, [toast, refetch]);
+
+  const columns = React.useMemo<DataGridColumn<Allocation>[]>(() => [
+    {
+      id: "order_id", header: "订单号", sticky: true, width: 130,
+      sortValue: (a) => a.order_id ?? a.id,
+      filterValue: (a) => `${a.order_id ?? ""} ${a.id}`,
+      accessor: (a) => <span className="orderCellId">{a.order_id ?? a.id.slice(0, 8)}</span>,
+    },
+    {
+      id: "qty", header: "数量", width: 90, align: "right",
+      sortValue: (a) => a.allocated_qty ?? 0,
+      filterValue: (a) => String(a.allocated_qty ?? ""),
+      accessor: (a) => a.allocated_qty?.toLocaleString(),
+    },
+    {
+      id: "factory", header: "工厂", width: 140,
+      sortValue: (a) => a.factories?.name ?? "",
+      filterValue: (a) => a.factories?.name ?? "未分配",
+      accessor: (a) => a.factories?.name ?? "未分配",
+    },
+    {
+      id: "start", header: "计划开始", width: 110,
+      sortValue: (a) => a.planned_start_date ?? null,
+      filterValue: (a) => (a.planned_start_date ?? "").slice(0, 10),
+      accessor: (a) => (a.planned_start_date ?? "").slice(0, 10) || "—",
+    },
+    {
+      id: "due", header: "交货日期", width: 150,
+      sortValue: (a) => a.planned_end_date ?? null,
+      filterValue: (a) => (a.planned_end_date ?? "").slice(0, 10),
+      accessor: (a) => {
+        const dueDate = (a.planned_end_date ?? "").slice(0, 10);
+        if (!dueDate) return "—";
+        const daysLeft = Math.ceil((new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        const active = a.status !== "completed" && a.status !== "cancelled";
+        const daysLevel = riskMap.get(a.id)?.level ?? "ok";
+        return (
+          <>
+            {dueDate}
+            {active && (
+              <span className={`orderDaysTag orderDaysTag--${daysLevel}`}>
+                {daysLeft < 0 ? `逾期${Math.abs(daysLeft)}天` : `${daysLeft}天`}
+              </span>
+            )}
+          </>
+        );
+      },
+    },
+    {
+      id: "risk", header: "风险", width: 120,
+      sortValue: (a) => {
+        const lvl = riskMap.get(a.id)?.level;
+        return lvl === "critical" ? 3 : lvl === "warn" ? 2 : lvl === "ok" ? 1 : 0;
+      },
+      filterValue: (a) => riskMap.get(a.id)?.level ?? "",
+      accessor: (a) => {
+        const active = a.status !== "completed" && a.status !== "cancelled";
+        return active
+          ? <RiskPill assessment={riskMap.get(a.id) ?? null} detailed compact />
+          : <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>;
+      },
+    },
+    {
+      id: "status", header: "状态", width: 100,
+      sortValue: (a) => a.status, filterValue: (a) => STATUS_LABELS[a.status] ?? a.status,
+      accessor: (a) => <span className={`orderStatus ${STATUS_CLASS[a.status] ?? ""}`}>{STATUS_LABELS[a.status] ?? a.status}</span>,
+    },
+    {
+      id: "actions", header: "操作", width: 130, align: "right",
+      accessor: (a) => {
+        const risk = riskMap.get(a.id) ?? null;
+        const active = a.status !== "completed" && a.status !== "cancelled";
+        return (
+          <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+            {active && (risk?.level === "critical" || risk?.level === "warn") && (
+              <DecisionButton
+                subject={{ type: "allocation", id: a.id }}
+                title={`订单 ${a.order_id ?? a.id.slice(0, 8)}`}
+                label="决策"
+                className="orderActionBtn orderActionBtn--decision"
+              />
+            )}
+            {a.status === "planned" && (
+              <button className="orderActionBtn orderActionBtn--danger" onClick={() => handleDelete(a.id)}>删除</button>
+            )}
+          </div>
+        );
+      },
+    },
+  ], [riskMap, handleDelete]);
 
   if (loading && !allAllocations) return <div className="card"><div className="loadingCenter">加载中...</div></div>;
   if (error) return <div className="card"><div style={{ padding: 24, color: "var(--danger)" }}>加载失败: {error}</div></div>;
@@ -93,95 +178,25 @@ export function OrderCenterPage() {
         <StatusCard label="已完成" count={counts.completed} active={filterStatus === "completed"} onClick={() => setFilterStatus("completed")} color="#22c55e" />
       </div>
 
-      {/* Toolbar */}
+      {/* Order grid */}
       <div className="card">
-        <div className="orderToolbar">
-          <input
-            className="filterSearch"
-            placeholder="搜索订单号、工厂名..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="orderToolbarActions">
-            <button className="btn" onClick={() => setShowImport(true)}>Excel 导入</button>
-            <button className="btn primary" onClick={() => setShowCreate(true)}>新建订单</button>
-          </div>
-        </div>
-
-        {/* Order table */}
-        <div className="orderTable">
-          <table>
-            <thead>
-              <tr>
-                <th>订单号</th>
-                <th>数量</th>
-                <th>工厂</th>
-                <th>计划开始</th>
-                <th>交货日期</th>
-                <th>风险</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allocations.length === 0 && (
-                <tr><td colSpan={8} className="emptyState">暂无订单数据</td></tr>
-              )}
-              {allocations.map((a) => {
-                const dueDate = (a.planned_end_date ?? "").slice(0, 10);
-                const daysLeft = dueDate
-                  ? Math.ceil((new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                  : null;
-                const active = a.status !== "completed" && a.status !== "cancelled";
-                const risk: RiskAssessment | null = riskMap.get(a.id) ?? null;
-                // Days-tag color now derives from the canonical risk level —
-                // no more local overdue/urgent thresholds.
-                const daysLevel = risk?.level ?? "ok";
-
-                return (
-                  <tr key={a.id}>
-                    <td className="orderCellId">{a.order_id ?? a.id.slice(0, 8)}</td>
-                    <td>{a.allocated_qty?.toLocaleString()}</td>
-                    <td>{a.factories?.name ?? "未分配"}</td>
-                    <td>{(a.planned_start_date ?? "").slice(0, 10)}</td>
-                    <td>
-                      {dueDate}
-                      {daysLeft !== null && active && (
-                        <span className={`orderDaysTag orderDaysTag--${daysLevel}`}>
-                          {daysLeft < 0 ? `逾期${Math.abs(daysLeft)}天` : `${daysLeft}天`}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      {active ? <RiskPill assessment={risk} detailed compact /> : <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>}
-                    </td>
-                    <td>
-                      <span className={`orderStatus ${STATUS_CLASS[a.status] ?? ""}`}>
-                        {STATUS_LABELS[a.status] ?? a.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-                        {/* Show Decision entry for at-risk active orders */}
-                        {active && (risk?.level === "critical" || risk?.level === "warn") && (
-                          <DecisionButton
-                            subject={{ type: "allocation", id: a.id }}
-                            title={`订单 ${a.order_id ?? a.id.slice(0, 8)}`}
-                            label="决策"
-                            className="orderActionBtn orderActionBtn--decision"
-                          />
-                        )}
-                        {a.status === "planned" && (
-                          <button className="orderActionBtn orderActionBtn--danger" onClick={() => handleDelete(a.id)}>删除</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataGrid<Allocation>
+          rows={allocations}
+          columns={columns}
+          rowKey={(a) => a.id}
+          searchPlaceholder="搜索订单号、工厂名…"
+          csvFilename="订单中心"
+          pageSize={25}
+          emptyTitle="暂无订单数据"
+          emptyDescription="导入 Excel 或新建订单以开始排产。"
+          emptyAction={<button className="btn primary" onClick={() => setShowCreate(true)}>新建订单</button>}
+          toolbarExtra={
+            <>
+              <button className="btn" onClick={() => setShowImport(true)}>Excel 导入</button>
+              <button className="btn primary" onClick={() => setShowCreate(true)}>新建订单</button>
+            </>
+          }
+        />
       </div>
 
       {/* Drawers */}

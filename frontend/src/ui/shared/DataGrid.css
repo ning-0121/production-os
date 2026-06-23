@@ -1,0 +1,123 @@
+/* ── DataGrid — shared industrial table ──────────────────── */
+.dg { display: flex; flex-direction: column; gap: 12px; }
+
+/* Toolbar */
+.dgToolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dgSearch {
+  flex: 1; min-width: 200px; max-width: 360px;
+  padding: 9px 12px; background: rgba(255,255,255,.05);
+  border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 14px;
+}
+.dgSearch:focus { outline: none; border-color: var(--accent); }
+.dgToolbarRight { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.dgIconBtn {
+  height: 36px; padding: 0 12px; background: rgba(255,255,255,.05);
+  border: 1px solid var(--border); border-radius: 9px; color: var(--text);
+  font-size: 14px; cursor: pointer; white-space: nowrap;
+}
+.dgIconBtn:hover { background: rgba(255,255,255,.1); border-color: var(--accent); }
+
+/* Column visibility menu */
+.dgColMenu { position: relative; }
+.dgColMenuPop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 50;
+  background: #0f1830; border: 1px solid var(--border); border-radius: 12px;
+  padding: 8px; min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.dgColMenuItem {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  font-size: 13px; color: var(--text); border-radius: 7px; cursor: pointer;
+}
+.dgColMenuItem:hover { background: rgba(255,255,255,.06); }
+
+/* Batch bar */
+.dgBatchBar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 14px; background: rgba(110,231,255,.1);
+  border: 1px solid rgba(110,231,255,.3); border-radius: 10px; font-size: 14px;
+}
+.dgBatchActions { margin-left: auto; display: flex; gap: 8px; }
+
+.dgError {
+  padding: 12px 14px; background: rgba(251,113,133,.1);
+  border: 1px solid rgba(251,113,133,.3); border-radius: 10px; color: var(--danger); font-size: 14px;
+}
+
+/* Table */
+.dgTableWrap {
+  overflow-x: auto; border: 1px solid var(--border); border-radius: 14px;
+  background: rgba(255,255,255,.02);
+}
+.dgTable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.dgTable thead th {
+  position: sticky; top: 0; z-index: 10;
+  background: #0f1830; color: var(--muted); font-weight: 600; text-align: left;
+  padding: 11px 14px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  user-select: none;
+}
+.dgTable th.dgSortable { cursor: pointer; }
+.dgTable th.dgSortable:hover { color: var(--text); }
+.dgSortArrow { color: var(--accent); }
+.dgTable tbody td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; }
+.dgTable tbody tr:last-child td { border-bottom: none; }
+.dgTable tbody tr:hover { background: rgba(255,255,255,.03); }
+.dgRow--clickable { cursor: pointer; }
+.dgCheckCol { width: 40px; text-align: center; }
+.dgExpandCol { width: 36px; text-align: center; cursor: pointer; color: var(--muted); }
+.dgExpandToggle { font-size: 12px; }
+.dgExpandedRow td { background: rgba(255,255,255,.02); padding: 14px 18px; }
+
+/* Sticky first data column */
+.dgTable th.dgSticky, .dgTable td.dgSticky {
+  position: sticky; left: 0; z-index: 5; background: #0f1830;
+}
+.dgTable tbody td.dgSticky { background: #0c1424; }
+
+/* Density */
+.dg--compact .dgTable thead th { padding: 7px 12px; }
+.dg--compact .dgTable tbody td { padding: 6px 12px; }
+
+/* Footer / pagination */
+.dgFooter { display: flex; align-items: center; gap: 14px; }
+.dgCount { font-size: 13px; color: var(--muted); }
+.dgPager { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.dgPageBtn {
+  height: 32px; padding: 0 12px; background: rgba(255,255,255,.05);
+  border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; cursor: pointer;
+}
+.dgPageBtn:disabled { opacity: .4; cursor: not-allowed; }
+.dgPageBtn:not(:disabled):hover { border-color: var(--accent); }
+.dgPageInfo { font-size: 13px; color: var(--muted); }
+
+/* Empty state */
+.dgEmpty { padding: 56px 20px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
+.dgEmptyTitle { font-size: 16px; font-weight: 600; color: var(--text); }
+.dgEmptyDesc { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.dgEmptyAction { margin-top: 18px; }
+
+/* Loading skeleton */
+.dgSkeleton { display: flex; flex-direction: column; gap: 8px; }
+.dgSkeletonRow {
+  height: 44px; border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.08), rgba(255,255,255,.04));
+  background-size: 200% 100%; animation: dgShimmer 1.4s infinite;
+}
+@keyframes dgShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Mobile cards — hidden on desktop */
+.dgCards { display: none; }
+.dgCard {
+  background: rgba(255,255,255,.04); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.dgCardField { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.dgCardLabel { color: var(--muted); flex-shrink: 0; }
+.dgCardValue { text-align: right; }
+.dgCardExpanded { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+@media (max-width: 768px) {
+  .dgTableWrap { display: none; }
+  .dgCards { display: flex; flex-direction: column; gap: 10px; }
+  .dgSearch { max-width: none; }
+}
