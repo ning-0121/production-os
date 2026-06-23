@@ -97,14 +97,11 @@ export async function reportOutput(supabase, woId, report, opts = {}) {
   const newCompleted = Number(wo.completed_qty || 0) + outQty;
   const newDefect = Number(wo.defect_qty || 0) + defQty;
 
-  // 1. persist report
-  await supabase.from("shopfloor_reports").insert({
-    work_order_id: woId, report_type: "output",
-    output_qty: outQty, defect_qty: defQty, note: report.note ?? null,
-    reported_by: opts.actor ?? null,
-  });
-
-  // 2. update work order counts (+ auto-start if still pending)
+  // 1. Versioned count update FIRST. If another operator/channel updated this
+  //    work order concurrently, the version no longer matches → 0 rows updated.
+  //    We return a conflict and DON'T write the report/events, so a lost update
+  //    can never leave an orphan report row or a double-counted runtime event.
+  //    The caller surfaces "refresh & retry" instead of a false success.
   const patch = {
     completed_qty: newCompleted, defect_qty: newDefect,
     version: wo.version + 1,
@@ -113,7 +110,15 @@ export async function reportOutput(supabase, woId, report, opts = {}) {
   const { data: updated, error: upErr } = await supabase
     .from("shopfloor_work_orders").update(patch).eq("id", woId).eq("version", wo.version).select().maybeSingle();
   if (upErr) throw upErr;
-  const woFinal = updated ?? { ...wo, completed_qty: newCompleted, defect_qty: newDefect };
+  if (!updated) return { ok: false, conflict: true };
+  const woFinal = updated;
+
+  // 2. persist the report row now that the count is committed
+  await supabase.from("shopfloor_reports").insert({
+    work_order_id: woId, report_type: "output",
+    output_qty: outQty, defect_qty: defQty, note: report.note ?? null,
+    reported_by: opts.actor ?? null,
+  });
 
   await appendEvent(supabase, woId, { event_type: "report_output", payload: { output_qty: outQty, defect_qty: defQty, completed_qty: newCompleted } }, opts.actor);
 

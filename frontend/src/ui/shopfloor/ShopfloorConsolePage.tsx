@@ -13,6 +13,7 @@ import {
   fetchWorkOrders, fetchShopfloorSummary,
   transitionWorkOrder, reportOutput, reportBlocked,
 } from "../../services/api";
+import { ApiError } from "../../services/client";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import type { ShopfloorWorkOrder, WorkOrderAction, BlockReason } from "../../types";
@@ -147,15 +148,23 @@ function OutputModal({ wo, onClose, onDone }: { wo: ShopfloorWorkOrder; onClose:
   const [busy, setBusy] = React.useState(false);
 
   async function submit() {
+    if (busy) return;   // guard against double-tap before the button disables
     const outQty = Number(output);
-    if (!Number.isFinite(outQty) || outQty < 0) { toast("请输入产量", "error"); return; }
+    if (!Number.isFinite(outQty) || outQty <= 0) { toast("请输入有效产量（大于 0）", "error"); return; }
     setBusy(true);
     try {
       await reportOutput(wo.id, { output_qty: outQty, defect_qty: Number(defect) || 0, note: note || undefined });
       toast("报工成功", "success");
       onDone();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "报工失败", "error");
+      // 409 = another operator/channel updated this work order first. Keep the
+      // modal open with the typed number so the operator can refresh & retry —
+      // never show a false "success" that silently drops their count.
+      if (e instanceof ApiError && e.status === 409) {
+        toast("该工单已被更新，请关闭后重新打开再报工", "error");
+      } else {
+        toast(e instanceof Error ? e.message : "报工失败", "error");
+      }
     } finally { setBusy(false); }
   }
 

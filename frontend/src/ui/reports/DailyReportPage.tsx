@@ -29,7 +29,9 @@ type ImportRow = {
 };
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  // Factory-local calendar date (Asia/Shanghai). Using UTC here rolled the
+  // default to "tomorrow" for any report entered after ~16:00 Yiwu time.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
 }
 
 export function DailyReportPage() {
@@ -202,7 +204,7 @@ function ManualForm({
         order_id: orderId || null,
         planned_output: 0,
         actual_output: Number(actualOutput),
-        cumulative_output: 0,
+        cumulative_output: null,   // unknown from manual entry — don't fake a 0 total
         stage,
         is_abnormal: isAbnormal,
         abnormal_reason: isAbnormal ? abnormalReason : null,
@@ -444,7 +446,7 @@ function ExcelUpload({ onSuccess }: { onSuccess: () => void }) {
         order_id: r.order_id || null,
         planned_output: 0,
         actual_output: r.actual_output,
-        cumulative_output: 0,
+        cumulative_output: null,   // unknown from manual batch — don't fake a 0 total
         stage: r.stage,
         is_abnormal: r.is_abnormal,
         abnormal_reason: r.is_abnormal ? r.abnormal_reason : null,

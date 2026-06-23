@@ -113,7 +113,10 @@ export function normalizeRow({ mappings, rawRow, importType, context = {} }) {
  */
 export function dedupKey(normalized, importType) {
   if (importType === "daily_report" || importType === "hanging_line") {
-    return [normalized.date ?? "", normalized.factory_name ?? "", normalized.line_name ?? "", normalized.order_no ?? "", normalized.stage ?? ""].join("|");
+    // import_type is part of the key so a daily_report and a hanging_line row
+    // for the same date/line/order aren't wrongly flagged as duplicates of
+    // each other within one run (they're distinct measurements).
+    return [importType, normalized.date ?? "", normalized.factory_name ?? "", normalized.line_name ?? "", normalized.order_no ?? "", normalized.stage ?? ""].join("|");
   }
   if (importType === "qc") {
     return [normalized.date ?? "", normalized.order_no ?? "", normalized.inspection_type ?? ""].join("|");

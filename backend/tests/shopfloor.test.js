@@ -182,3 +182,57 @@ describe("shopfloor schemas", () => {
     assert.equal(r.data.planned_qty, 0);
   });
 });
+
+// ── reportOutput optimistic-concurrency safety (V8 pilot guard) ──
+// Regression guard: on a version conflict the count update must fail BEFORE any
+// report row or runtime event is written, and the caller must see a conflict —
+// never a false success that silently drops the operator's count.
+
+describe("reportOutput conflict safety", () => {
+  // Minimal chainable Supabase stub. The versioned UPDATE resolves to `null`
+  // (0 rows) to simulate a concurrent update; we assert nothing else was written.
+  function makeStub({ wo }) {
+    const writes = { reports: 0, events: 0, runtime: 0 };
+    function builder(table) {
+      let mode = "select";
+      const b = {
+        select() { return b; },
+        update() { mode = "update"; return b; },
+        eq() { return b; },
+        insert() {
+          if (table === "shopfloor_reports") writes.reports++;
+          else if (table === "shopfloor_events") writes.events++;
+          else writes.runtime++;
+          return Promise.resolve({ data: null, error: null });
+        },
+        maybeSingle() {
+          if (table === "shopfloor_work_orders" && mode === "select") {
+            return Promise.resolve({ data: wo, error: null });
+          }
+          if (table === "shopfloor_work_orders" && mode === "update") {
+            return Promise.resolve({ data: null, error: null }); // conflict: 0 rows
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        single() { return b.maybeSingle(); },
+      };
+      return b;
+    }
+    return { from: (t) => builder(t), __writes: writes };
+  }
+
+  it("returns {ok:false, conflict:true} and writes nothing on version conflict", async () => {
+    process.env.SUPABASE_URL ||= "http://localhost";
+    process.env.SUPABASE_SERVICE_KEY ||= "dummy";
+    const { reportOutput } = await import("../src/shopfloor/service.js");
+
+    const stub = makeStub({ wo: { id: "wo1", version: 3, status: "in_progress", completed_qty: 10, defect_qty: 0, line_id: "l1" } });
+    const res = await reportOutput(stub, "wo1", { output_qty: 50 }, { actor: "tester" });
+
+    assert.equal(res.ok, false);
+    assert.equal(res.conflict, true);
+    assert.equal(stub.__writes.reports, 0, "no shopfloor_reports row on conflict");
+    assert.equal(stub.__writes.events, 0, "no shopfloor_events row on conflict");
+    assert.equal(stub.__writes.runtime, 0, "no runtime event on conflict");
+  });
+});

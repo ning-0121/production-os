@@ -86,7 +86,13 @@ async function commitOneRow(supabase, run, row, actor) {
       order_id: n.order_no ?? null,
       planned_output: numOr(n.planned_output, 0),
       actual_output: numOr(n.actual_output, 0),
-      cumulative_output: numOr(n.cumulative_output, numOr(n.actual_output, 0)),
+      // Only daily_report carries a true running total. Hanging-line rows are
+      // per-shift/station piece counts — do NOT synthesize a cumulative from the
+      // daily actual, or day-over-day it looks like the total is regressing and
+      // every import after ~day 3 gets falsely rejected. Leave it null (unknown).
+      cumulative_output: n.cumulative_output != null
+        ? numOr(n.cumulative_output, null)
+        : (run.import_type === "hanging_line" ? null : numOr(n.actual_output, 0)),
       stage: n.stage ?? "sewing",
       is_abnormal: !!n.is_abnormal,
       abnormal_reason: n.abnormal_reason ?? null,

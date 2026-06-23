@@ -208,7 +208,7 @@ export type DailyProductionReport = {
   order_id: string | null;
   planned_output: number;
   actual_output: number;
-  cumulative_output: number;
+  cumulative_output: number | null;
   stage: string;
   is_abnormal: boolean;
   abnormal_reason: string | null;

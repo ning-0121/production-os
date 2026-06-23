@@ -69,7 +69,10 @@ router.patch("/work-orders/:id/status", validate(schemas.workOrderTransition), a
 // POST /api/shopfloor/work-orders/:id/report-output
 router.post("/work-orders/:id/report-output", validate(schemas.reportOutput), asyncHandler(async (req, res) => {
   const result = await reportOutput(supabase, req.params.id, req.body, { actor: req.pilotIdentity?.operator ?? "system", requestId: req.requestId });
-  if (!result.ok) return res.status(400).json({ error: result.error });
+  if (!result.ok) {
+    if (result.conflict) return res.status(409).json({ error: "version conflict", conflict: true });
+    return res.status(400).json({ error: result.error });
+  }
   auditLog({ action: "shopfloor.report_output", category: "system", result_status: "success", req, detail: { id: req.params.id, output: req.body.output_qty, events: result.events?.length ?? 0 } });
   res.json(result);
 }));
