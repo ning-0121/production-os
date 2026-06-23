@@ -3,24 +3,64 @@ import { useAsync } from "../../hooks/useAsync";
 import { fetchQCInspections, fetchReworks, createQCInspection } from "../../services/api";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
+import { DataGrid, type DataGridColumn } from "../shared/DataGrid";
 import "./quality.css";
+import "../shared/DataGrid.css";
+
+type QCRow = Record<string, unknown>;
 
 const TYPE_LABELS: Record<string, string> = { pp_sample: "产前样", shipping_sample: "船样", inline: "中查", final: "终查", third_party: "第三方" };
 const RESULT_CLS: Record<string, string> = { pass: "qcPass", fail: "qcFail", conditional: "qcConditional", pending: "qcPending" };
 const RESULT_LABELS: Record<string, string> = { pass: "合格", fail: "不合格", conditional: "有条件放行", pending: "待验" };
+const RESULT_RANK: Record<string, number> = { fail: 3, conditional: 2, pending: 1, pass: 0 };
+
+const QC_COLUMNS: DataGridColumn<QCRow>[] = [
+  {
+    id: "result", header: "结果", width: 110,
+    sortValue: (i) => RESULT_RANK[i.result as string] ?? 0,
+    filterValue: (i) => RESULT_LABELS[i.result as string] ?? String(i.result),
+    accessor: (i) => <span className={`qcResult ${RESULT_CLS[i.result as string] ?? ""}`}>{RESULT_LABELS[i.result as string] ?? String(i.result)}</span>,
+  },
+  {
+    id: "type", header: "类型", width: 90,
+    sortValue: (i) => String(i.inspection_type), filterValue: (i) => TYPE_LABELS[i.inspection_type as string] ?? String(i.inspection_type),
+    accessor: (i) => <span className="qcType">{TYPE_LABELS[i.inspection_type as string] ?? String(i.inspection_type)}</span>,
+  },
+  {
+    id: "order", header: "订单", sticky: true, width: 140,
+    sortValue: (i) => String((i.orders as QCRow | null)?.order_number ?? ""),
+    filterValue: (i) => String((i.orders as QCRow | null)?.order_number ?? ""),
+    accessor: (i) => { const o = i.orders as QCRow | null; return o ? String(o.order_number ?? "—") : "—"; },
+  },
+  {
+    id: "factory", header: "工厂", width: 140,
+    sortValue: (i) => String((i.factories as QCRow | null)?.name ?? ""),
+    filterValue: (i) => String((i.factories as QCRow | null)?.name ?? ""),
+    accessor: (i) => { const f = i.factories as QCRow | null; return f ? String(f.name ?? "—") : "—"; },
+  },
+  {
+    id: "date", header: "验货日期", width: 120,
+    sortValue: (i) => String(i.inspection_date ?? ""), filterValue: (i) => String(i.inspection_date ?? ""),
+    accessor: (i) => String(i.inspection_date ?? "—"),
+  },
+  {
+    id: "defect_rate", header: "不良率", width: 90, align: "right",
+    sortValue: (i) => Number(i.defect_rate_pct ?? 0), filterValue: (i) => `${i.defect_rate_pct ?? 0}%`,
+    accessor: (i) => <span className={`qcRate ${Number(i.defect_rate_pct ?? 0) > 5 ? "qcRate--bad" : ""}`}>{String(i.defect_rate_pct ?? 0)}%</span>,
+  },
+];
 
 export function QualityPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const { data: inspections, loading } = useAsync(() => fetchQCInspections(), [refreshKey]);
   const { data: reworks } = useAsync(() => fetchReworks("pending"), [refreshKey]);
-  const [expanded, setExpanded] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
   const { toast } = useToast();
 
   if (loading) return <PageSkeleton />;
 
-  const inspList = (inspections ?? []) as Array<Record<string, unknown>>;
-  const reworkList = (reworks ?? []) as Array<Record<string, unknown>>;
+  const inspList = (inspections ?? []) as QCRow[];
+  const reworkList = (reworks ?? []) as QCRow[];
   const totalInsp = inspList.length;
   const failCount = inspList.filter((i) => i.result === "fail").length;
   const passRate = totalInsp > 0 ? Math.round(((totalInsp - failCount) / totalInsp) * 100) : 100;
@@ -51,49 +91,32 @@ export function QualityPage() {
             <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 新建验货</button>
           </div>
         </div>
-        <div className="qcList">
-          {inspList.length === 0 && (
-            <div className="emptyState" style={{ padding: 32, textAlign: "center" }}>
-              <div style={{ marginBottom: 12 }}>暂无验货记录</div>
-              <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 创建第一个验货</button>
-            </div>
-          )}
-          {inspList.map((insp) => {
-            const isExp = expanded === (insp.id as string);
-            const order = insp.orders as Record<string, unknown> | null;
-            const factory = insp.factories as Record<string, unknown> | null;
-            const defects = (insp.qc_defects ?? []) as Array<Record<string, unknown>>;
+        <DataGrid<QCRow>
+          rows={inspList}
+          columns={QC_COLUMNS}
+          rowKey={(i) => i.id as string}
+          searchPlaceholder="搜索订单、工厂、类型…"
+          csvFilename="验货记录"
+          pageSize={25}
+          emptyTitle="暂无验货记录"
+          emptyAction={<button className="btn primary" onClick={() => setCreateOpen(true)}>+ 创建第一个验货</button>}
+          renderExpandedRow={(insp) => {
+            const defects = (insp.qc_defects ?? []) as QCRow[];
+            if (defects.length === 0) return <span className="hint">无不良明细</span>;
             return (
-              <div key={insp.id as string} className={`qcCard ${isExp ? "qcCard--expanded" : ""}`} onClick={() => setExpanded(isExp ? null : insp.id as string)}>
-                <div className="qcCardHeader">
-                  <div className="qcCardLeft">
-                    <span className={`qcResult ${RESULT_CLS[insp.result as string] ?? ""}`}>{RESULT_LABELS[insp.result as string] ?? insp.result}</span>
-                    <span className="qcType">{TYPE_LABELS[insp.inspection_type as string] ?? insp.inspection_type}</span>
-                    <span className="qcOrder">{order ? String((order as Record<string, unknown>).order_number ?? "") : "—"}</span>
+              <div className="qcDefectList">
+                {defects.map((d, i) => (
+                  <div key={i} className={`qcDefect qcDefect--${d.severity}`}>
+                    <span className="qcDefectCode">{String(d.defect_code)}</span>
+                    <span>x{String(d.qty ?? 1)}</span>
+                    <span className={`qcSeverity qcSeverity--${d.severity}`}>{d.severity === "critical" ? "致命" : d.severity === "major" ? "主要" : "次要"}</span>
+                    {d.location != null && <span className="qcLocation">{String(d.location)}</span>}
                   </div>
-                  <div className="qcCardRight">
-                    <span>{factory ? String((factory as Record<string, unknown>).name ?? "") : "—"}</span>
-                    <span className="qcDate">{String(insp.inspection_date ?? "")}</span>
-                    <span className={`qcRate ${Number(insp.defect_rate_pct ?? 0) > 5 ? "qcRate--bad" : ""}`}>{String(insp.defect_rate_pct ?? 0)}%</span>
-                    <span className="factoryToggle">{isExp ? "▼" : "▶"}</span>
-                  </div>
-                </div>
-                {isExp && defects.length > 0 && (
-                  <div className="qcDefectList">
-                    {defects.map((d, i) => (
-                      <div key={i} className={`qcDefect qcDefect--${d.severity}`}>
-                        <span className="qcDefectCode">{String(d.defect_code)}</span>
-                        <span>x{String(d.qty ?? 1)}</span>
-                        <span className={`qcSeverity qcSeverity--${d.severity}`}>{d.severity === "critical" ? "致命" : d.severity === "major" ? "主要" : "次要"}</span>
-                        {d.location != null && <span className="qcLocation">{String(d.location)}</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
             );
-          })}
-        </div>
+          }}
+        />
       </div>
 
       {createOpen && (

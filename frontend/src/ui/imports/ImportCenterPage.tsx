@@ -20,7 +20,9 @@ import {
   type ImportUploadResponse, type ImportRun, type ImportColumnMapping,
 } from "../../services/api";
 import { useToast } from "../Toast";
+import { DataGrid, type DataGridColumn } from "../shared/DataGrid";
 import "./imports.css";
+import "../shared/DataGrid.css";
 
 const INTERNAL_FIELD_LABELS: Record<string, string> = {
   date: "日期", factory_name: "工厂", line_name: "产线", order_no: "订单号",
@@ -350,56 +352,77 @@ function ConfirmationPanel({ runId, onDone }: { runId: string; onDone: () => voi
 // 3. History Panel
 // ════════════════════════════════════════════════════════════
 
-function HistoryPanel() {
-  const { data, loading, error } = useAsync(() => fetchImportRuns(50), []);
-  const [openId, setOpenId] = React.useState<string | null>(null);
+const runSummary = (r: ImportRun) => (r.summary ?? {}) as Record<string, unknown>;
 
-  if (loading) return <div className="card"><div className="loadingCenter" style={{ padding: 24 }}>加载中...</div></div>;
-  if (error) return <div className="card"><div style={{ padding: 16, color: "var(--danger)" }}>{error}</div></div>;
-  const runs = data?.runs ?? [];
-  if (runs.length === 0) {
-    return <div className="card emptyState" style={{ padding: 48, textAlign: "center" }}>暂无导入历史 — 上传第一个 Excel 试试</div>;
-  }
-
-  return (
-    <div className="impHistoryWrap">
-      {runs.map((r) => (
-        <RunRow key={r.id} run={r} expanded={openId === r.id} onToggle={() => setOpenId(openId === r.id ? null : r.id)} />
-      ))}
-    </div>
-  );
-}
-
-function RunRow({ run, expanded, onToggle }: { run: ImportRun; expanded: boolean; onToggle: () => void }) {
-  const summary = (run.summary ?? {}) as Record<string, unknown>;
-  const committed = Number(summary.committed ?? 0);
-  const errors = Number(summary.commit_errors ?? summary.preview_errors ?? 0);
-  const events = Number(summary.events_emitted ?? 0);
-
-  return (
-    <div className={`card impRunCard impRunCard--${run.status}`} onClick={onToggle}>
-      <div className="impRunHeader">
-        <div className="impRunHeaderLeft">
-          <span className={`impRunStatus impRunStatus--${run.status}`}>{STATUS_LABELS[run.status]}</span>
-          <span className="impRunFilename">{run.filename ?? "—"}</span>
-          <span className="hint">{TYPE_LABELS[run.import_type]}</span>
-        </div>
-        <div className="impRunHeaderRight">
-          <span>{run.total_rows} 行</span>
+const HISTORY_COLUMNS: DataGridColumn<ImportRun>[] = [
+  {
+    id: "status", header: "状态", width: 100,
+    sortValue: (r) => r.status, filterValue: (r) => STATUS_LABELS[r.status] ?? r.status,
+    accessor: (r) => <span className={`impRunStatus impRunStatus--${r.status}`}>{STATUS_LABELS[r.status] ?? r.status}</span>,
+  },
+  {
+    id: "filename", header: "文件", sticky: true, width: 200,
+    sortValue: (r) => r.filename ?? "", filterValue: (r) => r.filename ?? "",
+    accessor: (r) => <span className="impRunFilename">{r.filename ?? "—"}</span>,
+  },
+  {
+    id: "type", header: "类型", width: 90,
+    sortValue: (r) => r.import_type, filterValue: (r) => TYPE_LABELS[r.import_type] ?? r.import_type,
+    accessor: (r) => <span className="hint">{TYPE_LABELS[r.import_type] ?? r.import_type}</span>,
+  },
+  {
+    id: "rows", header: "行数", width: 80, align: "right",
+    sortValue: (r) => r.total_rows ?? 0, filterValue: (r) => String(r.total_rows ?? 0),
+    accessor: (r) => `${r.total_rows} 行`,
+  },
+  {
+    id: "result", header: "结果", width: 150,
+    filterValue: (r) => { const s = runSummary(r); return `${s.committed ?? 0} ${s.commit_errors ?? 0} ${s.events_emitted ?? 0}`; },
+    accessor: (r) => {
+      const s = runSummary(r);
+      const committed = Number(s.committed ?? 0);
+      const errors = Number(s.commit_errors ?? s.preview_errors ?? 0);
+      const events = Number(s.events_emitted ?? 0);
+      return (
+        <div style={{ display: "flex", gap: 10 }}>
           {committed > 0 && <span style={{ color: "#22c55e" }}>✓ {committed}</span>}
           {errors > 0 && <span style={{ color: "var(--danger)" }}>✗ {errors}</span>}
           {events > 0 && <span style={{ color: "var(--accent)" }}>⚡ {events}</span>}
-          <span className="hint">{new Date(run.started_at).toLocaleString()}</span>
+          {committed === 0 && errors === 0 && events === 0 && <span className="hint">—</span>}
         </div>
-      </div>
-      {expanded && (
-        <div className="impRunDetail">
-          <pre style={{ background: "rgba(0,0,0,.3)", padding: 12, borderRadius: 6, fontSize: 11, overflow: "auto" }}>
-            {JSON.stringify(run.summary, null, 2)}
-          </pre>
-        </div>
+      );
+    },
+  },
+  {
+    id: "started", header: "时间", width: 160,
+    sortValue: (r) => new Date(r.started_at),
+    filterValue: (r) => new Date(r.started_at).toLocaleString(),
+    accessor: (r) => <span className="hint">{new Date(r.started_at).toLocaleString()}</span>,
+  },
+];
+
+function HistoryPanel() {
+  const { data, loading, error } = useAsync(() => fetchImportRuns(50), []);
+  const runs = data?.runs ?? [];
+
+  return (
+    <DataGrid<ImportRun>
+      rows={runs}
+      columns={HISTORY_COLUMNS}
+      rowKey={(r) => r.id}
+      loading={loading}
+      error={error}
+      searchPlaceholder="搜索文件名、类型…"
+      csvFilename="导入历史"
+      pageSize={25}
+      emptyTitle="暂无导入历史"
+      emptyDescription="上传第一个 Excel 试试。"
+      renderExpandedRow={(run) => (
+        <pre style={{ background: "rgba(0,0,0,.3)", padding: 12, borderRadius: 6, fontSize: 11, overflow: "auto", margin: 0 }}>
+          {JSON.stringify(run.summary, null, 2)}
+        </pre>
       )}
-    </div>
+    />
   );
 }
 

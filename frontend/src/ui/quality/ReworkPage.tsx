@@ -3,7 +3,11 @@ import { useAsync } from "../../hooks/useAsync";
 import { fetchReworks, updateRework, createRework } from "../../services/api";
 import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
+import { DataGrid, type DataGridColumn } from "../shared/DataGrid";
 import "./quality.css";
+import "../shared/DataGrid.css";
+
+type RWRow = Record<string, unknown>;
 
 const STATUS_LABELS: Record<string, string> = { pending: "待处理", in_progress: "返工中", completed: "已完成", waived: "已豁免" };
 const STATUS_CLS: Record<string, string> = { pending: "statusPlanned", in_progress: "statusProgress", completed: "statusCompleted", waived: "statusCancelled" };
@@ -14,17 +18,72 @@ export function ReworkPage() {
   const { data: reworks, loading, refetch } = useAsync(() => fetchReworks(), []);
   const [createOpen, setCreateOpen] = React.useState(false);
 
-  async function handleStatusChange(id: string, status: string) {
+  const handleStatusChange = React.useCallback(async (id: string, status: string) => {
     try {
       await updateRework(id, { status });
       toast("状态已更新", "success");
       refetch();
     } catch { toast("更新失败", "error"); }
-  }
+  }, [toast, refetch]);
+
+  const columns = React.useMemo<DataGridColumn<RWRow>[]>(() => [
+    {
+      id: "status", header: "状态", width: 90,
+      sortValue: (r) => String(r.status), filterValue: (r) => STATUS_LABELS[r.status as string] ?? String(r.status),
+      accessor: (r) => <span className={`orderStatus ${STATUS_CLS[r.status as string] ?? ""}`}>{STATUS_LABELS[r.status as string] ?? String(r.status)}</span>,
+    },
+    {
+      id: "order", header: "订单", sticky: true, width: 130,
+      sortValue: (r) => String((r.orders as RWRow | null)?.order_number ?? ""),
+      filterValue: (r) => String((r.orders as RWRow | null)?.order_number ?? ""),
+      accessor: (r) => { const o = r.orders as RWRow | null; return <span className="orderCellId">{o ? String(o.order_number ?? "—") : "—"}</span>; },
+    },
+    {
+      id: "factory", header: "工厂", width: 130,
+      sortValue: (r) => String((r.factories as RWRow | null)?.name ?? ""),
+      filterValue: (r) => String((r.factories as RWRow | null)?.name ?? ""),
+      accessor: (r) => { const f = r.factories as RWRow | null; return f ? String(f.name ?? "—") : "—"; },
+    },
+    {
+      id: "qty", header: "数量", width: 80, align: "right",
+      sortValue: (r) => Number(r.rework_qty ?? 0), filterValue: (r) => String(r.rework_qty ?? 0),
+      accessor: (r) => `${String(r.rework_qty ?? 0)} 件`,
+    },
+    {
+      id: "cost", header: "成本", width: 100, align: "right",
+      sortValue: (r) => Number(r.cost ?? 0), filterValue: (r) => String(r.cost ?? ""),
+      accessor: (r) => r.cost != null ? `¥${Number(r.cost).toLocaleString()}` : "—",
+    },
+    {
+      id: "reason", header: "原因 / 责任",
+      sortValue: (r) => String(r.rework_reason ?? ""),
+      filterValue: (r) => `${r.rework_reason ?? ""} ${PARTY_LABELS[r.responsible_party as string] ?? r.responsible_party ?? ""}`,
+      accessor: (r) => (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="reworkReason">{String(r.rework_reason ?? "—")}</span>
+          <span className="pill">{PARTY_LABELS[r.responsible_party as string] ?? String(r.responsible_party)}责任</span>
+          {r.impact_on_delivery === true && <span className="reworkDelay">延期 {String(r.delay_days ?? 0)} 天</span>}
+        </div>
+      ),
+    },
+    {
+      id: "actions", header: "操作", width: 180, align: "right",
+      accessor: (r) => {
+        if (r.status !== "pending" && r.status !== "in_progress") return <span style={{ color: "var(--muted)" }}>—</span>;
+        return (
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            {r.status === "pending" && <button className="btn" onClick={() => handleStatusChange(r.id as string, "in_progress")}>开始</button>}
+            {r.status === "in_progress" && <button className="btn primary" onClick={() => handleStatusChange(r.id as string, "completed")}>完成</button>}
+            <button className="btn" onClick={() => handleStatusChange(r.id as string, "waived")}>豁免</button>
+          </div>
+        );
+      },
+    },
+  ], [handleStatusChange]);
 
   if (loading) return <PageSkeleton />;
 
-  const list = (reworks ?? []) as Array<Record<string, unknown>>;
+  const list = (reworks ?? []) as RWRow[];
   const active = list.filter((r) => r.status === "pending" || r.status === "in_progress");
   const totalCost = list.reduce((s, r) => s + Number(r.cost ?? 0), 0);
 
@@ -45,45 +104,16 @@ export function ReworkPage() {
             <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 新建返工</button>
           </div>
         </div>
-        <div className="qcList">
-          {list.length === 0 && (
-            <div className="emptyState" style={{ padding: 32, textAlign: "center" }}>
-              <div style={{ marginBottom: 12 }}>暂无返工单</div>
-              <button className="btn primary" onClick={() => setCreateOpen(true)}>+ 创建第一个返工单</button>
-            </div>
-          )}
-          {list.map((rw) => {
-            const order = rw.orders as Record<string, unknown> | null;
-            const factory = rw.factories as Record<string, unknown> | null;
-            return (
-              <div key={rw.id as string} className="reworkCard">
-                <div className="reworkHeader">
-                  <div className="reworkLeft">
-                    <span className={`orderStatus ${STATUS_CLS[rw.status as string] ?? ""}`}>{STATUS_LABELS[rw.status as string] ?? rw.status}</span>
-                    <span className="orderCellId">{order ? String((order as Record<string, unknown>).order_number ?? "") : "—"}</span>
-                    <span>{factory ? String((factory as Record<string, unknown>).name ?? "") : "—"}</span>
-                  </div>
-                  <div className="reworkRight">
-                    <span>{String(rw.rework_qty ?? 0)} 件</span>
-                    {rw.cost != null && <span>¥{Number(rw.cost).toLocaleString()}</span>}
-                    {rw.impact_on_delivery === true && <span className="reworkDelay">延期 {String(rw.delay_days ?? 0)} 天</span>}
-                  </div>
-                </div>
-                <div className="reworkBody">
-                  <span className="reworkReason">{String(rw.rework_reason ?? "—")}</span>
-                  <span className="pill">{PARTY_LABELS[rw.responsible_party as string] ?? rw.responsible_party}责任</span>
-                </div>
-                {(rw.status === "pending" || rw.status === "in_progress") && (
-                  <div className="reworkActions">
-                    {rw.status === "pending" && <button className="btn" onClick={() => handleStatusChange(rw.id as string, "in_progress")}>开始返工</button>}
-                    {rw.status === "in_progress" && <button className="btn primary" onClick={() => handleStatusChange(rw.id as string, "completed")}>完成返工</button>}
-                    <button className="btn" onClick={() => handleStatusChange(rw.id as string, "waived")}>豁免</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <DataGrid<RWRow>
+          rows={list}
+          columns={columns}
+          rowKey={(r) => r.id as string}
+          searchPlaceholder="搜索订单、工厂、原因…"
+          csvFilename="返工单"
+          pageSize={25}
+          emptyTitle="暂无返工单"
+          emptyAction={<button className="btn primary" onClick={() => setCreateOpen(true)}>+ 创建第一个返工单</button>}
+        />
       </div>
 
       {createOpen && (
