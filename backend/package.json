@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/api.js",
     "dev": "node --env-file=.env --watch src/api.js",
-    "test": "node --test tests/scheduler.test.js tests/agents.test.js tests/forecast.test.js tests/validation.test.js tests/anomaly.test.js tests/runtime.test.js tests/import-gateway.test.js tests/risk-engine.test.js tests/execution.test.js tests/auto-rules.test.js tests/notify.test.js tests/retrospective.test.js tests/decision-engine.test.js tests/decision-learning.test.js tests/decision-intel.test.js tests/shopfloor.test.js",
+    "test": "node --test tests/scheduler.test.js tests/agents.test.js tests/forecast.test.js tests/validation.test.js tests/anomaly.test.js tests/runtime.test.js tests/import-gateway.test.js tests/risk-engine.test.js tests/execution.test.js tests/auto-rules.test.js tests/notify.test.js tests/retrospective.test.js tests/decision-engine.test.js tests/decision-learning.test.js tests/decision-intel.test.js tests/shopfloor.test.js tests/reconcile.test.js",
     "test:scheduler": "node src/scheduler/demo.js",
     "test:optimizer": "node src/scheduler/optimizer-test.js",
     "test:validate": "node src/scripts/validate-offline-test.js",

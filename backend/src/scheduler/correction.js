@@ -2,9 +2,14 @@
  * Correction Engine
  *
  * Computes deviation and risk status for all active allocations
- * by comparing planned vs actual production progress from daily reports.
- * Upserts results into the order_corrections table.
+ * by comparing planned vs actual production progress. Actual output is
+ * reconciled across BOTH input channels (Excel/manual daily reports + phone
+ * floor reports), with phone authoritative per day — see reconcile.js — so a
+ * line/day reported through both is never double-counted, and a phone-only line
+ * is still counted. Upserts results into the order_corrections table.
  */
+
+import { reconcileOutput } from "./reconcile.js";
 
 export async function computeCorrections(supabase) {
   const today = new Date();
@@ -30,19 +35,42 @@ export async function computeCorrections(supabase) {
 
   if (repErr) throw new Error(`Failed to load reports: ${repErr.message}`);
 
-  // Group reports by allocation_id
-  const reportsByAlloc = {};
-  for (const r of allReports ?? []) {
-    if (!reportsByAlloc[r.allocation_id]) reportsByAlloc[r.allocation_id] = [];
-    reportsByAlloc[r.allocation_id].push(r);
+  // 2b. Load phone floor output for the same allocations (shopfloor_reports →
+  //     work order → allocation). Phone is authoritative per day in reconcile().
+  const { data: wos } = await supabase
+    .from("shopfloor_work_orders")
+    .select("id, allocation_id")
+    .in("allocation_id", allocationIds);
+  const woToAlloc = new Map((wos ?? []).filter((w) => w.allocation_id).map((w) => [w.id, w.allocation_id]));
+  let phoneRows = [];
+  if (woToAlloc.size > 0) {
+    const { data: sfReports } = await supabase
+      .from("shopfloor_reports")
+      .select("work_order_id, output_qty, reported_at")
+      .eq("report_type", "output")
+      .in("work_order_id", [...woToAlloc.keys()]);
+    phoneRows = (sfReports ?? []).map((r) => ({
+      allocation_id: woToAlloc.get(r.work_order_id),
+      date: String(r.reported_at ?? "").slice(0, 10),
+      output_qty: r.output_qty,
+    }));
+  }
+
+  // Reconcile both channels (phone wins per day; no double-count, no under-count).
+  const { byAllocation, overlaps } = reconcileOutput(allReports ?? [], phoneRows);
+  if (overlaps.length > 0) {
+    console.warn(JSON.stringify({
+      level: "INFO", msg: "Cross-channel output overlap reconciled (phone authoritative)",
+      overlap_days: overlaps.length,
+    }));
   }
 
   // 3. Compute corrections for each allocation
   const corrections = [];
 
   for (const alloc of allocs) {
-    const reports = reportsByAlloc[alloc.id] ?? [];
-    const actual_cumulative = reports.reduce((sum, r) => sum + Number(r.actual_output ?? 0), 0);
+    const aggr = byAllocation[alloc.id] ?? { actual_cumulative: 0, report_days: 0 };
+    const actual_cumulative = aggr.actual_cumulative;
 
     // Calculate planned cumulative: how much SHOULD have been done by today
     const startDate = new Date(alloc.planned_start_date);
@@ -58,7 +86,7 @@ export async function computeCorrections(supabase) {
       : actual_cumulative > 0 ? 100 : 0;
 
     // Estimate end date based on average daily actual rate
-    const reportDays = reports.length;
+    const reportDays = aggr.report_days;
     const avg_daily_actual = reportDays > 0 ? actual_cumulative / reportDays : 0;
     const remaining_qty = Math.max(0, alloc.allocated_qty - actual_cumulative);
     const days_to_complete = avg_daily_actual > 0 ? Math.ceil(remaining_qty / avg_daily_actual) : null;
@@ -120,6 +148,7 @@ export async function computeCorrections(supabase) {
     on_track: corrections.filter((c) => c.risk_status === "on_track").length,
     falling_behind: corrections.filter((c) => c.risk_status === "falling_behind").length,
     critical: corrections.filter((c) => c.risk_status === "critical").length,
+    overlap_days_reconciled: overlaps.length,
     computed_at: new Date().toISOString(),
     corrections,
   };
