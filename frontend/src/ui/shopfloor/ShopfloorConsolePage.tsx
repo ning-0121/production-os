@@ -10,7 +10,7 @@ import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import { useRealtimeRefetch } from "../../hooks/useRealtime";
 import {
-  fetchWorkOrders, fetchShopfloorSummary,
+  fetchWorkOrders, fetchShopfloorSummary, fetchProductionLines,
   transitionWorkOrder, reportOutput, reportBlocked,
 } from "../../services/api";
 import { ApiError } from "../../services/client";
@@ -18,6 +18,9 @@ import { useToast } from "../Toast";
 import { PageSkeleton } from "../Skeleton";
 import type { ShopfloorWorkOrder, WorkOrderAction, BlockReason } from "../../types";
 import "./shopfloor.css";
+
+// BarcodeDetector is not in the TS DOM lib yet; probe at runtime.
+const SCAN_SUPPORTED = typeof window !== "undefined" && "BarcodeDetector" in window;
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "待开工", in_progress: "生产中", paused: "暂停", completed: "已完成", blocked: "受阻",
@@ -41,14 +44,45 @@ export function ShopfloorConsolePage() {
 
   const { data: woData, loading, error } = useAsync(() => fetchWorkOrders({ today: true }), [refreshKey]);
   const { data: summary } = useAsync(() => fetchShopfloorSummary(), [refreshKey]);
-
-  // Live: refetch when work orders change (Supabase Realtime).
-  useRealtimeRefetch("shopfloor_work_orders", refresh);
+  const { data: lines } = useAsync(() => fetchProductionLines(), []);
 
   const [outputFor, setOutputFor] = React.useState<ShopfloorWorkOrder | null>(null);
   const [blockFor, setBlockFor] = React.useState<ShopfloorWorkOrder | null>(null);
+  const [scanning, setScanning] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const [lineFilter, setLineFilter] = React.useState<string | null>(null);
+
+  // Live refresh, but never WHILE a modal/scanner is open — a refetch mid-entry
+  // re-renders the list under the operator and can drop focus. Defer to close.
+  const modalOpen = !!(outputFor || blockFor || scanning);
+  const modalOpenRef = React.useRef(modalOpen);
+  modalOpenRef.current = modalOpen;
+  const pendingRef = React.useRef(false);
+  const onRealtime = React.useCallback(() => {
+    if (modalOpenRef.current) { pendingRef.current = true; return; }
+    refresh();
+  }, [refresh]);
+  useRealtimeRefetch("shopfloor_work_orders", onRealtime);
+  React.useEffect(() => {
+    if (!modalOpen && pendingRef.current) { pendingRef.current = false; refresh(); }
+  }, [modalOpen, refresh]);
 
   const workOrders = Array.isArray(woData?.work_orders) ? woData!.work_orders : [];
+  const lineName = React.useCallback(
+    (id: string | null) => (lines ?? []).find((l) => l.id === id)?.name ?? (id ? id.slice(0, 6) : "—"),
+    [lines],
+  );
+  const todayLineIds = [...new Set(workOrders.map((w) => w.line_id).filter(Boolean))] as string[];
+
+  const q = search.trim().toLowerCase();
+  const visibleOrders = workOrders.filter((w) => {
+    if (lineFilter && w.line_id !== lineFilter) return false;
+    if (q) {
+      const hay = `${w.order_id ?? ""} ${w.operation ?? ""} ${w.id}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
 
   if (loading && workOrders.length === 0) return <PageSkeleton />;
 
@@ -82,18 +116,47 @@ export function ShopfloorConsolePage() {
         </div>
       )}
 
+      {/* Find-my-work-order toolbar: scan + search + line filter */}
+      <div className="sfToolbar">
+        <div className="sfSearchRow">
+          {SCAN_SUPPORTED && (
+            <button className="sfScanBtn" onClick={() => setScanning(true)} aria-label="扫码">📷 扫码</button>
+          )}
+          <input
+            className="sfSearchInput" type="search" inputMode="search"
+            placeholder="搜索订单号 / 工序…" value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && <button className="sfSearchClear" onClick={() => setSearch("")}>×</button>}
+        </div>
+        {todayLineIds.length > 1 && (
+          <div className="sfLineChips">
+            <button className={`sfLineChip ${!lineFilter ? "sfLineChip--active" : ""}`} onClick={() => setLineFilter(null)}>全部</button>
+            {todayLineIds.map((id) => (
+              <button key={id} className={`sfLineChip ${lineFilter === id ? "sfLineChip--active" : ""}`} onClick={() => setLineFilter(id)}>
+                {lineName(id)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {error && <div className="sfError">加载失败：{error}</div>}
       {!error && workOrders.length === 0 && (
         <div className="sfEmpty">今天没有分配给你的工单。</div>
       )}
+      {!error && workOrders.length > 0 && visibleOrders.length === 0 && (
+        <div className="sfEmpty">没有匹配的工单。{(search || lineFilter) && <button className="sfLinkBtn" onClick={() => { setSearch(""); setLineFilter(null); }}>清除筛选</button>}</div>
+      )}
 
       {/* Work order cards */}
       <div className="sfList">
-        {workOrders.map((wo) => (
+        {visibleOrders.map((wo) => (
           <WorkOrderCard key={wo.id} wo={wo} onAction={doAction} onReportOutput={() => setOutputFor(wo)} />
         ))}
       </div>
 
+      {scanning && <QrScanner onClose={() => setScanning(false)} onDetected={(code) => { setSearch(code); setScanning(false); }} />}
       {outputFor && <OutputModal wo={outputFor} onClose={() => setOutputFor(null)} onDone={() => { setOutputFor(null); refresh(); }} />}
       {blockFor && <BlockedModal wo={blockFor} onClose={() => setBlockFor(null)} onDone={() => { setBlockFor(null); refresh(); }} />}
     </div>
@@ -213,6 +276,59 @@ function BlockedModal({ wo, onClose, onDone }: { wo: ShopfloorWorkOrder; onClose
       </label>
       <button className="sfBtn sfBtn--danger sfBtn--full" disabled={busy} onClick={submit}>{busy ? "上报中..." : "上报阻塞"}</button>
     </Modal>
+  );
+}
+
+// ── QR / barcode scanner (operator phone camera) ────────
+function QrScanner({ onClose, onDetected }: { onClose: () => void; onDetected: (code: string) => void }) {
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let stream: MediaStream | null = null;
+    let raf = 0;
+    let stopped = false;
+    // BarcodeDetector isn't in the TS DOM lib yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Detector = (window as any).BarcodeDetector;
+    const detector = Detector ? new Detector({ formats: ["qr_code", "code_128", "ean_13"] }) : null;
+
+    async function tick() {
+      if (stopped || !detector || !videoRef.current) return;
+      try {
+        const codes = await detector.detect(videoRef.current);
+        const value = codes?.[0]?.rawValue;
+        if (value) { onDetected(String(value).trim()); return; }
+      } catch { /* frame not ready yet */ }
+      raf = requestAnimationFrame(tick);
+    }
+
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (stopped) { stream.getTracks().forEach((t) => t.stop()); return; }
+        if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play().catch(() => {}); }
+        tick();
+      } catch {
+        setErr("无法打开摄像头，请检查浏览器权限，或改用搜索框");
+      }
+    })();
+
+    return () => { stopped = true; cancelAnimationFrame(raf); stream?.getTracks().forEach((t) => t.stop()); };
+  }, [onDetected]);
+
+  return (
+    <div className="sfModalBackdrop" onClick={onClose}>
+      <div className="sfScanModal" onClick={(e) => e.stopPropagation()}>
+        <div className="sfModalHeader"><h3>扫码找工单</h3><button className="sfModalClose" onClick={onClose}>×</button></div>
+        {err ? <div className="sfError">{err}</div> : (
+          <>
+            <video ref={videoRef} className="sfScanVideo" muted playsInline />
+            <div className="sfScanHint">将工单二维码对准摄像头</div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
