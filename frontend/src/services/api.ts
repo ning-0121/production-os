@@ -1326,3 +1326,46 @@ export function runRecovery(tool: RecoveryTool, dryRun: boolean): Promise<Recove
     body: JSON.stringify({ dry_run: dryRun }),
   });
 }
+
+// ════════════════════════════════════════════════════════════
+// Wedge S1: Piece-wage trial (计件试算)
+// ════════════════════════════════════════════════════════════
+
+export type PieceRate = {
+  id: string;
+  operation: string;
+  line_id: string | null;
+  unit_price: number;
+  currency: string;
+  active: boolean;
+  note?: string | null;
+};
+
+export type PieceWageSummary = {
+  date: string;
+  line_id: string | null;
+  report_rows: number;
+  by_worker: Array<{ worker: string; output_qty: number; amount: number; missing_rate_qty: number }>;
+  by_line: Array<{ line_id: string | null; output_qty: number; amount: number }>;
+  by_operation: Array<{ operation: string; output_qty: number; amount: number; has_rate: boolean }>;
+  total: { output_qty: number; amount: number; missing_rate_qty: number };
+  missing_rates: Array<{ operation: string | null; line_id: string | null }>;
+  lines_count: number;
+};
+
+export function fetchPieceRates(): Promise<{ rates: PieceRate[] }> {
+  return request("/payroll/piece-rates");
+}
+export function setPieceRate(body: { operation: string; line_id?: string | null; unit_price: number; currency?: string; note?: string }): Promise<PieceRate> {
+  return request("/payroll/piece-rates", { method: "POST", body: JSON.stringify(body) });
+}
+export function deletePieceRate(id: string): Promise<{ ok: boolean }> {
+  return request(`/payroll/piece-rates/${id}`, { method: "DELETE" });
+}
+export function fetchPieceWages(date?: string, lineId?: string | null): Promise<PieceWageSummary> {
+  const qs = new URLSearchParams();
+  if (date) qs.set("date", date);
+  if (lineId) qs.set("line_id", lineId);
+  const s = qs.toString();
+  return request(`/payroll/piece-wages${s ? `?${s}` : ""}`);
+}

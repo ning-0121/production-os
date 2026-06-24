@@ -23,6 +23,7 @@ import { RetrospectivePage } from "./retrospective/RetrospectivePage";
 import { DecisionIntelPage } from "./decision-intel/DecisionIntelPage";
 import { ShopfloorConsolePage } from "./shopfloor/ShopfloorConsolePage";
 import { SystemHealthPage } from "./admin/SystemHealthPage";
+import { PieceWagePage } from "./payroll/PieceWagePage";
 import { AIAssistant } from "./today/AIAssistant";
 import { LoginPage } from "./auth/LoginPage";
 import { ErrorBoundary, PageBoundary } from "./ErrorBoundary";
@@ -141,6 +142,7 @@ function MainApp({ user }: { user: AuthUser }) {
         {module === "retrospective" && <PageBoundary name="复盘分析"><RetrospectivePage /></PageBoundary>}
         {module === "decisionIntel" && <PageBoundary name="决策智能"><DecisionIntelPage /></PageBoundary>}
         {module === "shopfloor" && <PageBoundary name="车间执行台"><ShopfloorConsolePage /></PageBoundary>}
+        {module === "payroll" && <PageBoundary name="计件试算"><PieceWagePage /></PageBoundary>}
         {module === "admin" && <PageBoundary name="系统健康"><SystemHealthPage /></PageBoundary>}
       </main>
 

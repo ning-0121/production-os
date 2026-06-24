@@ -1,6 +1,6 @@
 import React from "react";
 
-export type ModuleKey = "today" | "scheduling" | "execution" | "materials" | "quality" | "factories" | "runtime" | "imports" | "tasks" | "retrospective" | "decisionIntel" | "shopfloor" | "admin";
+export type ModuleKey = "today" | "scheduling" | "execution" | "materials" | "quality" | "factories" | "runtime" | "imports" | "tasks" | "retrospective" | "decisionIntel" | "shopfloor" | "payroll" | "admin";
 
 type NavItem = {
   key: ModuleKey;
@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: "retrospective", label: "复盘分析", sublabel: "Retrospective", icon: "▲" },
   { key: "decisionIntel", label: "决策智能", sublabel: "Decision Intelligence", icon: "◇" },
   { key: "shopfloor", label: "车间执行台", sublabel: "Shopfloor Console", icon: "▤" },
+  { key: "payroll", label: "计件试算", sublabel: "Piece Wage", icon: "¥" },
   { key: "admin", label: "系统健康", sublabel: "System Health", icon: "✚" },
 ];
 
