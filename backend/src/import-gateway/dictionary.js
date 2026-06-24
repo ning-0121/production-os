@@ -98,10 +98,22 @@ export const TYPE_SIGNATURES = {
  */
 export function normalizeHeader(s) {
   if (s == null) return "";
-  return String(s)
+  return foldFullWidth(String(s))
     .trim()
     .toLowerCase()
     .replace(/[（）()【】\[\]:：、，,\s\-_/\\.]+/g, "");
+}
+
+/**
+ * Fold full-width ASCII (U+FF01–U+FF5E) and the ideographic space (U+3000) to
+ * their half-width equivalents. Chinese mobile/IME input (DingTalk, WeChat)
+ * frequently produces full-width parens/digits/letters, which otherwise never
+ * match the dictionary patterns.
+ */
+export function foldFullWidth(s) {
+  return String(s)
+    .replace(/　/g, " ")
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
 }
 
 /**

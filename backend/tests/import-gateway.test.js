@@ -5,10 +5,57 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeHeader, matchScore } from "../src/import-gateway/dictionary.js";
+import { normalizeHeader, matchScore, foldFullWidth } from "../src/import-gateway/dictionary.js";
 import { recognizeColumns, detectImportType } from "../src/import-gateway/recognizer.js";
-import { normalizeRow, dedupKey } from "../src/import-gateway/normalizer.js";
+import { normalizeRow, dedupKey, isBlankRow } from "../src/import-gateway/normalizer.js";
 import { similarity } from "../src/import-gateway/resolver.js";
+
+// ── V8 Batch 3: real-file robustness ────────────────────────
+describe("foldFullWidth + full-width headers", () => {
+  it("folds full-width ASCII and ideographic space", () => {
+    assert.equal(foldFullWidth("（１２３）ＡＢ　ｃ"), "(123)AB c");
+  });
+  it("normalizeHeader matches a full-width Chinese header", () => {
+    // "产量（件）" with full-width parens normalizes the same as half-width.
+    assert.equal(normalizeHeader("产量（件）"), normalizeHeader("产量(件)"));
+  });
+});
+
+describe("isBlankRow", () => {
+  it("treats all-empty / whitespace rows as blank", () => {
+    assert.equal(isBlankRow({ a: "", b: null, c: "   " }), true);
+    assert.equal(isBlankRow({}), true);
+    assert.equal(isBlankRow(null), true);
+  });
+  it("keeps rows with any value", () => {
+    assert.equal(isBlankRow({ a: "", b: "100" }), false);
+  });
+});
+
+describe("regional date parsing (via normalizeRow date coercion)", () => {
+  const dateCfg = (raw) => normalizeRow({
+    mappings: [{ external_header: "日期", internal_field: "date" }],
+    rawRow: { "日期": raw }, importType: "daily_report",
+  }).normalized.date;
+
+  it("parses year-first dot/slash and full-width digits", () => {
+    assert.equal(dateCfg("2026.5.1"), "2026-05-01");
+    assert.equal(dateCfg("２０２６／５／１"), "2026-05-01");
+  });
+  it("parses unambiguous day-first and month-first", () => {
+    assert.equal(dateCfg("15/04/2026"), "2026-04-15"); // day>12 → DD/MM
+    assert.equal(dateCfg("04/15/2026"), "2026-04-15"); // 2nd>12 → MM/DD
+  });
+  it("refuses to guess an ambiguous date", () => {
+    // 05/06/2026 could be either order → null rather than silently wrong
+    const r = normalizeRow({
+      mappings: [{ external_header: "日期", internal_field: "date" }],
+      rawRow: { "日期": "05/06/2026" }, importType: "daily_report",
+    });
+    assert.ok(r.normalized.date == null);   // undefined/null — not silently mis-dated
+    assert.ok((r.errors ?? []).some((e) => e.field === "date"));
+  });
+});
 
 // ── Dictionary ─────────────────────────────────────────────
 

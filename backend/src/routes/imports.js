@@ -21,7 +21,7 @@ import { validate, schemas } from "../middleware/validate.js";
 import { auditLog } from "../governance/audit.js";
 
 import { recognizeColumns, detectImportType } from "../import-gateway/recognizer.js";
-import { normalizeRow, dedupKey } from "../import-gateway/normalizer.js";
+import { normalizeRow, dedupKey, isBlankRow } from "../import-gateway/normalizer.js";
 import { resolveFactoryName, resolveLineName, resolveOrderNo } from "../import-gateway/resolver.js";
 import { commitRun } from "../import-gateway/committer.js";
 import { normalizeHeader } from "../import-gateway/dictionary.js";
@@ -85,6 +85,8 @@ router.post("/upload", validate(schemas.importUpload), asyncHandler(async (req, 
   const stagePayloads = [];
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
+    // Skip spacer / footer rows entirely — they are not "errors".
+    if (isBlankRow(raw)) continue;
     const { normalized, warnings, errors } = normalizeRow({
       mappings: recognition.mappings,
       rawRow: raw,

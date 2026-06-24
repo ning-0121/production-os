@@ -9,7 +9,17 @@
  *   WARN:   abnormal output spikes, suspicious low production, missing optional mappings
  */
 
-import { INTERNAL_FIELDS } from "./dictionary.js";
+import { INTERNAL_FIELDS, foldFullWidth } from "./dictionary.js";
+
+/**
+ * True when every cell of a raw row is empty/whitespace. Real factory sheets
+ * carry spacer rows and footers; these must be skipped, not reported as
+ * "required field missing" errors.
+ */
+export function isBlankRow(rawRow) {
+  if (!rawRow || typeof rawRow !== "object") return true;
+  return Object.values(rawRow).every((v) => v == null || String(v).trim() === "");
+}
 
 const ABNORMAL_SPIKE_MULTIPLIER = 3;     // > 3× running mean → warn
 const ABNORMAL_LOW_FRACTION = 0.2;       // < 20% of running mean → warn
@@ -134,13 +144,14 @@ function coerce(raw, type) {
   try {
     switch (type) {
       case "number": {
-        const n = Number(String(raw).replace(/[,，]/g, "").trim());
-        if (!Number.isFinite(n)) return { error: "not_a_number" };
+        // Fold full-width digits, strip thousands separators.
+        const n = Number(foldFullWidth(String(raw)).replace(/[,，]/g, "").trim());
+        if (!Number.isFinite(n)) return { error: "not_a_number", raw };
         return { value: n };
       }
       case "date": {
         const d = parseExcelDate(raw);
-        if (!d) return { error: "not_a_date" };
+        if (!d) return { error: "not_a_date", raw };
         return { value: d };
       }
       case "boolean": {
@@ -175,17 +186,30 @@ function parseExcelDate(raw) {
     const d = new Date(epoch.getTime() + raw * 86400000);
     return d.toISOString().slice(0, 10);
   }
+  // Fold full-width digits/punctuation so "２０２６／５／１" parses.
+  const s = foldFullWidth(String(raw)).trim();
   // ISO string
-  const s = String(raw).trim();
   if (/^\d{4}-\d{1,2}-\d{1,2}/.test(s)) {
     const d = new Date(s);
     if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   }
-  // Chinese: 2026年4月15日, 2026/4/15, 2026.4.15
-  const m = s.match(/(\d{4})[年/.\-](\d{1,2})[月/.\-](\d{1,2})/);
+  // Year-first: 2026年4月15日, 2026/4/15, 2026.4.15
+  const m = s.match(/^(\d{4})[年/.\-](\d{1,2})[月/.\-](\d{1,2})/);
   if (m) {
     const [, y, mo, dd] = m;
     return `${y}-${mo.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+  }
+  // Day/Month-first with 4-digit year at the end: 15/04/2026, 04.15.2026.
+  // Only accept when the order is UNAMBIGUOUS (one part > 12) so we never
+  // silently mis-date — ambiguous like 05/06/2026 returns null (operator fixes).
+  const t = s.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})/);
+  if (t) {
+    const a = Number(t[1]), b = Number(t[2]), y = t[3];
+    let day, mo;
+    if (a > 12 && b <= 12) { day = a; mo = b; }        // DD/MM/YYYY
+    else if (b > 12 && a <= 12) { day = b; mo = a; }   // MM/DD/YYYY
+    else return null;                                  // ambiguous → don't guess
+    return `${y}-${String(mo).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   }
   return null;
 }
