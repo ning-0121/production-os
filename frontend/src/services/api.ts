@@ -1369,3 +1369,28 @@ export function fetchPieceWages(date?: string, lineId?: string | null): Promise<
   const s = qs.toString();
   return request(`/payroll/piece-wages${s ? `?${s}` : ""}`);
 }
+
+export type PilotReport = {
+  date: string;
+  line_id: string | null;
+  total_output_qty: number;
+  total_piece_amount: number;
+  missing_piece_rate_count: number;
+  missing_piece_rate_qty: number;
+  missing_worker_count: number;
+  duplicate_report_count: number;
+  top_workers: Array<{ worker: string; output_qty: number; amount: number; missing_rate_qty: number }>;
+  top_operations: Array<{ operation: string; output_qty: number; amount: number; has_rate: boolean }>;
+  by_worker: Array<{ worker: string; output_qty: number; amount: number; missing_rate_qty: number }>;
+  missing_rates: Array<{ operation: string | null; line_id: string | null }>;
+  reconciliation_rows: Array<{ worker: string; system_output: number; system_amount: number; manual_output: number | null; manual_amount: number | null }>;
+  report_rows: number;
+};
+
+export function fetchPilotReport(date?: string, lineId?: string | null): Promise<PilotReport> {
+  const qs = new URLSearchParams();
+  if (date) qs.set("date", date);
+  if (lineId) qs.set("line_id", lineId);
+  const s = qs.toString();
+  return request(`/payroll/pilot-report${s ? `?${s}` : ""}`);
+}

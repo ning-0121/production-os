@@ -14,6 +14,55 @@
 
 const GLOBAL_LINE = "__global__";
 
+// ── Normalization (dirty real-world data) ───────────────────
+// Fold full-width ASCII + ideographic space to half-width.
+function foldHalf(s) {
+  return String(s).replace(/　/g, " ").replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+}
+
+/**
+ * Normalize a worker name so "张三" / "张三 " / "张　三" / "ＺＨＡＮＧ" don't
+ * split one person into several wage rows. Fold full-width, drop ALL whitespace.
+ */
+export function normalizeName(s) {
+  if (s == null) return "";
+  return foldHalf(String(s)).replace(/\s+/g, "").trim();
+}
+
+/** Same idea for operation names ("平 车" → "平车"), lower-cased for ASCII ops. */
+export function normalizeOperation(s) {
+  if (s == null) return "";
+  return foldHalf(String(s)).replace(/\s+/g, "").trim().toLowerCase();
+}
+
+const DUP_WINDOW_MS = 2 * 60 * 1000;   // identical report within 2 min = likely double-scan
+
+/**
+ * Detect likely duplicate output reports (double-tap / re-scan): same work order
+ * + same worker + same qty, reported within DUP_WINDOW_MS of a prior one.
+ *
+ * @param {Array<{id?, work_order_id, reported_by, output_qty, reported_at}>} reports
+ * @returns {{ duplicate_count: number, duplicates: Array<object> }}
+ */
+export function detectDuplicates(reports, windowMs = DUP_WINDOW_MS) {
+  const groups = new Map();
+  for (const r of reports ?? []) {
+    const key = `${r.work_order_id}|${normalizeName(r.reported_by)}|${Number(r.output_qty) || 0}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const duplicates = [];
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => new Date(a.reported_at).getTime() - new Date(b.reported_at).getTime());
+    for (let i = 1; i < list.length; i++) {
+      const dt = new Date(list[i].reported_at).getTime() - new Date(list[i - 1].reported_at).getTime();
+      if (dt >= 0 && dt <= windowMs) duplicates.push(list[i]);
+    }
+  }
+  return { duplicate_count: duplicates.length, duplicates };
+}
+
 /**
  * Resolve the unit price for an operation on a line.
  * Line-specific active rate wins; otherwise the global (line_id = null) rate.
@@ -130,5 +179,55 @@ export function reconcile(computed, manualByWorker) {
     rows,
     total: { computed: round2(cTot), manual: round2(mTot), diff: totDiff, diff_pct: mTot !== 0 ? round2((totDiff / mTot) * 100) : 0 },
     max_abs_diff_pct: round2(maxPct),
+  };
+}
+
+/**
+ * Assemble the end-of-day S1 pilot report from joined output reports + rates.
+ * Pure: normalizes names/operations, detects duplicates, computes trial wages,
+ * and surfaces the dirty-data counts a pilot needs to judge line readiness.
+ *
+ * @param {Array<{id?, work_order_id, reported_by, operation, line_id, order_id, output_qty, reported_at}>} joined
+ * @param {Array<{operation, line_id, unit_price, active}>} rates
+ */
+export function buildPilotReport(joined, rates) {
+  const raw = joined ?? [];
+  // Normalize for aggregation, keep timestamp/work_order for dup detection.
+  const rows = raw.map((r) => ({
+    ...r,
+    reported_by: normalizeName(r.reported_by),
+    operation: normalizeOperation(r.operation),
+  }));
+  const withOutput = rows.filter((r) => (Number(r.output_qty) || 0) > 0);
+
+  const missing_worker_count = withOutput.filter((r) => !r.reported_by).length;
+  const missing_piece_rate_count = withOutput.filter((r) => resolveRate(rates, r.operation, r.line_id) == null).length;
+  const { duplicate_count } = detectDuplicates(rows);
+
+  const wages = computePieceWages(rows, rates);
+
+  const top_workers = wages.by_worker.slice(0, 10);
+  const top_operations = [...wages.by_operation].sort((a, b) => b.amount - a.amount).slice(0, 10);
+  const reconciliation_rows = wages.by_worker.map((w) => ({
+    worker: w.worker,
+    system_output: w.output_qty,
+    system_amount: w.amount,
+    manual_output: null,    // team leader fills these from the handwritten sheet
+    manual_amount: null,
+  }));
+
+  return {
+    total_output_qty: wages.total.output_qty,
+    total_piece_amount: wages.total.amount,
+    missing_piece_rate_count,
+    missing_piece_rate_qty: wages.total.missing_rate_qty,
+    missing_worker_count,
+    duplicate_report_count: duplicate_count,
+    top_workers,
+    top_operations,
+    by_worker: wages.by_worker,
+    missing_rates: wages.missing_rates,
+    reconciliation_rows,
+    report_rows: raw.length,
   };
 }

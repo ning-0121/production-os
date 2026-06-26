@@ -9,8 +9,8 @@
 import React from "react";
 import { useAsync } from "../../hooks/useAsync";
 import {
-  fetchPieceRates, setPieceRate, deletePieceRate, fetchPieceWages, fetchProductionLines,
-  type PieceRate,
+  fetchPieceRates, setPieceRate, deletePieceRate, fetchPilotReport, fetchProductionLines,
+  type PieceRate, type PilotReport,
 } from "../../services/api";
 import { DataGrid, type DataGridColumn } from "../shared/DataGrid";
 import { useToast } from "../Toast";
@@ -22,6 +22,11 @@ type WorkerRow = { worker: string; output_qty: number; amount: number; missing_r
 
 function todayLocal() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
+}
+
+function csvCell(v: unknown): string {
+  const s = v == null ? "" : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 const WORKER_COLUMNS: DataGridColumn<WorkerRow>[] = [
@@ -43,11 +48,26 @@ export function PieceWagePage() {
 
   const { data: lines } = useAsync(() => fetchProductionLines(), []);
   const { data: ratesData, refetch: refetchRates } = useAsync(() => fetchPieceRates(), [refreshKey]);
-  const { data: wages, loading, error } = useAsync(() => fetchPieceWages(date, lineId || null), [date, lineId, refreshKey]);
+  const { data: pilot, loading, error } = useAsync(() => fetchPilotReport(date, lineId || null), [date, lineId, refreshKey]);
 
   const lineName = (id: string | null) => (lines ?? []).find((l) => l.id === id)?.name ?? (id ? id.slice(0, 6) : "全厂");
 
-  if (loading && !wages) return <PageSkeleton />;
+  function exportReconciliationCsv() {
+    if (!pilot) return;
+    const header = ["工人", "系统件数", "系统计件金额", "手工件数", "手工金额", "件数差异", "金额差异", "备注"];
+    const lines2 = pilot.reconciliation_rows.map((r) =>
+      [r.worker, r.system_output, r.system_amount, "", "", "", "", ""].map(csvCell).join(","),
+    );
+    const csv = [header.map(csvCell).join(","), ...lines2].join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `计件对账-${lineName(lineId || null)}-${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  if (loading && !pilot) return <PageSkeleton />;
 
   return (
     <div className="pwPage">
@@ -72,29 +92,37 @@ export function PieceWagePage() {
 
       {error && <div className="dgError">加载失败：{error}</div>}
 
-      {/* 当日 KPI */}
-      {wages && (
-        <div className="pwKpiRow">
-          <PwKpi label="报工件数" value={wages.total.output_qty.toLocaleString()} />
-          <PwKpi label="计件金额(元)" value={wages.total.amount.toFixed(2)} accent />
-          <PwKpi label="缺工价件数" value={wages.total.missing_rate_qty.toLocaleString()} danger={wages.total.missing_rate_qty > 0} />
-          <PwKpi label="报工条数" value={String(wages.report_rows)} />
+      {/* 当日 KPI(含脏数据看板) */}
+      {pilot && (
+        <div className="pwKpiRow pwKpiRow--6">
+          <PwKpi label="报工件数" value={pilot.total_output_qty.toLocaleString()} />
+          <PwKpi label="计件金额(元)" value={pilot.total_piece_amount.toFixed(2)} accent />
+          <PwKpi label="缺工价(条)" value={String(pilot.missing_piece_rate_count)} danger={pilot.missing_piece_rate_count > 0} />
+          <PwKpi label="缺工人(条)" value={String(pilot.missing_worker_count)} danger={pilot.missing_worker_count > 0} />
+          <PwKpi label="疑似重复(条)" value={String(pilot.duplicate_report_count)} danger={pilot.duplicate_report_count > 0} />
+          <PwKpi label="报工条数" value={String(pilot.report_rows)} />
         </div>
       )}
 
       {/* 缺工价提醒 */}
-      {wages && wages.missing_rates.length > 0 && (
+      {pilot && pilot.missing_rates.length > 0 && (
         <div className="pwWarn">
           ⚠ 以下工序有报工但未配置工价,这部分计件按 0 计——请先补工价：
-          {wages.missing_rates.map((m, i) => <span key={i} className="pwTag">{m.operation ?? "(未填工序)"}{m.line_id ? ` @${lineName(m.line_id)}` : ""}</span>)}
+          {pilot.missing_rates.map((m, i) => <span key={i} className="pwTag">{m.operation ?? "(未填工序)"}{m.line_id ? ` @${lineName(m.line_id)}` : ""}</span>)}
         </div>
       )}
 
       {/* 按工人汇总(可排序、可导出对账) */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="cardHeader"><h2 style={{ fontSize: 16, margin: 0 }}>按工人计件汇总</h2><span className="hint">{lineName(lineId || null)} · {date}</span></div>
+        <div className="cardHeader">
+          <h2 style={{ fontSize: 16, margin: 0 }}>按工人计件汇总</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span className="hint">{lineName(lineId || null)} · {date}</span>
+            <button className="btn primary" onClick={exportReconciliationCsv} disabled={!pilot}>⬇ 导出对账表</button>
+          </div>
+        </div>
         <DataGrid<WorkerRow>
-          rows={wages?.by_worker ?? []}
+          rows={pilot?.by_worker ?? []}
           columns={WORKER_COLUMNS}
           rowKey={(r) => r.worker}
           searchPlaceholder="搜索工人…"

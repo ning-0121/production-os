@@ -4,7 +4,10 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { resolveRate, computePieceWages, reconcile } from "../src/payroll/piece-rate.js";
+import {
+  resolveRate, computePieceWages, reconcile,
+  normalizeName, normalizeOperation, detectDuplicates, buildPilotReport,
+} from "../src/payroll/piece-rate.js";
 
 const RATES = [
   { operation: "平车", line_id: null, unit_price: 0.8, active: true },
@@ -82,5 +85,66 @@ describe("reconcile against manual wage sheet", () => {
     assert.equal(zl.computed, 0);
     assert.equal(zl.manual, 80);
     assert.equal(zl.diff, -80);
+  });
+});
+
+// ── Pilot data-quality (Wedge S1 pilot) ─────────────────────
+describe("normalizeName / normalizeOperation", () => {
+  it("folds full-width, drops whitespace so one worker isn't split", () => {
+    assert.equal(normalizeName("张三 "), "张三");
+    assert.equal(normalizeName("张　三"), "张三");
+    assert.equal(normalizeName("张三"), normalizeName("张三 "));
+  });
+  it("normalizes operations (fold + strip + lower)", () => {
+    assert.equal(normalizeOperation("平 车"), "平车");
+    assert.equal(normalizeOperation("Sewing "), "sewing");
+  });
+});
+
+describe("detectDuplicates", () => {
+  it("flags same wo+worker+qty within the window as duplicate", () => {
+    const r = detectDuplicates([
+      { id: "1", work_order_id: "wo1", reported_by: "张三", output_qty: 50, reported_at: "2026-06-25T01:00:00Z" },
+      { id: "2", work_order_id: "wo1", reported_by: "张三", output_qty: 50, reported_at: "2026-06-25T01:00:30Z" }, // +30s dup
+      { id: "3", work_order_id: "wo1", reported_by: "张三", output_qty: 50, reported_at: "2026-06-25T05:00:00Z" }, // hours later: not dup
+    ]);
+    assert.equal(r.duplicate_count, 1);
+    assert.equal(r.duplicates[0].id, "2");
+  });
+  it("different qty / worker are not duplicates", () => {
+    const r = detectDuplicates([
+      { work_order_id: "wo1", reported_by: "张三", output_qty: 50, reported_at: "2026-06-25T01:00:00Z" },
+      { work_order_id: "wo1", reported_by: "张三", output_qty: 60, reported_at: "2026-06-25T01:00:30Z" },
+      { work_order_id: "wo1", reported_by: "李四", output_qty: 50, reported_at: "2026-06-25T01:00:40Z" },
+    ]);
+    assert.equal(r.duplicate_count, 0);
+  });
+});
+
+describe("buildPilotReport", () => {
+  const rates = [{ operation: "平车", line_id: null, unit_price: 0.8, active: true }];
+  const joined = [
+    { id: "1", work_order_id: "wo1", reported_by: "张三 ", operation: "平 车", line_id: "L1", output_qty: 100, reported_at: "2026-06-25T01:00:00Z" },
+    { id: "2", work_order_id: "wo1", reported_by: "张　三", operation: "平车", line_id: "L1", output_qty: 100, reported_at: "2026-06-25T01:00:20Z" }, // dup + name variant
+    { id: "3", work_order_id: "wo2", reported_by: "", operation: "锁眼", line_id: "L1", output_qty: 40, reported_at: "2026-06-25T02:00:00Z" }, // missing worker + missing rate
+  ];
+  const rep = buildPilotReport(joined, rates);
+
+  it("normalization merges the name variants into one worker", () => {
+    const zhang = rep.by_worker.find((w) => w.worker === "张三");
+    assert.ok(zhang, "张三 should be a single normalized worker");
+    assert.equal(zhang.output_qty, 200);    // both 平车 reports merged
+    assert.equal(zhang.amount, 160);        // 200 × 0.8
+  });
+  it("counts missing worker, missing rate, duplicates", () => {
+    assert.equal(rep.missing_worker_count, 1);       // the 锁眼 report
+    assert.equal(rep.missing_piece_rate_count, 1);   // 锁眼 has no rate
+    assert.equal(rep.duplicate_report_count, 1);     // the +20s repeat
+  });
+  it("returns reconciliation rows with blank manual columns (trial only)", () => {
+    const row = rep.reconciliation_rows[0];
+    assert.ok("system_output" in row && "system_amount" in row);
+    assert.equal(row.manual_output, null);
+    assert.equal(row.manual_amount, null);
   });
 });

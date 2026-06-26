@@ -11,7 +11,7 @@ import { Router } from "express";
 import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { auditLog } from "../governance/audit.js";
-import { computeDailyPieceWages, setPieceRate } from "../payroll/io.js";
+import { computeDailyPieceWages, computePilotReport, setPieceRate } from "../payroll/io.js";
 import { reconcile } from "../payroll/piece-rate.js";
 
 const router = Router();
@@ -54,6 +54,14 @@ router.get("/piece-wages", asyncHandler(async (req, res) => {
   const line_id = req.query.line_id || null;
   const summary = await computeDailyPieceWages(supabase, { date, line_id });
   res.json(summary);
+}));
+
+// ── End-of-day S1 pilot report (dirty-data + readiness) ──
+router.get("/pilot-report", asyncHandler(async (req, res) => {
+  const date = req.query.date || todayLocal();
+  const line_id = req.query.line_id || null;
+  const report = await computePilotReport(supabase, { date, line_id });
+  res.json(report);
 }));
 
 // ── Reconciliation against manual wage sheet (the <1% gate) ──
